@@ -6,6 +6,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+gxwi-channel = { workspace = true }
+libauthd = { workspace = true }
 libc = { workspace = true }
 peios = { workspace = true }
 

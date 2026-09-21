@@ -7,4 +7,7 @@ publish.workspace = true
 
 [dependencies]
 axum = { workspace = true }
+gxwi-channel = { workspace = true }
+libauthd = { workspace = true }
+libc = { workspace = true }
 tokio = { workspace = true }
