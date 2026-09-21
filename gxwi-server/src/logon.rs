@@ -27,6 +27,7 @@ use libauthd::wire::{
 };
 
 use crate::form::{self, Form};
+use crate::origin::{self, Origins};
 use crate::pages;
 use crate::session::{self, Sessions};
 
@@ -44,6 +45,7 @@ pub struct Logon {
     control: Mutex<UnixStream>,
     pending: Mutex<HashMap<String, Pending>>,
     sessions: Arc<Sessions>,
+    origins: Origins,
 }
 
 /// A conversation waiting on the person at the browser.
@@ -73,6 +75,7 @@ pub fn routes(control: UnixStream) -> Router {
         control: Mutex::new(control),
         pending: Mutex::default(),
         sessions: Arc::default(),
+        origins: Origins::default(),
     });
     Router::new()
         .route("/.gxwi/logon.css", get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }))
@@ -90,7 +93,21 @@ async fn anywhere(
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     request: Request<Body>,
 ) -> Response<Body> {
+    // A page kept apart from the session it belongs to is sent no cookies, and
+    // is known by its address. That comes first: the same address means the
+    // same thing to a browser that happens to be logged on.
+    if origin::inside(request.uri()).is_some() {
+        return apart(&logon, request).await;
+    }
     if let Some(session) = logon.sessions.of(request.headers()) {
+        if let Some((label, path)) = origin::entering(request.uri()) {
+            let cookie = cookie_named(request.headers(), session::COOKIE).unwrap_or_default();
+            let alive = |cookie: &str| logon.sessions.named(cookie).is_some();
+            return match logon.origins.secret(&cookie, label, alive) {
+                Ok(secret) if request.method() == Method::GET => origin::way_in(&secret, path, request.uri().query()),
+                _ => status(StatusCode::BAD_REQUEST),
+            };
+        }
         return session::forward(session, request).await;
     }
     if request.method() != Method::POST {
@@ -107,6 +124,34 @@ async fn anywhere(
         start(logon.clone(), peer, form).await
     };
     respond(&logon, result, here).await
+}
+
+/// A request under a secret: for the one origin in the one session the secret
+/// stands for, or for nothing.
+async fn apart(logon: &Logon, mut request: Request<Body>) -> Response<Body> {
+    let found = origin::inside(request.uri()).and_then(|(secret, path)| {
+        let (cookie, label) = logon.origins.of(secret)?;
+        let session = logon.sessions.named(&cookie)?;
+        let asked = origin::unwrapped(path, request.uri().query())?;
+        Some((session, HeaderValue::from_str(&label).ok()?, asked))
+    });
+    // Not the logon page: nobody is looking at this, a frame is.
+    let Some((session, label, asked)) = found else { return status(StatusCode::NOT_FOUND) };
+    if let Some(answer) = origin::asks_first(&request) {
+        return answer;
+    }
+    *request.uri_mut() = asked;
+    request.headers_mut().remove(header::COOKIE);
+    request.extensions_mut().insert(origin::Label(label));
+    let mut response = session::forward(session, request).await;
+    origin::keep_apart(response.headers_mut());
+    response
+}
+
+fn status(status: StatusCode) -> Response<Body> {
+    let mut response = Response::new(Body::empty());
+    *response.status_mut() = status;
+    response
 }
 
 /// Where a request was addressed, as somewhere to send the browser back to
@@ -347,7 +392,7 @@ pub fn cookie_named(headers: &HeaderMap, name: &str) -> Option<String> {
 
 /// 256 bits from the kernel, as hex. The restricted token can open no file, so
 /// this is the system call and not /dev/urandom.
-fn random_token() -> io::Result<String> {
+pub fn random_token() -> io::Result<String> {
     let mut bytes = [0u8; 32];
     // SAFETY: the buffer is ours and its length is passed with it.
     let got = unsafe { libc::getrandom(bytes.as_mut_ptr().cast(), bytes.len(), 0) };

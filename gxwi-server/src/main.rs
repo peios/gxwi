@@ -7,6 +7,7 @@ use std::os::unix::net::UnixStream;
 
 mod form;
 mod logon;
+mod origin;
 mod pages;
 mod session;
 
