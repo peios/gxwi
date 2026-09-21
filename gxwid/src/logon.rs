@@ -18,6 +18,7 @@ use libauthd::transport::{recv_message, recv_message_with_fd, send_message, send
 use libauthd::wire::{self, Denial, LogonType};
 
 use crate::relay::{self, Action, Outcome, Relay};
+use crate::session::Sessions;
 use crate::throttle::Throttle;
 
 /// The kind of sign-on a GXWI logon is. NetworkCleartext says what happened:
@@ -41,10 +42,17 @@ const AUTHORITY_READ_TIMEOUT: Duration = Duration::from_secs(45);
 const DENIAL_DELAY: Duration = Duration::from_secs(1);
 
 /// What outlives any one gxwi-server: restarting the server resets neither.
-#[derive(Default)]
 pub struct Logons {
     throttle: Throttle,
     open: AtomicUsize,
+    /// `None` where gxwid is not on Peios, and a grant leads nowhere.
+    sessions: Option<Sessions>,
+}
+
+impl Logons {
+    pub fn new(sessions: Option<Sessions>) -> Logons {
+        Logons { throttle: Throttle::default(), open: AtomicUsize::new(0), sessions }
+    }
 }
 
 /// Serves one gxwi-server's control channel until that server is gone.
@@ -138,7 +146,7 @@ fn converse(server: UnixStream, logons: &Logons) {
                 relay.on_server(from_server.expose())
             }
             Action::Finish { to_server, outcome } => {
-                finish(&server, &to_server, outcome, relay.claimed_address(), token.take());
+                finish(logons, &server, &to_server, outcome, relay.claimed_address(), token.take());
                 return;
             }
         };
@@ -180,6 +188,7 @@ fn connect_authority() -> io::Result<UnixStream> {
 }
 
 fn finish(
+    logons: &Logons,
     server: &UnixStream,
     to_server: &[u8],
     outcome: Outcome,
@@ -187,17 +196,29 @@ fn finish(
     token: Option<OwnedFd>,
 ) {
     let from = claimed_address.unwrap_or("an unstated address");
-    match &outcome {
-        Outcome::Granted(_) => {
-            // There is no session to give it to yet. PGSS: a client that does
-            // not install the token closes it.
-            drop(token);
-            eprintln!("gxwid: logon granted, claimed from {from}; no session system yet, token closed");
-        }
+    let profile = match outcome {
+        Outcome::Granted(profile) => profile,
         Outcome::Denied(denial) => {
             eprintln!("gxwid: logon denied ({denial:?}), claimed from {from}");
             std::thread::sleep(DENIAL_DELAY);
+            let _ = send_message(server, to_server);
+            return;
         }
-    }
-    let _ = send_message(server, to_server);
+    };
+    eprintln!("gxwid: logon granted, claimed from {from}");
+    // The token is spent on a session, and what the server gets with its
+    // grant is a connection to that session. Where that cannot be had the
+    // person is told so: they proved who they are, so it is no denial, but
+    // there is nowhere to put them.
+    let session = match (&logons.sessions, token) {
+        (Some(sessions), Some(token)) => sessions.attach(token, &profile),
+        _ => Err(io::Error::other("sessions are not available")),
+    };
+    let _ = match session {
+        Ok(session) => send_message_with_fd(server, to_server, session.as_fd()),
+        Err(e) => {
+            eprintln!("gxwid: no session: {e}");
+            send_message(server, to_server)
+        }
+    };
 }

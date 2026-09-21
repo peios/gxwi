@@ -11,9 +11,11 @@ use std::process::{Child, Command};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+mod jobs;
 mod logon;
 mod relay;
 mod sandbox;
+mod session;
 mod throttle;
 
 // Not 8080/8081: on the dev host those are QEMU's forwards into a booted VM.
@@ -44,7 +46,7 @@ fn main() {
     }
 
     let listen = std::env::var("GXWI_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN.to_string());
-    let server = server_path();
+    let server = beside("gxwi-server", "GXWI_SERVER");
 
     // Bound once and kept across restarts, so connections made while the
     // server is down queue in the kernel instead of being refused.
@@ -52,9 +54,20 @@ fn main() {
     let listener = dup_high(listener.as_raw_fd()).unwrap_or_else(|e| die(&format!("dup listener: {e}")));
     eprintln!("gxwid: listening on http://{listen}, server is {}", server.display());
 
+    // Which program a session runs is whatever this says, so whoever can set it
+    // chooses what runs as everyone who logs on. It stands in for a registry
+    // setting under a descriptor of its own.
+    let compositor = beside("gxwi-hello", "GXWI_COMPOSITOR");
+    let sessions = if unrestricted {
+        None
+    } else {
+        eprintln!("gxwid: sessions run {}", compositor.display());
+        Some(session::Sessions::new(compositor).unwrap_or_else(|e| die(&format!("sessions: {e}"))))
+    };
+
     // Outlives every gxwi-server: restarting the server must not reset the
     // logon throttle.
-    let logons = Arc::new(logon::Logons::default());
+    let logons = Arc::new(logon::Logons::new(sessions));
 
     let mut delay = RESTART_DELAY_MIN;
     loop {
@@ -162,13 +175,14 @@ fn dup_high(fd: RawFd) -> io::Result<OwnedFd> {
     Ok(unsafe { OwnedFd::from_raw_fd(new) })
 }
 
-/// gxwi-server sits beside gxwid unless GXWI_SERVER says otherwise.
-fn server_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("GXWI_SERVER") {
+/// gxwi-server sits beside gxwid unless GXWI_SERVER says otherwise, and so
+/// does the compositor unless GXWI_COMPOSITOR does.
+fn beside(name: &str, variable: &str) -> PathBuf {
+    if let Some(path) = std::env::var_os(variable) {
         return PathBuf::from(path);
     }
     let exe = std::env::current_exe().unwrap_or_else(|e| die(&format!("current_exe: {e}")));
-    exe.with_file_name("gxwi-server")
+    exe.with_file_name(name)
 }
 
 fn die(msg: &str) -> ! {
