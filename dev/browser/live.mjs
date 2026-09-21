@@ -34,8 +34,13 @@ async function attach(target) {
     return { id: target.id, send, js, log };
 }
 const page = async (url) => attach(await browser(`/json/new?${url}`, "PUT"));
-/** The frames of `parent` that the browser keeps in processes of their own. */
-const frames = async (parent) => Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === parent.id).map(attach));
+/** The frames of `parent` that the browser keeps in processes of their own, but for the shell's. */
+async function frames(parent) {
+    const all = await Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === parent.id).map(attach));
+    const apps = [];
+    for (const frame of all) if (!(await frame.js(`!!document.querySelector("nav[aria-label=Windows]")`))) apps.push(frame);
+    return apps;
+}
 
 for (let i = 0; i < 40; i++) {
     await sleep(500);

@@ -51,11 +51,12 @@ await sleep(2000);
 await js(`document.querySelector(".secret input").value = "alice-dev-password"; document.forms[0].submit()`);
 await sleep(3000);
 
-const surfaces = `[...document.querySelectorAll(".fx-surface")].map(e => { const f = e.querySelector("iframe"); return { kind: e.dataset.kind, focused: e.dataset.focused, owner: e.querySelector(".fx-identity")?.textContent, frame: f?.getAttribute("src")?.replace(/[0-9a-f]{32}/, "<label>"), sandbox: f?.getAttribute("sandbox") ?? undefined, desktopCanSeeIn: f ? f.contentDocument !== null : undefined }; })`;
+// The windows, that is: the shell's panel is shell.mjs's to try.
+const surfaces = `[...document.querySelectorAll(".fx-surface[data-role=window]")].map(e => { const f = e.querySelector("iframe"); return { kind: e.dataset.kind, focused: e.dataset.focused, owner: e.querySelector(".fx-identity")?.textContent, frame: f?.getAttribute("src")?.replace(/[0-9a-f]{32}/, "<label>"), sandbox: f?.getAttribute("sandbox") ?? undefined, desktopCanSeeIn: f ? f.contentDocument !== null : undefined }; })`;
 // Asked of app n's process through its way in, as the desktop's page may.
 // A frame's address is /.gxwi/enter/<label>/<path>, so the app's own paths
 // start after its first four parts.
-const app = (n, what) => js(`fetch(document.querySelectorAll("iframe")[${n}].getAttribute("src").split("/").slice(0, 4).join("/") + "/${what}").then(r => r.ok ? r.json() : "status " + r.status, String)`);
+const app = (n, what) => js(`fetch(document.querySelectorAll("[data-role=window] iframe")[${n}].getAttribute("src").split("/").slice(0, 4).join("/") + "/${what}").then(r => r.ok ? r.json() : "status " + r.status, String)`);
 const says = async (n) => { const s = await app(n, "state"); return typeof s === "string" ? s : `pressed ${s.count}, showing in ${s.views}`; };
 
 const out = { atLogon: await js(surfaces) };
@@ -68,7 +69,7 @@ out.theyShow = [await says(0), await says(1)];
 // A real press on the first app's button, by where it is on the screen. The
 // count is the app's process's, and the desktop should notice the keyboard
 // going into a frame it cannot see into.
-const at = await js(`(() => { const r = document.querySelector("iframe").getBoundingClientRect(); return { x: r.x + 44, y: r.y + 67 }; })()`);
+const at = await js(`(() => { const r = document.querySelector("[data-role=window] iframe").getBoundingClientRect(); return { x: r.x + 44, y: r.y + 67 }; })()`);
 for (let i = 0; i < 3; i++) {
     await send("Input.dispatchMouseEvent", { type: "mousePressed", x: at.x, y: at.y, button: "left", buttons: 1, clickCount: 1 });
     await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: at.x, y: at.y, button: "left", buttons: 0, clickCount: 1 });
@@ -87,17 +88,17 @@ out.withItClosedAgain = await says(0);
 
 // How GXWI serves it. (What a page of an app's own can do in there is tried
 // by live.mjs, which opens one.)
-out.anAppsAnswer = await js(`fetch(document.querySelector("iframe").getAttribute("src")).then(r => ({ status: r.status, cameFrom: new URL(r.url).pathname.replace(/[0-9a-f]{64}/, "<secret>"), policy: r.headers.get("content-security-policy"), anyoneMayRead: r.headers.get("access-control-allow-origin"), referrer: r.headers.get("referrer-policy") }))`);
-out.theSecretAloneIsEnough = await js(`fetch(document.querySelector("iframe").getAttribute("src")).then(r => fetch(new URL(r.url).pathname.split("/").slice(0, 4).join("/") + "/state", { credentials: "omit" })).then(r => r.status)`);
+out.anAppsAnswer = await js(`fetch(document.querySelector("[data-role=window] iframe").getAttribute("src")).then(r => ({ status: r.status, cameFrom: new URL(r.url).pathname.replace(/[0-9a-f]{64}/, "<secret>"), policy: r.headers.get("content-security-policy"), anyoneMayRead: r.headers.get("access-control-allow-origin"), referrer: r.headers.get("referrer-policy") }))`);
+out.theSecretAloneIsEnough = await js(`fetch(document.querySelector("[data-role=window] iframe").getAttribute("src")).then(r => fetch(new URL(r.url).pathname.split("/").slice(0, 4).join("/") + "/state", { credentials: "omit" })).then(r => r.status)`);
 out.aWrongSecret = await js(`fetch("/.gxwi/a/${"0".repeat(64)}/state", { credentials: "omit" }).then(r => r.status)`);
 out.aLabelNobodyHas = await js(`fetch("/.gxwi/enter/${"0".repeat(32)}/state").then(r => r.status)`);
-out.sayingTheLabelYourself = await js(`fetch("/", { headers: { "gxwi-origin": document.querySelector("iframe").getAttribute("src").split("/")[3] } }).then(async r => (await r.text()).includes("<title>Fenestra</title>") ? "ignored: got the desktop" : "GOT THE APP")`);
+out.sayingTheLabelYourself = await js(`fetch("/", { headers: { "gxwi-origin": document.querySelector("[data-role=window] iframe").getAttribute("src").split("/")[3] } }).then(async r => (await r.text()).includes("<title>Fenestra</title>") ? "ignored: got the desktop" : "GOT THE APP")`);
 out.theDesktopIsStillHere = await js(`location.href`);
 
 writeFileSync(new URL("app.png", import.meta.url), Buffer.from((await send("Page.captureScreenshot")).result.data, "base64"));
 // Close the first app's surface. Fenestra only asks; the surface goes when
 // the app does.
-await js(`document.querySelector('.fx-surface[data-kind="app"] .fx-button[data-part="close"]').click()`);
+await js(`document.querySelector('.fx-surface[data-kind="app"][data-role="window"] .fx-button[data-part="close"]').click()`);
 await sleep(700);
 out.afterClosingOne = (await js(surfaces)).map((s) => s.owner);
 // HOLD=<seconds> keeps the session up that long, for starting an app some
