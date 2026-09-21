@@ -1,0 +1,11 @@
+[package]
+name = "gxwi-hello"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum = { workspace = true, features = ["http2", "ws"] }
+peios = { workspace = true }
+tokio = { workspace = true }
