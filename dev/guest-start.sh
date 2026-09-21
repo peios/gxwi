@@ -21,12 +21,21 @@ echo "rc=$? cap=$CAP" >> /share/mount.txt
 reg apply --yes /share/gxwid-dev-service.reg >> /share/apply.txt 2>&1
 sh /share/devloop.sh &
 
-# For the host to read: how the service fared, and the token the server got.
+# Someone to log on as. The live image ships `peios`, an administrator with no
+# credential, which never exercises a prompt. `alice` is an ordinary user with a
+# password; lps reads it from a pipe when stdin is not a terminal.
+printf '%s\n' 'alice-dev-password' | lps add alice --no-prompt > /share/accounts.txt 2>&1
+
+# Commands from the host (dev/guest.sh), run as this console's administrator.
+# The console itself is drive.py's and nobody can type at it.
 (
-    sleep 5
-    svctl status gxwid > /share/status.txt 2>&1
-    for p in /proc/[0-9]*; do
-        [ "$(cat "$p/comm" 2>/dev/null)" = gxwi-server ] && pid=${p#/proc/}
+    while :; do
+        if [ -e /share/cmd.sh ]; then
+            mv /share/cmd.sh /share/cmd.running
+            sh /share/cmd.running > /share/cmd.out 2>&1
+            echo "rc=$?" >> /share/cmd.out
+            mv /share/cmd.running /share/cmd.done
+        fi
+        sleep 1
     done
-    token show --pid "${pid:-0}" > /share/token.txt 2>&1
 ) &
