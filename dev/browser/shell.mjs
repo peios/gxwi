@@ -43,7 +43,7 @@ async function sorted(parent) {
     const found = { bar: null, others: [] };
     for (const frame of await frames(parent)) {
         if (await frame.js(`!!document.querySelector("nav[aria-label=Windows]")`)) found.bar = frame;
-        else found.others.push(frame);
+        else if (!(await frame.js(`!!document.querySelector("[fx-global-key]")`))) found.others.push(frame);
     }
     return found;
 }
@@ -148,7 +148,7 @@ out.barLog = ta.log;
 
 // The taskbar's process ended from outside. Fenestra starts another, which is
 // told everything and drawn where the last one was.
-const process_ = `new Promise((done) => { const s = new WebSocket("ws://" + location.host + "/.fenestra/desktop"); s.onmessage = (m) => { s.close(); done(JSON.parse(m.data).surfaces.find((x) => x.shell)?.owner.app.pid ?? 0); }; })`;
+const process_ = `new Promise((done) => { const s = new WebSocket("ws://" + location.host + "/.fenestra/desktop"); s.onmessage = (m) => { s.close(); done(JSON.parse(m.data).surfaces.find((x) => x.shell && x.role === "panel")?.owner.app.pid ?? 0); }; })`;
 const was = await a.js(process_);
 const said = spawnSync(new URL("../guest.sh", import.meta.url).pathname, [`kill ${was}; echo killed`], { encoding: "utf8" });
 await sleep(5000);

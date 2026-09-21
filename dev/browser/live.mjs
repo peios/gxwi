@@ -38,7 +38,7 @@ const page = async (url) => attach(await browser(`/json/new?${url}`, "PUT"));
 async function frames(parent) {
     const all = await Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === parent.id).map(attach));
     const apps = [];
-    for (const frame of all) if (!(await frame.js(`!!document.querySelector("nav[aria-label=Windows]")`))) apps.push(frame);
+    for (const frame of all) if (!(await frame.js(`!!document.querySelector("nav[aria-label=Windows], [fx-global-key]")`))) apps.push(frame);
     return apps;
 }
 
