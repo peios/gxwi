@@ -1,10 +1,11 @@
-// Apps on the desktop, in headless Chromium: Enter has Fenestra start its
-// test app, the app asks for a surface over the display socket and draws it
+// Apps on the desktop, in headless Chromium: the launcher has Fenestra start
+// the test app, the app asks for a surface over the display socket and draws it
 // itself, in a frame GXWI keeps apart from the desktop. The desktop cannot
 // see into such a frame, and neither can this: what an app is showing is
 // asked of the app's process, the way the desktop's own page could ask.
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { launch } from "./launch.mjs";
 
 const port = 9337;
 const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
@@ -30,10 +31,6 @@ ws.onmessage = (m) => {
 };
 const send = (method, params = {}) => new Promise((r) => { const id = next++; waiting.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
 const js = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.result.value;
-const key = async (code, key, vk) => {
-    await send("Input.dispatchKeyEvent", { type: "keyDown", code, key, windowsVirtualKeyCode: vk });
-    await send("Input.dispatchKeyEvent", { type: "keyUp", code, key, windowsVirtualKeyCode: vk });
-};
 const finish = async (out, code) => {
     out.errors = log;
     await js(`document.querySelector("form")?.submit()`);
@@ -60,10 +57,10 @@ const app = (n, what) => js(`fetch(document.querySelectorAll("[data-role=window]
 const says = async (n) => { const s = await app(n, "state"); return typeof s === "string" ? s : `pressed ${s.count}, showing in ${s.views}`; };
 
 const out = { atLogon: await js(surfaces) };
-await key("Enter", "Enter", 13); await sleep(2500);
-await key("Enter", "Enter", 13); await sleep(2500);
-out.afterTwoEnters = await js(surfaces);
-if (out.afterTwoEnters.filter((s) => s.kind === "app").length !== 2) await finish({ ...out, stopped: "Enter did not give two apps" }, 1);
+await launch(send); await sleep(2500);
+await launch(send); await sleep(2500);
+out.afterTwoLaunches = await js(surfaces);
+if (out.afterTwoLaunches.filter((s) => s.kind === "app").length !== 2) await finish({ ...out, stopped: "the launcher did not give two apps" }, 1);
 out.theyShow = [await says(0), await says(1)];
 
 // A real press on the first app's button, by where it is on the screen. The
