@@ -8,6 +8,7 @@
 // own, which shows up as a target to attach to.
 import { spawn, spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { launch } from "./launch.mjs";
 
 const port = 9339;
 const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
@@ -68,11 +69,6 @@ const finish = async (code) => {
     chrome.kill();
     process.exit(code);
 };
-const enter = async () => {
-    const params = { code: "Enter", key: "Enter", windowsVirtualKeyCode: 13 };
-    await a.send("Input.dispatchKeyEvent", { type: "keyDown", ...params });
-    await a.send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
-};
 /** What a desktop's page has: the focused surface, those in sight, the panel. */
 const desk = `(() => {
     const all = [...document.querySelectorAll(".fx-surface")];
@@ -102,10 +98,10 @@ if (!ta) { out.stopped = "no taskbar to attach to"; out.desk = await a.js(desk);
 out.atFirst = { desk: await a.js(desk), bar: await ta.js(bar) };
 out.theBarsPage = await ta.js(`({ scripts: document.scripts.length, origin: self.origin })`);
 
-// Two apps, started the only way there is yet.
-await enter();
+// Two apps, started from the launcher.
+await launch(a.send);
 await sleep(2500);
-await enter();
+await launch(a.send);
 await sleep(3000);
 out.withTwoApps = { desk: await a.js(desk), bar: await ta.js(bar) };
 

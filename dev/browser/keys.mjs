@@ -5,6 +5,7 @@
 // app's own keys work and typing is left alone, and that a page which cannot
 // pass keys on is marked.
 import { spawn } from "node:child_process";
+import { launch } from "./launch.mjs";
 
 const port = 9340;
 const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
@@ -85,23 +86,25 @@ const where = () => a.js(`({
 })`);
 const shows = `({ count: document.getElementById("count").textContent, note: document.querySelector("[name=note]").value })`;
 
-const enter = { key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 };
+// Two apps from the launcher. Each has the focus as it opens, and the keyboard with it.
 for (let i = 0; i < 2; i++) {
-    await a.send("Input.dispatchKeyEvent", { type: "keyDown", ...enter });
-    await a.send("Input.dispatchKeyEvent", { type: "keyUp", ...enter });
+    await launch(a.send);
     await sleep(2500);
 }
 out.atFirst = await where();
 
-// The window manager's chord, with the keyboard in the desktop's own page.
+// The window manager's chord, with the keyboard in the desktop's own page,
+// which the first window is drawn by.
+await press("Alt+1");
 await press("Alt+J");
 out.nextFromTheDesktop = await where();
-// The shell's: the taskbar's second button, which is clicked though nobody is near it.
-await press("Alt+2");
-out.theSecondWindowByItsNumber = await where();
-// And again with the keyboard in an app's page, which the desktop cannot hear.
-await press("Alt+J");
-out.nextFromInsideAnApp = await where();
+// The shell's: the taskbar's third button, which is clicked though nobody is near it.
+await press("Alt+3");
+out.theThirdWindowByItsNumber = await where();
+// And the window manager's again with the keyboard in an app's page, which
+// the desktop cannot hear.
+await press("Alt+K");
+out.previousFromInsideAnApp = await where();
 
 // An app's own keys, in whichever app has the keyboard now.
 const apps = await hellos(a);
@@ -128,9 +131,9 @@ out.previousFromInsideAField = { ...(await where()), apps: await both() };
 // A page of the app's own, with the keyboard put in it by a real press.
 await press("Alt+1");
 out.backOnTheDesktop = await where();
-await a.send("Input.dispatchKeyEvent", { type: "keyDown", ...enter, modifiers: 8 });
-await a.send("Input.dispatchKeyEvent", { type: "keyUp", ...enter, modifiers: 8 });
+await launch(a.send, "hello --raw");
 await sleep(4000);
+out.theRawPageAsItOpened = await where();
 await press("Alt+1");
 const raw = await a.js(`(() => { const s = [...document.querySelectorAll(".fx-surface[data-role=window]")].at(-1); const r = s.querySelector("iframe").getBoundingClientRect(); return { id: Number(s.dataset.id), x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
 const at = { x: raw.x, y: raw.y, button: "left", clickCount: 1 };

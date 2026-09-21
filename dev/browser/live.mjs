@@ -7,6 +7,7 @@
 // own, which shows up as a target to attach to.
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
+import { launch } from "./launch.mjs";
 
 const port = 9338;
 const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
@@ -62,15 +63,10 @@ const finish = async (code) => {
     chrome.kill();
     process.exit(code);
 };
-const key = async (shift) => {
-    const params = { code: "Enter", key: "Enter", windowsVirtualKeyCode: 13, modifiers: shift ? 8 : 0 };
-    await a.send("Input.dispatchKeyEvent", { type: "keyDown", ...params });
-    await a.send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
-};
 const shows = `({ text: document.getElementById("fx-root").innerText.replace(/\\n+/g, " | "), note: document.querySelector("[name=note]")?.value, connected: document.getElementById("fx-root").dataset.connected })`;
 const type = (text) => `(() => { const i = document.querySelector("[name=note]"); i.focus(); i.value = ${JSON.stringify(text)}; i.dispatchEvent(new Event("input", { bubbles: true })); })()`;
 
-await key(false);
+await launch(a.send);
 await sleep(3000);
 let [fa] = await frames(a);
 if (!fa) { out.stopped = "no frame of the app's to attach to"; await finish(1); }
@@ -116,8 +112,7 @@ writeFileSync(new URL("live.png", import.meta.url), Buffer.from((await a.send("P
 await browser(`/json/close/${b.id}`).catch(() => {});
 
 // A page of the app's own still works, asked for by name.
-await a.js(`document.querySelector(".fx-surface[data-kind=debug]").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })); window.focus()`);
-await key(true);
+await launch(a.send, "hello --raw");
 await sleep(4000);
 out.aRawPageFound = await a.js(`fetch([...document.querySelectorAll("iframe")].at(-1).getAttribute("src") + "found").then(r => r.ok ? r.json() : "status " + r.status, String)`);
 await finish(0);
