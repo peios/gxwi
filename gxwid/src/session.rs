@@ -30,11 +30,18 @@ const DEFAULT_DIRECTORY: &str = "/run/gxwi";
 /// compositor never opens its socket by name, so it needs no way in.
 const DIRECTORY_SDDL: &str = "D:P(A;OICI;GA;;;SY)";
 const SOCKET_SDDL: &str = "D:P(A;;GA;;;SY)";
+const DEFAULT_RUNTIME: &str = "/run/gxwi-user";
+/// Anyone may pass through to their own directory; only SYSTEM makes one.
+const RUNTIME_SDDL: &str = "D:P(A;;GA;;;SY)(A;;GRGX;;;WD)";
 /// How long a new compositor has to take up its socket.
 const STARTING: Duration = Duration::from_secs(10);
 
 pub struct Sessions {
     directory: PathBuf,
+    /// Where each person's runtime directory is made: the one place a
+    /// compositor has to put sockets of its own, since nothing a person can
+    /// write to is theirs alone otherwise.
+    runtime: PathBuf,
     compositor: PathBuf,
     /// One logon at a time decides whether a session exists, so two logons by
     /// the same person cannot both start one.
@@ -46,7 +53,10 @@ impl Sessions {
         let directory = PathBuf::from(std::env::var_os("GXWI_RUN").unwrap_or_else(|| DEFAULT_DIRECTORY.into()));
         std::fs::create_dir_all(&directory)?;
         stamp(&directory, DIRECTORY_SDDL)?;
-        Ok(Sessions { directory, compositor, starting: Mutex::new(()) })
+        let runtime = PathBuf::from(std::env::var_os("GXWI_RUNTIME").unwrap_or_else(|| DEFAULT_RUNTIME.into()));
+        std::fs::create_dir_all(&runtime)?;
+        stamp(&runtime, RUNTIME_SDDL)?;
+        Ok(Sessions { directory, runtime, compositor, starting: Mutex::new(()) })
     }
 
     /// A connection to the session of whoever `token` names, starting one if
@@ -72,7 +82,17 @@ impl Sessions {
 
         let listener = UnixListener::bind(&path)?;
         stamp(&path, SOCKET_SDDL)?;
-        let job = Jobs::connect()?.submit(self.definition(&user.to_string(), profile), token.as_fd(), &[listener.as_fd()])?;
+        // A new session starts with an empty runtime directory: whatever the
+        // last one left there was that session's.
+        let runtime = self.runtime.join(user.to_string());
+        match std::fs::remove_dir_all(&runtime) {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+        std::fs::create_dir(&runtime)?;
+        stamp(&runtime, &format!("D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;{user})"))?;
+        let definition = self.definition(&user.to_string(), &runtime, profile);
+        let job = Jobs::connect()?.submit(definition, token.as_fd(), &[listener.as_fd()])?;
         drop(listener);
         if job.state != "running" {
             let cause = job.cause.map(|c| format!(" ({c})")).unwrap_or_default();
@@ -96,14 +116,14 @@ impl Sessions {
         }
     }
 
-    fn definition(&self, user: &str, profile: &Profile) -> serde_json::Value {
+    fn definition(&self, user: &str, runtime: &Path, profile: &Profile) -> serde_json::Value {
         // As `login` has it: a home that is not there is not a failed logon.
         let home = if profile.home.starts_with('/') && Path::new(&profile.home).is_dir() { &profile.home } else { "/" };
         let shell = if profile.shell.starts_with('/') { &profile.shell } else { "/bin/sh" };
         json!({
             "image_path": self.compositor,
             "arguments": [],
-            "environment": { "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin" },
+            "environment": { "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin", "GXWI_RUNTIME_DIR": runtime },
             "working_directory": home,
             "description": format!("GXWI session for {user}"),
             "descriptors": ["gxwi-session"],
