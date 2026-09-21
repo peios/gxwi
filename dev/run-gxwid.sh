@@ -14,11 +14,16 @@ cp "$from" /tmp/gxwi-compositor.$$ \
     && mv /tmp/gxwi-compositor.$$ /tmp/gxwi-compositor
 # The test app and the parts of Fenestra's shell go beside it, where Fenestra
 # looks for them.
-for beside in gxwi-hello-app fenestra-taskbar; do
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher; do
     [ -e "/gxwi/$beside" ] || continue
     cp "/gxwi/$beside" "/tmp/$beside.$$" \
         && sd allow "/tmp/$beside.$$" Everyone:rx \
         && mv "/tmp/$beside.$$" "/tmp/$beside"
 done
+# Fenestra's launcher lists /bin, where nothing is an app. The test app goes
+# there as well, so that there is something to start that can be seen.
+[ -e /tmp/gxwi-hello-app ] && cp -p /tmp/gxwi-hello-app /bin/gxwi-hello-app.$$ \
+    && sd allow /bin/gxwi-hello-app.$$ Everyone:rx \
+    && mv /bin/gxwi-hello-app.$$ /bin/gxwi-hello-app
 echo "run-gxwid: sessions will run a copy of $from" >> /share/gxwi.log
 exec /gxwi/gxwid >> /share/gxwi.log 2>&1
