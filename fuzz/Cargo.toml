@@ -1,0 +1,22 @@
+[package]
+name = "gxwi-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+# Not a member of the gxwi workspace: it builds on nightly with its own lock.
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+libauthd = { git = "https://github.com/peios/authd.git", rev = "e9eb688d075d9c8b9f302d963bb75f651beea489", package = "libauthd" }
+
+[[bin]]
+name = "relay"
+path = "fuzz_targets/relay.rs"
+test = false
+doc = false
+bench = false
