@@ -66,6 +66,8 @@ pub use live::{Closer, Facts, Fields, Live, Surface, escape};
 /// What comes with an event.
 pub use serde_json::Value;
 
+pub use display::{Listed, Role};
+
 use display::{Asked, Display};
 
 /// The app's place on the desktop: the connection, and which of its surfaces
@@ -98,6 +100,7 @@ enum Drawn {
 
 struct Asking {
     title: String,
+    role: Role,
     drawn: Drawn,
     /// Whether the surface may go, asked when the person wants it closed.
     closing: Box<dyn Fn() -> bool + Send>,
@@ -108,6 +111,8 @@ pub struct App {
     router: Router,
     styles: Vec<String>,
     surfaces: BTreeMap<u64, Asking>,
+    /// Who is told the session's surfaces, in a part of the shell.
+    told: Option<Box<dyn FnMut(Vec<Listed>) + Send>>,
 }
 
 impl App {
@@ -116,7 +121,7 @@ impl App {
     /// something else it could do, like print to a terminal, does that.
     pub fn connect() -> io::Result<App> {
         let desk = Arc::new(Desk { display: Display::connect()?, open: Mutex::default() });
-        Ok(App { desk, router: Router::new(), styles: Vec::new(), surfaces: BTreeMap::new() })
+        Ok(App { desk, router: Router::new(), styles: Vec::new(), surfaces: BTreeMap::new(), told: None })
     }
 
     /// Serves `css` at `path`, and styles every live surface with it. A live
@@ -137,12 +142,25 @@ impl App {
     /// A window, drawn by this process. The surface it returns is for
     /// changing the app from the process's side ([`Surface::update`]).
     pub fn live<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Window, title, app)
+    }
+
+    /// A live surface along an edge of the desktop, which the windows make
+    /// room for. Where it goes and how thick it is are the window manager's,
+    /// so it is drawn to fit whatever it is given. It has no strip, so the
+    /// person has no way to ask for it closed.
+    pub fn panel<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Panel, title, app)
+    }
+
+    fn live_as<L: Live>(&mut self, role: Role, title: &str, app: L) -> Arc<Surface<L>> {
         let number = self.number();
         let surface = Surface::new(app, number, self.desk.clone());
         let socket = format!("/.live/{number}");
         self.router = std::mem::take(&mut self.router).route(&socket, surface.socket());
         let asked = surface.clone();
-        let asking = Asking { title: title.into(), drawn: Drawn::Live { socket }, closing: Box::new(move || asked.closing()) };
+        let closing = Box::new(move || asked.closing());
+        let asking = Asking { title: title.into(), role, drawn: Drawn::Live { socket }, closing };
         self.surfaces.insert(number, asking);
         surface
     }
@@ -155,8 +173,25 @@ impl App {
     /// blob. Use it for what cannot be drawn from here, and nothing else.
     pub fn raw_page(&mut self, title: &str, path: &str) {
         let number = self.number();
-        let asking = Asking { title: title.into(), drawn: Drawn::Raw { path: path.into() }, closing: Box::new(|| true) };
+        let drawn = Drawn::Raw { path: path.into() };
+        let asking = Asking { title: title.into(), role: Role::Window, drawn, closing: Box::new(|| true) };
         self.surfaces.insert(number, asking);
+    }
+
+    /// For a part of the shell: `told` hears every surface the session has,
+    /// now and whenever any changes. Nothing else is ever told, and asking
+    /// here does not make a program part of the shell. The desktop knows its
+    /// shell by having started it.
+    ///
+    /// What a shell's surface shows of other surfaces, it shows through the
+    /// HTML. An element with `fx-surface="<id>"` is about that surface, and
+    /// the page marks it `data-fx-focused` and `data-fx-visible`, `true` or
+    /// `false`, as that is on the device showing it. One with `fx-focus="<id>"`
+    /// gives the surface the focus when clicked. Both are between the pages,
+    /// on one device: which surface has the focus differs from device to
+    /// device, and is never this process's to know.
+    pub fn surfaces(&mut self, told: impl FnMut(Vec<Listed>) + Send + 'static) {
+        self.told = Some(Box::new(told));
     }
 
     fn number(&self) -> u64 {
@@ -166,7 +201,7 @@ impl App {
     /// Goes onto the desktop, and stays until the last surface has gone or
     /// the desktop has.
     pub fn run(self) -> io::Result<()> {
-        let App { desk, router, styles, surfaces } = self;
+        let App { desk, router, styles, surfaces, mut told } = self;
         let runtime = tokio::runtime::Runtime::new()?;
         let socket = desk.display.serve()?;
         runtime.spawn(async move {
@@ -178,7 +213,7 @@ impl App {
         for (&number, asking) in &surfaces {
             desk.open.lock().unwrap_or_else(|e| e.into_inner()).insert(number);
             match &asking.drawn {
-                Drawn::Live { socket } => desk.display.create_live(number, &asking.title, socket, &styles)?,
+                Drawn::Live { socket } => desk.display.create_live(number, &asking.title, asking.role, socket, &styles)?,
                 Drawn::Raw { path } => desk.display.create_raw(number, &asking.title, path)?,
             }
         }
@@ -186,10 +221,18 @@ impl App {
             return Ok(());
         }
         while let Some(asked) = desk.display.asked()? {
-            if let Asked::Close(number) = asked {
-                if surfaces.get(&number).is_some_and(|asking| (asking.closing)()) {
-                    desk.let_go(number);
+            match asked {
+                Asked::Close(number) => {
+                    if surfaces.get(&number).is_some_and(|asking| (asking.closing)()) {
+                        desk.let_go(number);
+                    }
                 }
+                Asked::Surfaces(listed) => {
+                    if let Some(told) = &mut told {
+                        told(listed);
+                    }
+                }
+                Asked::Other => {}
             }
         }
         Ok(())

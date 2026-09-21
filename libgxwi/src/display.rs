@@ -5,11 +5,17 @@
 //! answer, and an app numbers its own surfaces.
 //!
 //!   app → compositor   { "type": "serve" }, with a stream socket attached
-//!   app → compositor   { "type": "create", "surface": n, "title",
+//!   app → compositor   { "type": "create", "surface": n, "title", "role"?,
 //!                        "kind": "live", "socket", "styles": [...] }
 //!                   or { ..., "kind": "raw", "path" }
 //!   app → compositor   { "type": "destroy", "surface": n }
 //!   compositor → app   { "type": "close", "surface": n }
+//!   compositor → shell { "type": "surfaces",
+//!                        "surfaces": [{ "id", "title", "role" }] }
+//!
+//! `role` is "window" unless said. The last message goes only to a part of
+//! the shell, which is a program the compositor started as one: see
+//! [`Asked::Surfaces`].
 //!
 //! `App` is the way to use this. It is public for a program that wants the
 //! wire and nothing built on it.
@@ -26,11 +32,45 @@ use serde_json::{Value, json};
 
 pub struct Display(OwnedFd);
 
-/// What the desktop asks of an app.
+/// What a surface is for. The desktop's window manager goes by it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Role {
+    /// A window among the others.
+    Window,
+    /// Something along an edge of the desktop that the windows make room
+    /// for, such as a taskbar.
+    Panel,
+}
+
+impl Role {
+    fn name(self) -> &'static str {
+        match self {
+            Role::Window => "window",
+            Role::Panel => "panel",
+        }
+    }
+}
+
+/// A surface of the session's, anyone's, as a part of the shell is told of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Listed {
+    /// What the desktop knows the surface by. It is what `fx-surface` and
+    /// `fx-focus` take in a live surface's HTML, and is nothing like the
+    /// numbers an app gives its own surfaces.
+    pub id: u64,
+    pub title: String,
+    pub role: Role,
+}
+
+/// What the desktop asks of an app, or tells it.
 pub enum Asked {
     /// The person wants this surface closed. What that means is the app's:
     /// the surface stays until the app lets it go.
     Close(u64),
+    /// Every surface the session has, sent whenever any of them changes. Only
+    /// a part of the shell is told, and a program cannot make itself one: the
+    /// compositor knows its shell by having started it.
+    Surfaces(Vec<Listed>),
     /// Something this library does not know about, which is not an error.
     Other,
 }
@@ -84,9 +124,12 @@ impl Display {
 
     /// Asks for a surface this process draws: the desktop's own page shows
     /// what comes down the websocket at `socket`, styled by `styles`.
-    pub fn create_live(&self, surface: u64, title: &str, socket: &str, styles: &[String]) -> io::Result<()> {
+    pub fn create_live(&self, surface: u64, title: &str, role: Role, socket: &str, styles: &[String]) -> io::Result<()> {
         self.say(
-            json!({ "type": "create", "surface": surface, "title": title, "kind": "live", "socket": socket, "styles": styles }),
+            json!({
+                "type": "create", "surface": surface, "title": title, "role": role.name(),
+                "kind": "live", "socket": socket, "styles": styles,
+            }),
             &[],
         )
     }
@@ -109,11 +152,7 @@ impl Display {
         if got.len == 0 {
             return Ok(None);
         }
-        let message: Value = serde_json::from_slice(&buf[..got.len]).unwrap_or_default();
-        Ok(Some(match (message["type"].as_str(), message["surface"].as_u64()) {
-            (Some("close"), Some(surface)) => Asked::Close(surface),
-            _ => Asked::Other,
-        }))
+        Ok(Some(understood(&serde_json::from_slice(&buf[..got.len]).unwrap_or_default())))
     }
 
     /// Stops listening, which wakes whoever is waiting in `asked` with the
@@ -121,6 +160,31 @@ impl Display {
     pub fn stop_listening(&self) {
         // SAFETY: the descriptor is this value's own, and live.
         unsafe { libc::shutdown(self.0.as_raw_fd(), libc::SHUT_RD) };
+    }
+}
+
+fn understood(message: &Value) -> Asked {
+    match (message["type"].as_str(), message["surface"].as_u64(), message["surfaces"].as_array()) {
+        (Some("close"), Some(surface), _) => Asked::Close(surface),
+        (Some("surfaces"), _, Some(surfaces)) => Asked::Surfaces(
+            surfaces
+                .iter()
+                .filter_map(|surface| {
+                    Some(Listed {
+                        id: surface["id"].as_u64()?,
+                        title: surface["title"].as_str()?.into(),
+                        // One with a role this library has not heard of is
+                        // left out: whatever it is, it is not a window.
+                        role: match surface["role"].as_str()? {
+                            "window" => Role::Window,
+                            "panel" => Role::Panel,
+                            _ => return None,
+                        },
+                    })
+                })
+                .collect(),
+        ),
+        _ => Asked::Other,
     }
 }
 
@@ -132,4 +196,24 @@ pub async fn answer(socket: UnixStream, app: Router) -> io::Result<()> {
     let mut http = hyper::server::conn::http2::Builder::new(TokioExecutor::new());
     http.enable_connect_protocol();
     http.serve_connection(TokioIo::new(socket), TowerToHyperService::new(app)).await.map_err(io::Error::other)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_surfaces_are_understood_and_what_is_not_a_known_role_is_left_out() {
+        let message = json!({ "type": "surfaces", "surfaces": [
+            { "id": 4, "title": "Notes", "role": "window" },
+            { "id": 5, "title": "Taskbar", "role": "panel" },
+            { "id": 6, "title": "Later", "role": "something newer" },
+        ] });
+        let Asked::Surfaces(surfaces) = understood(&message) else { panic!("not understood") };
+        assert_eq!(surfaces.len(), 2);
+        assert_eq!(surfaces[0], Listed { id: 4, title: "Notes".into(), role: Role::Window });
+        assert_eq!(surfaces[1].role, Role::Panel);
+        assert!(matches!(understood(&json!({ "type": "close", "surface": 2 })), Asked::Close(2)));
+        assert!(matches!(understood(&json!({ "type": "never heard of it" })), Asked::Other));
+    }
 }
