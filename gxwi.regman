@@ -1,0 +1,90 @@
+--- machine\software\gxwi
+canonical: Machine\Software\GXWI
+
+GXWI's settings: where it listens, what a session runs, and what its logon
+pages say.
+
+gxwid reads this subtree. gxwi-server, the half that faces the network, runs
+under a token that can open nothing, the registry included: what it needs
+from here gxwid reads for it and tells it as it starts.
+
+Every value is optional and has a compiled default. A value of the wrong
+type, or one that makes no sense, is ignored and never mended: gxwid logs the
+value it refused and what it is using instead.
+
+Default security: inherits the Machine hive root (SYSTEM and Administrators
+full, Authenticated Users read). That descriptor is the only gate on
+`Compositor`, and whoever can write `Compositor` chooses what runs as
+everyone who logs on. Nothing in gxwid's environment can say any of this
+instead.
+
+--- machine\software\gxwi listen
+canonical: Machine\Software\GXWI Listen
+type: REG_SZ
+default: 127.0.0.1:7780
+valid: an IP address and a port, as `0.0.0.0:443` or `[::]:443`; not a host name
+applies: restart
+
+The address and port GXWI serves on.
+
+gxwid binds it once, as it starts, and keeps it across restarts of
+gxwi-server, so connections made while the server is down wait rather than
+being refused.
+
+The default reaches nobody off the machine. The network policy also drops
+inbound flows to a port no rule names, so serving other machines takes a rule
+under `Machine\System\Network\Rules\Flow` as well as this.
+
+--- machine\software\gxwi compositor
+canonical: Machine\Software\GXWI Compositor
+type: REG_SZ
+default: (absent — `gxwi-hello`, the stand-in beside gxwid)
+valid: an absolute path
+applies: next session
+
+The program a session runs.
+
+gxwid starts it as a job carrying the token of whoever logged on, and hands
+it the session's socket. It is read as each session starts: a change needs no
+restart, and reaches nobody who is already logged on until they log off.
+
+This chooses what runs as everyone who logs on. Treat write access to it as
+you would write access to the program itself.
+
+A path that is not there is not refused here. The session fails to start,
+and the person who logged on is told so.
+
+--- machine\software\gxwi\logon
+canonical: Machine\Software\GXWI\Logon
+
+What the logon pages say beyond the logon itself.
+
+Both values are shown to anyone who can reach the port, before they have
+said who they are. Put nothing here that is not for everyone to read.
+
+--- machine\software\gxwi\logon name
+canonical: Machine\Software\GXWI\Logon Name
+type: REG_SZ
+default: (absent — nothing is shown)
+valid: 1 to 64 characters, none of them control characters
+applies: restart
+
+What this machine is called, shown under the heading of every logon page.
+
+For someone with more than one machine to log on to, deciding whether this
+is the one they meant. It is a label and not the host name: nothing resolves
+it.
+
+--- machine\software\gxwi\logon notice
+canonical: Machine\Software\GXWI\Logon Notice
+type: REG_MULTI_SZ
+default: (absent — nothing is shown)
+valid: at most 8 entries and 2000 characters in all, none of them control characters
+applies: restart
+
+A notice shown on the first logon page, above where the username is asked
+for, a paragraph to each entry.
+
+For the words an organisation needs read before a logon: who may use the
+machine, and that use is monitored. It is text and is shown as text. Markup
+in it is shown as written.

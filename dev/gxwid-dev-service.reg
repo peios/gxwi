@@ -9,7 +9,10 @@
     "administrator, so the service manager starts gxwid instead.",
     "",
     "dev/run-gxwid.sh is what runs: it picks the compositor and sends output to",
-    "the share. No trigger and no restart policy: dev/devloop.sh decides when."
+    "the share. No trigger and no restart policy: dev/devloop.sh decides when.",
+    "",
+    "No Environment: what gxwid is to do is in dev/gxwi-dev.reg, which is the",
+    "only place it looks."
   ],
   "keys": [
     {
@@ -17,7 +20,6 @@
       "values": [
         { "name": "ImagePath", "type": "sz", "data": "/bin/sh" },
         { "name": "Arguments", "type": "multi", "data": ["/share/run-gxwid.sh"] },
-        { "name": "Environment", "type": "multi", "data": ["GXWI_LISTEN=0.0.0.0:7780", "GXWI_COMPOSITOR=/tmp/gxwi-compositor"] },
         { "name": "Identity", "type": "sz", "data": "SYSTEM" },
         { "name": "Readiness", "type": "dword", "data": 1 },
         { "name": "RestartPolicy", "type": "dword", "data": 0 },

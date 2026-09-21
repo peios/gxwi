@@ -1,0 +1,38 @@
+{
+  "_comment": [
+    "DEV-ONLY: every setting gxwid reads from the registry, set to what the dev",
+    "VM wants. gxwi.regman says what each one means.",
+    "",
+    "dev/run-gxwid.sh applies this each time it starts gxwid, so a change here",
+    "takes a dev/push.sh to reach a running VM.",
+    "",
+    "A key is made only if its parent is there, so every one on the way is",
+    "listed. The keys inherit the hive's descriptor: SYSTEM and Administrators",
+    "in full, Authenticated Users to read. That is what Compositor needs, since",
+    "whoever can write it chooses what runs as everyone who logs on.",
+    "",
+    "Listen is every address because the host reaches the guest through QEMU's",
+    "forward. Compositor is where dev/run-gxwid.sh puts a copy of whichever",
+    "compositor is on the share."
+  ],
+  "keys": [
+    { "path": "Machine\\Software" },
+    {
+      "path": "Machine\\Software\\GXWI",
+      "values": [
+        { "name": "Listen", "type": "sz", "data": "0.0.0.0:7780" },
+        { "name": "Compositor", "type": "sz", "data": "/tmp/gxwi-compositor" }
+      ]
+    },
+    {
+      "path": "Machine\\Software\\GXWI\\Logon",
+      "values": [
+        { "name": "Name", "type": "sz", "data": "GXWI dev VM" },
+        { "name": "Notice", "type": "multi", "data": [
+          "This is a development machine. Anything on it may be gone at the next boot.",
+          "Log on as alice (alice-dev-password), or as peios with no password."
+        ] }
+      ]
+    }
+  ]
+}

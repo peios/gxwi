@@ -42,21 +42,22 @@ pub struct Sessions {
     /// compositor has to put sockets of its own, since nothing a person can
     /// write to is theirs alone otherwise.
     runtime: PathBuf,
-    compositor: PathBuf,
+    /// What a session runs when the registry names no compositor.
+    stand_in: PathBuf,
     /// One logon at a time decides whether a session exists, so two logons by
     /// the same person cannot both start one.
     starting: Mutex<()>,
 }
 
 impl Sessions {
-    pub fn new(compositor: PathBuf) -> io::Result<Sessions> {
+    pub fn new(stand_in: PathBuf) -> io::Result<Sessions> {
         let directory = PathBuf::from(std::env::var_os("GXWI_RUN").unwrap_or_else(|| DEFAULT_DIRECTORY.into()));
         std::fs::create_dir_all(&directory)?;
         stamp(&directory, DIRECTORY_SDDL)?;
         let runtime = PathBuf::from(std::env::var_os("GXWI_RUNTIME").unwrap_or_else(|| DEFAULT_RUNTIME.into()));
         std::fs::create_dir_all(&runtime)?;
         stamp(&runtime, RUNTIME_SDDL)?;
-        Ok(Sessions { directory, runtime, compositor, starting: Mutex::new(()) })
+        Ok(Sessions { directory, runtime, stand_in, starting: Mutex::new(()) })
     }
 
     /// A connection to the session of whoever `token` names, starting one if
@@ -120,8 +121,11 @@ impl Sessions {
         // As `login` has it: a home that is not there is not a failed logon.
         let home = if profile.home.starts_with('/') && Path::new(&profile.home).is_dir() { &profile.home } else { "/" };
         let shell = if profile.shell.starts_with('/') { &profile.shell } else { "/bin/sh" };
+        // Asked as each session starts, so a change needs no restart and
+        // reaches nobody who is already logged on.
+        let compositor = crate::settings::compositor(&self.stand_in);
         json!({
-            "image_path": self.compositor,
+            "image_path": compositor,
             "arguments": [],
             "environment": { "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin", "GXWI_RUNTIME_DIR": runtime },
             "working_directory": home,

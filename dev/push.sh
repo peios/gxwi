@@ -15,6 +15,9 @@ cargo build --release -p gxwid -p gxwi-hello
 # libgxwi's example is the app compositors are tried with.
 cargo build --release -p libgxwi --example hello
 mkdir -p "$share"
+# The registry settings, which dev/run-gxwid.sh applies as it starts gxwid.
+cp dev/gxwi-dev.reg "$share/gxwi-dev.reg.new"
+mv "$share/gxwi-dev.reg.new" "$share/gxwi-dev.reg"
 cp target/release/examples/hello "$share/gxwi-hello-app.new"
 mv "$share/gxwi-hello-app.new" "$share/gxwi-hello-app"
 cp target/x86_64-unknown-linux-musl/release/gxwi-server "$share/gxwi-server.new"
