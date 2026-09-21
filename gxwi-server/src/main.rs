@@ -18,6 +18,10 @@ async fn main() {
     if !std::env::args().any(|a| a == "--unrestricted") {
         refuse_unless_sandboxed();
     }
+    // What the administrator has the pages say. gxwid read it from the
+    // registry, which nothing in here can open.
+    let (name, notice) = page_args();
+    pages::say(name, notice);
 
     // SAFETY: gxwid placed these descriptors for us and nothing else in this
     // process owns them.
@@ -47,6 +51,22 @@ fn refuse_unless_sandboxed() {
         Ok(_) => die("can list /, so this is not gxwid's restricted token; refusing to serve"),
         Err(e) => eprintln!("gxwi-server: sandboxed (listing / gives: {e})"),
     }
+}
+
+/// `--logon-name` and each `--logon-notice`, in order. Read in one pass, so
+/// that a value is never taken for the name of the next.
+fn page_args() -> (Option<String>, Vec<String>) {
+    let (mut name, mut notice) = (None, Vec::new());
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--logon-name" => name = args.next(),
+            "--logon-notice" => notice.extend(args.next()),
+            "--listener-fd" | "--channel-fd" => drop(args.next()),
+            _ => {}
+        }
+    }
+    (name, notice)
 }
 
 fn fd_arg(name: &str) -> RawFd {

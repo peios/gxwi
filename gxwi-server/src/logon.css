@@ -117,6 +117,16 @@ h1 {
     letter-spacing: -0.03em;
 }
 
+/* Which machine this is, when the administrator has said. It sits up under
+   the heading and takes over the heading's gap above the card. */
+.machine {
+    margin: calc(var(--space-2) - var(--space-4)) 0 var(--space-4);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
 .card {
     padding: var(--space-5);
     background: var(--surface-1);
@@ -288,6 +298,19 @@ a:focus-visible, .who:has(input:focus-visible) {
 }
 
 .message svg { flex: none; width: 14px; height: 14px; margin-top: 4px; }
+
+/* The administrator's notice, read before a name is given. */
+.notice {
+    margin: 0 0 var(--space-4);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border-default);
+    color: var(--text-secondary);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.notice p { margin: 0; }
+.notice p + p { margin-top: var(--space-2); }
 
 .done { text-align: center; }
 

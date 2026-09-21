@@ -26,4 +26,13 @@ done
     && sd allow /bin/gxwi-hello-app.$$ Everyone:rx \
     && mv /bin/gxwi-hello-app.$$ /bin/gxwi-hello-app
 echo "run-gxwid: sessions will run a copy of $from" >> /share/gxwi.log
+# What gxwid and Fenestra are to read from the registry, from whichever of
+# them has pushed its settings to the share. Applied on every start, so an
+# edited one takes a push to try. Nothing in gxwid's environment says any of
+# it: the registry is the only place it looks.
+for settings in /gxwi/gxwi-dev.reg /gxwi/fenestra-dev.reg; do
+    [ -e "$settings" ] || continue
+    echo "run-gxwid: applying $settings" >> /share/gxwi.log
+    REG_ASSUME_YES=1 reg apply --yes "$settings" >> /share/gxwi.log 2>&1
+done
 exec /gxwi/gxwid >> /share/gxwi.log 2>&1

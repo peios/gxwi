@@ -16,6 +16,7 @@ mod logon;
 mod relay;
 mod sandbox;
 mod session;
+mod settings;
 mod throttle;
 
 // Not 8080/8081: on the dev host those are QEMU's forwards into a booted VM.
@@ -45,8 +46,13 @@ fn main() {
         eprintln!("gxwid: gxwi-server is restricted to the capability {}", sandbox::NET_CAPABILITY);
     }
 
-    let listen = std::env::var("GXWI_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN.to_string());
-    let server = beside("gxwi-server", "GXWI_SERVER");
+    // A host without KACS has no registry either, and says it here instead.
+    let listen = if unrestricted {
+        std::env::var("GXWI_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN.to_string())
+    } else {
+        settings::listen(DEFAULT_LISTEN.parse().expect("the default is an address")).to_string()
+    };
+    let server = beside("gxwi-server", Some("GXWI_SERVER"));
 
     // Bound once and kept across restarts, so connections made while the
     // server is down queue in the kernel instead of being refused.
@@ -54,15 +60,15 @@ fn main() {
     let listener = dup_high(listener.as_raw_fd()).unwrap_or_else(|e| die(&format!("dup listener: {e}")));
     eprintln!("gxwid: listening on http://{listen}, server is {}", server.display());
 
-    // Which program a session runs is whatever this says, so whoever can set it
-    // chooses what runs as everyone who logs on. It stands in for a registry
-    // setting under a descriptor of its own.
-    let compositor = beside("gxwi-hello", "GXWI_COMPOSITOR");
+    // Which program a session runs is the registry's to say (`settings`), and
+    // nothing in gxwid's environment can: whoever chooses it chooses what runs
+    // as everyone who logs on. GXWI's own stand-in runs when nothing is set.
     let sessions = if unrestricted {
         None
     } else {
-        eprintln!("gxwid: sessions run {}", compositor.display());
-        Some(session::Sessions::new(compositor).unwrap_or_else(|e| die(&format!("sessions: {e}"))))
+        let stand_in = beside("gxwi-hello", None);
+        eprintln!("gxwid: sessions run {}", settings::compositor(&stand_in).display());
+        Some(session::Sessions::new(stand_in).unwrap_or_else(|e| die(&format!("sessions: {e}"))))
     };
 
     // Outlives every gxwi-server: restarting the server must not reset the
@@ -101,7 +107,10 @@ fn run_server(
     } else {
         Some(sandbox::server_token().map_err(|e| io::Error::other(format!("restricted token: {e}")))?)
     };
-    let mut child = spawn_server(server, listener, &theirs, token)?;
+    // The server can open nothing, the registry included, so what its pages
+    // are to say is read here and told to it as it starts.
+    let page = if unrestricted { settings::LogonPage::default() } else { settings::logon_page() };
+    let mut child = spawn_server(server, listener, &theirs, token, &page)?;
     // Only the server holds its end now, so its death reads as EOF on ours,
     // which is what ends the control thread.
     drop(theirs);
@@ -117,6 +126,7 @@ fn spawn_server(
     listener: &OwnedFd,
     channel: &OwnedFd,
     token: Option<peios::token::Token>,
+    page: &settings::LogonPage,
 ) -> io::Result<Child> {
     let (listener, channel) = (listener.as_raw_fd(), channel.as_raw_fd());
     let parent = std::process::id() as libc::pid_t;
@@ -127,6 +137,12 @@ fn spawn_server(
     if token.is_none() {
         // Without this the server refuses to run outside the restricted token.
         cmd.arg("--unrestricted");
+    }
+    if let Some(name) = &page.name {
+        cmd.arg("--logon-name").arg(name);
+    }
+    for paragraph in &page.notice {
+        cmd.arg("--logon-notice").arg(paragraph);
     }
     // SAFETY: the closure runs in the forked child before exec and makes only
     // system calls (dup2, the token install ioctl, prctl, getppid). gxwid has
@@ -175,10 +191,10 @@ fn dup_high(fd: RawFd) -> io::Result<OwnedFd> {
     Ok(unsafe { OwnedFd::from_raw_fd(new) })
 }
 
-/// gxwi-server sits beside gxwid unless GXWI_SERVER says otherwise, and so
-/// does the compositor unless GXWI_COMPOSITOR does.
-fn beside(name: &str, variable: &str) -> PathBuf {
-    if let Some(path) = std::env::var_os(variable) {
+/// The program of this name that sits beside gxwid, unless `variable` is set
+/// and says where it is instead.
+fn beside(name: &str, variable: Option<&str>) -> PathBuf {
+    if let Some(path) = variable.and_then(std::env::var_os) {
         return PathBuf::from(path);
     }
     let exe = std::env::current_exe().unwrap_or_else(|e| die(&format!("current_exe: {e}")));

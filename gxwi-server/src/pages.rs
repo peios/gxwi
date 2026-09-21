@@ -6,6 +6,8 @@
 //! prompt's name is a label and its type says how to collect the answer;
 //! nothing here knows what a password is for.
 
+use std::sync::OnceLock;
+
 use libauthd::wire::{CredentialRequest, CredentialType, Denial, MessageSeverity};
 
 pub const STYLESHEET: &str = include_str!("logon.css");
@@ -23,12 +25,41 @@ pub const FIELD_FORM_TOKEN: &str = "t";
 /// How lpsd, the local account store, opens the message naming who is logging on.
 const WHO_PREFIX: &str = "Logging in as ";
 
+/// What the administrator has the pages say, which is nothing unless `say`
+/// was told otherwise.
+static SAID: OnceLock<Said> = OnceLock::new();
+
+struct Said {
+    /// What this machine is called, under every page's heading.
+    name: Option<String>,
+    /// Shown before anything is asked, a paragraph to each entry.
+    notice: Vec<String>,
+}
+
+/// Once, before any page is served. gxwid has checked both, and both are
+/// escaped on their way into a page all the same.
+pub fn say(name: Option<String>, notice: Vec<String>) {
+    let _ = SAID.set(Said { name, notice });
+}
+
 pub fn field_for_prompt(credential_ref: u32) -> String {
     format!("c{credential_ref}")
 }
 
 pub fn username(error: Option<&str>) -> String {
+    username_under(SAID.get(), error)
+}
+
+fn username_under(said: Option<&Said>, error: Option<&str>) -> String {
     let mut body = String::new();
+    // Ahead of the form, so it is read before a name is given.
+    if let Some(said) = said.filter(|said| !said.notice.is_empty()) {
+        body.push_str("<div class=\"notice\">");
+        for paragraph in &said.notice {
+            body.push_str(&format!("<p>{}</p>", escape(paragraph)));
+        }
+        body.push_str("</div>");
+    }
     if let Some(error) = error {
         body.push_str(&message("error", error));
     }
@@ -40,7 +71,7 @@ pub fn username(error: Option<&str>) -> String {
          <button class=\"primary\" type=\"submit\">Next</button>\
          </form>"
     ));
-    page("Sign in", &card(&body))
+    page_under(said, "Sign in", &card(&body))
 }
 
 /// One round of the conversation: the authority's messages, in order and
@@ -165,12 +196,21 @@ fn card(body: &str) -> String {
 }
 
 fn page(title: &str, body: &str) -> String {
+    page_under(SAID.get(), title, body)
+}
+
+fn page_under(said: Option<&Said>, title: &str, body: &str) -> String {
+    // Which machine this is, for someone with more than one to log on to.
+    let machine = said
+        .and_then(|said| said.name.as_deref())
+        .map(|name| format!("<p class=\"machine\">{}</p>", escape(name)))
+        .unwrap_or_default();
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
          <title>{title}</title><link rel=\"stylesheet\" href=\"/.gxwi/logon.css\"></head>\
          <body><main><div class=\"brand\">{ICON_MARK}<span>Peios</span></div>\
-         <h1>{title}</h1>{body}</main></body></html>"
+         <h1>{title}</h1>{machine}{body}</main></body></html>"
     )
 }
 
@@ -242,6 +282,19 @@ mod tests {
         let a = denied(Denial::AuthenticationFailed, "");
         let b = denied(Denial::AuthenticationFailed, "no such user");
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn what_the_administrator_says_cannot_become_markup_either() {
+        let said = Said { name: Some("<b>build</b>".into()), notice: vec!["Authorised use only.".into(), "<script>".into()] };
+        let html = username_under(Some(&said), None);
+        assert!(html.contains("<p class=\"machine\">&lt;b&gt;build&lt;/b&gt;</p>"));
+        assert!(html.contains("<div class=\"notice\"><p>Authorised use only.</p><p>&lt;script&gt;</p></div>"));
+        // The notice comes before the form it is about.
+        assert!(html.find("class=\"notice\"").unwrap() < html.find("<form").unwrap());
+
+        let plain = username_under(None, None);
+        assert!(!plain.contains("class=\"machine\"") && !plain.contains("class=\"notice\""));
     }
 
     #[test]
