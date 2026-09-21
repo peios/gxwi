@@ -8,19 +8,16 @@
     "SeAssignPrimaryTokenPrivilege. The console session drive.py gives us is an",
     "administrator, so the service manager starts gxwid instead.",
     "",
-    "The shell wrapper sends output to the share, where the host can read it,",
-    "and runs the compositor from a copy off the share: a program replaced on",
-    "9p while an older copy of it is still running (as a session is, across a",
-    "push) segfaults when next started from there.",
-    "No trigger and no restart policy: dev/devloop.sh decides when it runs."
+    "dev/run-gxwid.sh is what runs: it picks the compositor and sends output to",
+    "the share. No trigger and no restart policy: dev/devloop.sh decides when."
   ],
   "keys": [
     {
       "path": "Machine\\System\\Services\\gxwid",
       "values": [
         { "name": "ImagePath", "type": "sz", "data": "/bin/sh" },
-        { "name": "Arguments", "type": "multi", "data": ["-c", "cp /gxwi/gxwi-hello /tmp/gxwi-hello.$$ && sd allow /tmp/gxwi-hello.$$ Everyone:rx && mv /tmp/gxwi-hello.$$ /tmp/gxwi-hello; exec /gxwi/gxwid >> /share/gxwi.log 2>&1"] },
-        { "name": "Environment", "type": "multi", "data": ["GXWI_LISTEN=0.0.0.0:7780", "GXWI_COMPOSITOR=/tmp/gxwi-hello"] },
+        { "name": "Arguments", "type": "multi", "data": ["/share/run-gxwid.sh"] },
+        { "name": "Environment", "type": "multi", "data": ["GXWI_LISTEN=0.0.0.0:7780", "GXWI_COMPOSITOR=/tmp/gxwi-compositor"] },
         { "name": "Identity", "type": "sz", "data": "SYSTEM" },
         { "name": "Readiness", "type": "dword", "data": 1 },
         { "name": "RestartPolicy", "type": "dword", "data": 0 },
