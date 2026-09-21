@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "DEV-ONLY: gxwid as a peinit service, run straight from the 9p share.",
+    "",
+    "gxwid has to be SYSTEM to build gxwi-server's restricted token: a token's",
+    "default descriptor grants its own user neither TOKEN_DUPLICATE nor",
+    "TOKEN_ASSIGN_PRIMARY, and installing a primary token takes",
+    "SeAssignPrimaryTokenPrivilege. The console session drive.py gives us is an",
+    "administrator, so the service manager starts gxwid instead.",
+    "",
+    "The shell wrapper only sends output to the share, where the host can read",
+    "it. No trigger and no restart policy: dev/devloop.sh decides when it runs."
+  ],
+  "keys": [
+    {
+      "path": "Machine\\System\\Services\\gxwid",
+      "values": [
+        { "name": "ImagePath", "type": "sz", "data": "/bin/sh" },
+        { "name": "Arguments", "type": "multi", "data": ["-c", "exec /gxwi/gxwid >> /share/gxwi.log 2>&1"] },
+        { "name": "Environment", "type": "multi", "data": ["GXWI_LISTEN=0.0.0.0:7780"] },
+        { "name": "Identity", "type": "sz", "data": "SYSTEM" },
+        { "name": "Readiness", "type": "dword", "data": 1 },
+        { "name": "RestartPolicy", "type": "dword", "data": 0 },
+        { "name": "DisplayName", "type": "sz", "data": "GXWI display server (dev)" },
+        { "name": "Description", "type": "sz", "data": "gxwid run from the development share" }
+      ]
+    }
+  ]
+}
