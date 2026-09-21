@@ -1,10 +1,13 @@
 //! gxwi-server — the network-facing half of GXWI. It opens nothing for itself:
 //! gxwid hands it a listening socket and a channel back to gxwid.
 
+use std::net::SocketAddr;
 use std::os::fd::{FromRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 
-use axum::{Router, response::Html, routing::get};
+mod form;
+mod logon;
+mod pages;
 
 #[tokio::main]
 async fn main() {
@@ -16,10 +19,9 @@ async fn main() {
 
     // SAFETY: gxwid placed these descriptors for us and nothing else in this
     // process owns them.
-    let (listener, _channel) = unsafe {
+    let (listener, channel) = unsafe {
         (
             std::net::TcpListener::from_raw_fd(listener_fd),
-            // Unused until there is a logon to relay; held so it stays open.
             UnixStream::from_raw_fd(channel_fd),
         )
     };
@@ -29,13 +31,11 @@ async fn main() {
     let listener = tokio::net::TcpListener::from_std(listener)
         .unwrap_or_else(|e| die(&format!("listener: {e}")));
 
-    let app = Router::new().route("/", get(hello));
+    // Until there are sessions, logon is all there is to serve.
+    let app = logon::routes(channel);
     eprintln!("gxwi-server: serving on descriptor {listener_fd}");
-    axum::serve(listener, app).await.unwrap();
-}
-
-async fn hello() -> Html<&'static str> {
-    Html("<h1>hello world</h1>")
+    // The peer's address rides along with each request: gxwid throttles on it.
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
 }
 
 /// This process parses everything the network sends, so it serves only from

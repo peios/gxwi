@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["gxwid", "gxwi-server"]
+members = ["gxwid", "gxwi-server", "gxwi-channel"]
+exclude = ["fuzz"]
 
 [workspace.package]
 version = "0.0.1"
@@ -10,8 +11,10 @@ publish = false
 
 [workspace.dependencies]
 axum = "0.8.9"
+gxwi-channel = { path = "gxwi-channel" }
 libc = "0.2"
 # First-party Rust dependencies are pinned to immutable commits.
+libauthd = { git = "https://github.com/peios/authd.git", rev = "e9eb688d075d9c8b9f302d963bb75f651beea489", package = "libauthd" }
 peios = { git = "https://github.com/peios/peios-rs.git", rev = "f4309f78fbaa878a14429a5e07d778dba9ddfab7", package = "peios" }
 sha2 = "0.10"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "net"] }

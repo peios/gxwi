@@ -230,10 +230,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "gxwi-channel"
+version = "0.0.1"
+dependencies = [
+ "libauthd",
+]
+
+[[package]]
 name = "gxwi-server"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "gxwi-channel",
+ "libauthd",
+ "libc",
  "tokio",
 ]
 
@@ -241,6 +251,8 @@ dependencies = [
 name = "gxwid"
 version = "0.0.1"
 dependencies = [
+ "gxwi-channel",
+ "libauthd",
  "libc",
  "peios",
  "sha2",
@@ -340,6 +352,14 @@ name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
+name = "libauthd"
+version = "0.0.18"
+source = "git+https://github.com/peios/authd.git?rev=e9eb688d075d9c8b9f302d963bb75f651beea489#e9eb688d075d9c8b9f302d963bb75f651beea489"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "libc"

@@ -8,9 +8,13 @@ use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+mod logon;
+mod relay;
 mod sandbox;
+mod throttle;
 
 // Not 8080/8081: on the dev host those are QEMU's forwards into a booted VM.
 const DEFAULT_LISTEN: &str = "127.0.0.1:7780";
@@ -48,10 +52,14 @@ fn main() {
     let listener = dup_high(listener.as_raw_fd()).unwrap_or_else(|e| die(&format!("dup listener: {e}")));
     eprintln!("gxwid: listening on http://{listen}, server is {}", server.display());
 
+    // Outlives every gxwi-server: restarting the server must not reset the
+    // logon throttle.
+    let logons = Arc::new(logon::Logons::default());
+
     let mut delay = RESTART_DELAY_MIN;
     loop {
         let started = Instant::now();
-        match run_server(&server, &listener, unrestricted) {
+        match run_server(&server, &listener, unrestricted, &logons) {
             Ok(status) => eprintln!("gxwid: gxwi-server exited: {status}"),
             Err(e) => eprintln!("gxwid: gxwi-server did not start: {e}"),
         }
@@ -69,19 +77,25 @@ fn run_server(
     server: &PathBuf,
     listener: &OwnedFd,
     unrestricted: bool,
+    logons: &Arc<logon::Logons>,
 ) -> io::Result<std::process::ExitStatus> {
     // A fresh pair per server: the old one died with the old server.
-    let (ours, theirs) = UnixStream::pair()?;
-    let theirs = dup_high(theirs.as_raw_fd())?;
+    let (ours, theirs_low) = UnixStream::pair()?;
+    let theirs = dup_high(theirs_low.as_raw_fd())?;
+    drop(theirs_low);
     let token = if unrestricted {
         None
     } else {
         Some(sandbox::server_token().map_err(|e| io::Error::other(format!("restricted token: {e}")))?)
     };
     let mut child = spawn_server(server, listener, &theirs, token)?;
-    // Only the server holds its end now, so its death reads as EOF on ours.
+    // Only the server holds its end now, so its death reads as EOF on ours,
+    // which is what ends the control thread.
     drop(theirs);
-    let _channel = ours;
+    let logons = Arc::clone(logons);
+    std::thread::Builder::new()
+        .name("control".into())
+        .spawn(move || logon::serve_control(ours, logons))?;
     child.wait()
 }
 
@@ -102,8 +116,9 @@ fn spawn_server(
         cmd.arg("--unrestricted");
     }
     // SAFETY: the closure runs in the forked child before exec and makes only
-    // system calls (dup2, the token install ioctl, prctl, getppid). gxwid is
-    // single-threaded, so no lock can be held across the fork.
+    // system calls (dup2, the token install ioctl, prctl, getppid). gxwid has
+    // other threads, any of which may hold a lock at the fork, so nothing here
+    // may allocate or take one.
     unsafe {
         cmd.pre_exec(move || {
             // dup2 clears close-on-exec on the copy. Both sources are above
