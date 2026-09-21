@@ -6,7 +6,7 @@ set -eu
 cd "$(dirname "$0")/.."
 share="$PWD/target/vmshare"
 ./dev/push.sh
-cp dev/allow-7780.reg dev/gxwid-dev-service.reg dev/devloop.sh dev/guest-start.sh "$share/"
+cp dev/allow-7780.reg dev/gxwid-dev-service.reg dev/devloop.sh dev/run-gxwid.sh dev/guest-start.sh "$share/"
 rm -f "$share"/*.log "$share"/*.txt
 # drive.py types this into the guest console, so it stays tiny.
 printf 'sh /share/guest-start.sh\nsleep 14000\n' > "$share/run.sh"
