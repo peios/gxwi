@@ -53,7 +53,9 @@ await sleep(3000);
 
 const surfaces = `[...document.querySelectorAll(".fx-surface")].map(e => { const f = e.querySelector("iframe"); return { kind: e.dataset.kind, focused: e.dataset.focused, owner: e.querySelector(".fx-identity")?.textContent, frame: f?.getAttribute("src")?.replace(/[0-9a-f]{32}/, "<label>"), sandbox: f?.getAttribute("sandbox") ?? undefined, desktopCanSeeIn: f ? f.contentDocument !== null : undefined }; })`;
 // Asked of app n's process through its way in, as the desktop's page may.
-const app = (n, what) => js(`fetch(document.querySelectorAll("iframe")[${n}].getAttribute("src") + "${what}").then(r => r.ok ? r.json() : "status " + r.status, String)`);
+// A frame's address is /.gxwi/enter/<label>/<path>, so the app's own paths
+// start after its first four parts.
+const app = (n, what) => js(`fetch(document.querySelectorAll("iframe")[${n}].getAttribute("src").split("/").slice(0, 4).join("/") + "/${what}").then(r => r.ok ? r.json() : "status " + r.status, String)`);
 const says = async (n) => { const s = await app(n, "state"); return typeof s === "string" ? s : `pressed ${s.count}, showing in ${s.views}`; };
 
 const out = { atLogon: await js(surfaces) };
@@ -83,18 +85,10 @@ await fetch(`http://127.0.0.1:${port}/json/close/${other.id}`);
 await sleep(1000);
 out.withItClosedAgain = await says(0);
 
-// What the app's page found it could and could not do, kept apart as it is.
-const probe = await app(0, "probe");
-out.whatAnAppsPageCanDo = probe.found;
-// Whether the browser keeps an app's files: load the frame again and see
-// whether the stylesheet, good for an hour, is asked for again.
-await js(`(() => { const f = document.querySelector("iframe"); f.src = f.getAttribute("src"); })()`);
-await sleep(2500);
-out.stylesheetAskedFor = { before: probe.stylesheets, afterLoadingTheFrameAgain: (await app(0, "probe")).stylesheets };
-
-// How GXWI serves it.
+// How GXWI serves it. (What a page of an app's own can do in there is tried
+// by live.mjs, which opens one.)
 out.anAppsAnswer = await js(`fetch(document.querySelector("iframe").getAttribute("src")).then(r => ({ status: r.status, cameFrom: new URL(r.url).pathname.replace(/[0-9a-f]{64}/, "<secret>"), policy: r.headers.get("content-security-policy"), anyoneMayRead: r.headers.get("access-control-allow-origin"), referrer: r.headers.get("referrer-policy") }))`);
-out.theSecretAloneIsEnough = await js(`fetch(document.querySelector("iframe").getAttribute("src")).then(r => fetch(r.url + "state", { credentials: "omit" })).then(r => r.status)`);
+out.theSecretAloneIsEnough = await js(`fetch(document.querySelector("iframe").getAttribute("src")).then(r => fetch(new URL(r.url).pathname.split("/").slice(0, 4).join("/") + "/state", { credentials: "omit" })).then(r => r.status)`);
 out.aWrongSecret = await js(`fetch("/.gxwi/a/${"0".repeat(64)}/state", { credentials: "omit" }).then(r => r.status)`);
 out.aLabelNobodyHas = await js(`fetch("/.gxwi/enter/${"0".repeat(32)}/state").then(r => r.status)`);
 out.sayingTheLabelYourself = await js(`fetch("/", { headers: { "gxwi-origin": document.querySelector("iframe").getAttribute("src").split("/")[3] } }).then(async r => (await r.text()).includes("<title>Fenestra</title>") ? "ignored: got the desktop" : "GOT THE APP")`);
