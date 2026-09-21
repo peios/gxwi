@@ -171,6 +171,13 @@ impl App {
     /// outlasts the tab. The page is kept apart from everything else, so it
     /// has no cookies and no storage, and a worker has to be started from a
     /// blob. Use it for what cannot be drawn from here, and nothing else.
+    ///
+    /// The desktop cannot hear a key pressed in such a page, so the page
+    /// includes the desktop's script for passing on the chords that are the
+    /// desktop's, from `.fx/keys.js` under the app's own paths, as a module:
+    /// `<script type="module" src="../.fx/keys.js">` from a page at `/raw/`.
+    /// A page without it is one the person cannot leave by the keyboard, and
+    /// the desktop says so on its window.
     pub fn raw_page(&mut self, title: &str, path: &str) {
         let number = self.number();
         let drawn = Drawn::Raw { path: path.into() };
@@ -190,6 +197,11 @@ impl App {
     /// gives the surface the focus when clicked. Both are between the pages,
     /// on one device: which surface has the focus differs from device to
     /// device, and is never this process's to know.
+    ///
+    /// A shell's surface may also claim chords for the whole desktop. An
+    /// element with `fx-global-key="Ctrl+Space"` is clicked when that is
+    /// pressed wherever the keyboard is, another app's window included. The
+    /// chord has to have Ctrl, Alt or Meta in it.
     pub fn surfaces(&mut self, told: impl FnMut(Vec<Listed>) + Send + 'static) {
         self.told = Some(Box::new(told));
     }

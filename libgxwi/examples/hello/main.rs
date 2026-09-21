@@ -28,8 +28,8 @@ impl Live for Hello {
     fn render(&self, facts: &Facts) -> String {
         format!(
             "<h1>{greeting}</h1>\n\
-             <p><button fx-click=\"press\">Press</button> <span id=\"count\">pressed {count} times</span></p>\n\
-             <p><label>Note <input name=\"note\" autocomplete=\"off\"></label> <button fx-click=\"clear\">Clear</button></p>\n\
+             <p><button fx-click=\"press\" fx-key=\"Ctrl+Enter P\">Press</button> <span id=\"count\">pressed {count} times</span></p>\n\
+             <p><label>Note <input name=\"note\" autocomplete=\"off\"></label> <button fx-click=\"clear\" fx-key=\"Escape\">Clear</button></p>\n\
              <p id=\"facts\">process {pid}, showing in {views} places</p>\n",
             greeting = escape(&self.greeting),
             count = self.count,
