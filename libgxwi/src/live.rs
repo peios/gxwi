@@ -50,6 +50,12 @@ pub trait Live: Send + 'static {
     /// The person did something the HTML gave a name to.
     fn event(&mut self, name: &str, value: &Value, fields: &mut Fields);
 
+    /// The person changed the named field `name`, which `fields` already
+    /// holds. The surface is rendered again whether or not this does
+    /// anything. It is for what else has to change with a field, such as
+    /// which of a list's matches is picked.
+    fn input(&mut self, _name: &str, _fields: &mut Fields) {}
+
     /// The person asked for the surface to be closed. `true` lets it go.
     /// `false` keeps it, for an app with something to ask first: what it
     /// renders next can ask, and [`Surface::close`] lets go when it is time.
@@ -59,9 +65,11 @@ pub trait Live: Send + 'static {
 }
 
 /// What the surface knows that the app did not tell it.
-pub struct Facts {
+pub struct Facts<'a> {
     /// How many pages are showing the surface now.
     pub views: u64,
+    /// What the surface's named fields hold.
+    pub fields: &'a Fields,
 }
 
 /// What the surface's named fields hold. They are part of the surface and not
@@ -142,7 +150,7 @@ impl<L: Live> Surface<L> {
     /// Looks at the app and its fields without changing them.
     pub fn look<T>(&self, at: impl FnOnce(&L, &Fields, &Facts) -> T) -> T {
         let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        at(&state.0, &state.1, &Facts { views: self.views.load(Ordering::Relaxed) })
+        at(&state.0, &state.1, &Facts { views: self.views.load(Ordering::Relaxed), fields: &state.1 })
     }
 
     /// Lets the surface go. When an app's last surface goes, `App::run` ends.
@@ -210,7 +218,8 @@ impl<L: Live> Surface<L> {
             Ok(FromPage::Input { name, value }) => {
                 let room = fields.0.len() < MAX_FIELDS || fields.0.contains_key(&name);
                 if room && value.len() <= MAX_FIELD_BYTES && name.len() <= 256 {
-                    fields.0.insert(name, Field { value, by: page });
+                    fields.0.insert(name.clone(), Field { value, by: page });
+                    app.input(&name, fields);
                 }
             }
             Err(e) => eprintln!("libgxwi: a page sent something that is not a message: {e}"),
