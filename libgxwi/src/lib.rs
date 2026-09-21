@@ -93,6 +93,21 @@ impl Desk {
     }
 }
 
+/// What a part of the shell may ask of the desktop. See [`App::shell`].
+#[derive(Clone)]
+pub struct Shell {
+    desk: Arc<Desk>,
+}
+
+impl Shell {
+    /// Has the desktop start a program, as it starts everything: with the
+    /// display in its environment, so that the program can be an app. Nothing
+    /// says whether it started.
+    pub fn start(&self, program: &str, arguments: &[String]) -> io::Result<()> {
+        self.desk.display.start(program, arguments)
+    }
+}
+
 enum Drawn {
     Live { socket: String },
     Raw { path: String },
@@ -151,6 +166,24 @@ impl App {
     /// person has no way to ask for it closed.
     pub fn panel<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
         self.live_as(Role::Panel, title, app)
+    }
+
+    /// A live surface over the windows, for a part of the shell: out of sight
+    /// until it is sent for, on the device where it was sent for, and gone
+    /// again when it is done with. Sending for it is the HTML's to do, since
+    /// whether it is in sight differs from device to device: an element with
+    /// `fx-overlay="show"`, `"hide"` or `"toggle"` does that to the surface it
+    /// is in when clicked, and with `fx-global-key` as well it can be sent for
+    /// from anywhere. When it comes into sight the keyboard goes to the
+    /// element marked `fx-autofocus`.
+    pub fn overlay<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Overlay, title, app)
+    }
+
+    /// What a part of the shell may ask of the desktop, for the app itself to
+    /// keep. Asked by anything else, it is not done.
+    pub fn shell(&self) -> Shell {
+        Shell { desk: self.desk.clone() }
     }
 
     fn live_as<L: Live>(&mut self, role: Role, title: &str, app: L) -> Arc<Surface<L>> {

@@ -9,6 +9,7 @@
 //!                        "kind": "live", "socket", "styles": [...] }
 //!                   or { ..., "kind": "raw", "path" }
 //!   app → compositor   { "type": "destroy", "surface": n }
+//!   shell → compositor { "type": "start", "program", "arguments": [...] }
 //!   compositor → app   { "type": "close", "surface": n }
 //!   compositor → shell { "type": "surfaces",
 //!                        "surfaces": [{ "id", "title", "role" }] }
@@ -40,6 +41,10 @@ pub enum Role {
     /// Something along an edge of the desktop that the windows make room
     /// for, such as a taskbar.
     Panel,
+    /// Something over the windows, out of sight until it is sent for and
+    /// gone again when it is done with, such as a launcher. Only the shell
+    /// can send for one.
+    Overlay,
 }
 
 impl Role {
@@ -47,6 +52,7 @@ impl Role {
         match self {
             Role::Window => "window",
             Role::Panel => "panel",
+            Role::Overlay => "overlay",
         }
     }
 }
@@ -139,6 +145,14 @@ impl Display {
         self.say(json!({ "type": "create", "surface": surface, "title": title, "kind": "raw", "path": path }), &[])
     }
 
+    /// Asks the desktop to start a program, which it does for a part of the
+    /// shell and for nobody else. The program is started as the desktop
+    /// starts everything: by it, with the display in its environment.
+    /// Nothing comes back, whether or not it started.
+    pub fn start(&self, program: &str, arguments: &[String]) -> io::Result<()> {
+        self.say(json!({ "type": "start", "program": program, "arguments": arguments }), &[])
+    }
+
     /// Lets a surface go.
     pub fn destroy(&self, surface: u64) -> io::Result<()> {
         self.say(json!({ "type": "destroy", "surface": surface }), &[])
@@ -178,6 +192,7 @@ fn understood(message: &Value) -> Asked {
                         role: match surface["role"].as_str()? {
                             "window" => Role::Window,
                             "panel" => Role::Panel,
+                            "overlay" => Role::Overlay,
                             _ => return None,
                         },
                     })
