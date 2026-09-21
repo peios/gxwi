@@ -58,9 +58,13 @@ impl Sessions {
 
     /// The session a request belongs to, if its cookie names a live one.
     pub fn of(&self, headers: &HeaderMap) -> Option<SendRequest<Body>> {
-        let cookie = crate::logon::cookie_named(headers, COOKIE)?;
+        self.named(&crate::logon::cookie_named(headers, COOKIE)?)
+    }
+
+    /// The session `cookie` names, if it is a live one.
+    pub fn named(&self, cookie: &str) -> Option<SendRequest<Body>> {
         let table = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        table.get(&cookie).filter(|s| !s.is_closed()).cloned()
+        table.get(cookie).filter(|s| !s.is_closed()).cloned()
     }
 }
 
@@ -85,6 +89,7 @@ async fn plain(session: &mut SendRequest<Body>, request: Request<Body>) -> Resul
         out.extensions_mut().insert(protocol.clone());
     }
     copy_headers(&parts.headers, out.headers_mut());
+    label(&parts.extensions, out.headers_mut());
     let response = session.send_request(out).await.map_err(|_| StatusCode::BAD_GATEWAY)?;
     Ok(returned(response))
 }
@@ -124,6 +129,7 @@ async fn upgrade(session: &mut SendRequest<Body>, mut request: Request<Body>) ->
     *out.uri_mut() = target(request.uri(), headers)?;
     out.extensions_mut().insert(Protocol::from_static("websocket"));
     copy_headers(headers, out.headers_mut());
+    label(request.extensions(), out.headers_mut());
     out.headers_mut().remove("sec-websocket-key");
 
     let mut response = session.send_request(out).await.map_err(|_| StatusCode::BAD_GATEWAY)?;
@@ -173,7 +179,9 @@ fn target(uri: &Uri, headers: &HeaderMap) -> Result<Uri, StatusCode> {
 /// inside it should never be able to read that key out of a request.
 fn copy_headers(from: &HeaderMap, to: &mut HeaderMap) {
     for (name, value) in from {
-        if name == header::COOKIE || name == header::HOST {
+        // Headers under `gxwi-` are what GXWI tells a session, so a browser
+        // does not get to say them.
+        if name == header::COOKIE || name == header::HOST || name.as_str().starts_with("gxwi-") {
             continue;
         }
         to.append(name.clone(), value.clone());
@@ -191,6 +199,13 @@ fn copy_headers(from: &HeaderMap, to: &mut HeaderMap) {
         if !cookies.is_empty() {
             to.insert(header::COOKIE, value);
         }
+    }
+}
+
+/// Says which origin a request is for, when it came in under one.
+fn label(extensions: &axum::http::Extensions, to: &mut HeaderMap) {
+    if let Some(crate::origin::Label(value)) = extensions.get() {
+        to.insert(crate::origin::LABEL_HEADER, value.clone());
     }
 }
 
@@ -264,6 +279,19 @@ mod tests {
         assert!(to.get("x-private").is_none() && to.get(header::CONNECTION).is_none());
         assert!(to.get(header::HOST).is_none());
         assert_eq!(to.get("x-kept").unwrap(), "1");
+    }
+
+    #[test]
+    fn a_browser_cannot_say_which_origin_it_is() {
+        let mut from = HeaderMap::new();
+        from.insert("gxwi-origin", HeaderValue::from_static("somebody-elses"));
+        let mut to = HeaderMap::new();
+        copy_headers(&from, &mut to);
+        assert!(to.get("gxwi-origin").is_none());
+        let mut extensions = axum::http::Extensions::new();
+        extensions.insert(crate::origin::Label(HeaderValue::from_static("its-own")));
+        label(&extensions, &mut to);
+        assert_eq!(to.get("gxwi-origin").unwrap(), "its-own");
     }
 
     #[test]
