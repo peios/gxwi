@@ -12,7 +12,11 @@ cd "$(dirname "$0")/.."
 share=target/vmshare
 cargo build --release -p gxwi-server --target x86_64-unknown-linux-musl
 cargo build --release -p gxwid -p gxwi-hello
+# libgxwi's example is the app compositors are tried with.
+cargo build --release -p libgxwi --example hello
 mkdir -p "$share"
+cp target/release/examples/hello "$share/gxwi-hello-app.new"
+mv "$share/gxwi-hello-app.new" "$share/gxwi-hello-app"
 cp target/x86_64-unknown-linux-musl/release/gxwi-server "$share/gxwi-server.new"
 mv "$share/gxwi-server.new" "$share/gxwi-server"
 cp target/release/gxwi-hello "$share/gxwi-hello.new"
