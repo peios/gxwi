@@ -29,6 +29,10 @@ impl Form {
         fields.map(Form)
     }
 
+    pub fn has(&self, name: &str) -> bool {
+        self.0.iter().any(|(n, _)| n == name)
+    }
+
     /// Takes a field's value out of the form. Field names are ours; a name
     /// posted twice yields its first value.
     pub fn take(&mut self, name: &str) -> Option<Secret> {

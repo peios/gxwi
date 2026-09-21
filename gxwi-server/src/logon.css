@@ -1,30 +1,85 @@
+/* The Peios Appkit tokens, under their own names with the dots as hyphens.
+   Only the ones these pages use. Surfaces are washes over one opaque ground;
+   nothing here blurs, because nothing sits behind a logon card but the ground. */
 :root {
     color-scheme: light dark;
-    --page: #f4f5f7;
-    --card: #ffffff;
-    --ink: #1b1f27;
-    --muted: #5c6470;
-    --line: #d5d9e0;
-    --accent: #2f5fd0;
-    --accent-ink: #ffffff;
-    --error: #b3261e;
-    --error-wash: #fbe9e7;
-    --info-wash: #e8eefb;
+
+    --bg-base: #eef1f5;
+    --bg-sunken: #e4e8ee;
+    --surface-1: rgb(255 255 255 / 62%);
+    --surface-2: rgb(13 20 29 / 7%);
+    /* Not on the sheet: the mockups' fill for the pill, quieter than surface.1. */
+    --wash-quiet: rgb(13 20 29 / 4%);
+    --border-subtle: rgb(13 20 29 / 7%);
+    --border-default: rgb(13 20 29 / 10%);
+    --border-strong: rgb(13 20 29 / 12%);
+    --text-primary: #0d141d;
+    --text-body: #131a24;
+    --text-secondary: #3c4756;
+    --text-muted: #5a6473;
+    --accent-solid: #0e6fa6;
+    --accent-on: #ffffff;
+    --accent-quiet: #0a5480;
+    --accent-ring: rgb(14 111 166 / 25%);
+    --accent-wash: rgb(14 111 166 / 12%);
+    --shadow-accent: 0 4px 16px rgb(14 111 166 / 28%);
+    --danger-text: #b23b2e;
+    --danger-wash: rgb(178 59 46 / 8%);
+    --danger-edge: rgb(178 59 46 / 35%);
+
+    --radius-md: 11px;
+    --radius-lg: 14px;
+    --radius-pill: 999px;
+    --control-md: 36px;
+    --control-lg: 44px;
+    --space-1: 4px;
+    --space-2: 9px;
+    --space-3: 14px;
+    --space-4: 16px;
+    --space-5: 28px;
+
+    --font-display: "Schibsted Grotesk", system-ui, sans-serif;
+    --font-text: "Manrope", system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --page: #12141a;
-        --card: #1b1e26;
-        --ink: #e6e8ee;
-        --muted: #9aa2b1;
-        --line: #333846;
-        --accent: #7ea2ff;
-        --accent-ink: #10131a;
-        --error: #ffb4ab;
-        --error-wash: #3a1f1d;
-        --info-wash: #1f2a44;
+        --bg-base: #0e1116;
+        --bg-sunken: #0a0d11;
+        --surface-1: rgb(255 255 255 / 6%);
+        --surface-2: rgb(255 255 255 / 10%);
+        --wash-quiet: rgb(255 255 255 / 4%);
+        --border-subtle: rgb(255 255 255 / 7%);
+        --border-default: rgb(255 255 255 / 10%);
+        --border-strong: rgb(255 255 255 / 16%);
+        --text-primary: #f3f6fb;
+        --text-body: #e8ecf3;
+        --text-secondary: #b9c2cf;
+        --text-muted: #a3adbc;
+        --accent-solid: #62d2ff;
+        --accent-on: #05141d;
+        --accent-quiet: #9be4ff;
+        --accent-ring: rgb(98 210 255 / 25%);
+        --accent-wash: rgb(98 210 255 / 12%);
+        --shadow-accent: 0 4px 16px rgb(98 210 255 / 28%);
+        --danger-text: #ff9e92;
+        --danger-wash: rgb(224 95 80 / 14%);
+        --danger-edge: rgb(224 95 80 / 45%);
     }
+}
+
+@font-face {
+    font-family: "Schibsted Grotesk";
+    font-weight: 400 900;
+    font-display: swap;
+    src: url("fonts/schibsted-grotesk.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "Manrope";
+    font-weight: 200 800;
+    font-display: swap;
+    src: url("fonts/manrope.woff2") format("woff2");
 }
 
 * { box-sizing: border-box; }
@@ -34,58 +89,228 @@ body {
     min-height: 100vh;
     display: grid;
     place-items: center;
-    padding: 16px;
-    background: var(--page);
-    color: var(--ink);
-    font: 16px/1.5 system-ui, sans-serif;
+    padding: var(--space-4);
+    background: var(--bg-base);
+    color: var(--text-body);
+    font: 500 14px/1.6 var(--font-text);
 }
 
-main {
-    width: 100%;
-    max-width: 22rem;
-    padding: 2rem;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
+main { width: 100%; max-width: 400px; }
+
+.brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    color: var(--text-primary);
+    font: 700 20px/1 var(--font-display);
+    letter-spacing: -0.02em;
 }
 
-h1 { margin: 0 0 1.25rem; font-size: 1.375rem; font-weight: 600; }
+.brand svg { width: 26px; height: 26px; color: var(--accent-solid); }
 
-label { display: block; margin: 1rem 0 0.25rem; font-size: 0.875rem; color: var(--muted); }
+h1 {
+    margin: var(--space-3) 0 var(--space-4);
+    text-align: center;
+    color: var(--text-primary);
+    font: 700 26px/1.2 var(--font-display);
+    letter-spacing: -0.03em;
+}
+
+.card {
+    padding: var(--space-5);
+    background: var(--surface-1);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+}
+
+.card > :first-child, form > :first-child { margin-top: 0; }
+
+label {
+    display: block;
+    margin: var(--space-4) 0 var(--space-1);
+    color: var(--text-body);
+    font-size: 12px;
+    font-weight: 700;
+}
 
 input[type="text"], input[type="password"] {
     width: 100%;
-    padding: 0.625rem 0.75rem;
+    height: var(--control-lg);
+    padding: 0 var(--space-3);
     font: inherit;
-    color: inherit;
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    color: var(--text-primary);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
 }
 
-input:focus-visible, button:focus-visible, a:focus-visible {
-    outline: 2px solid var(--accent);
+input[type="text"]:focus-visible, input[type="password"]:focus-visible {
+    outline: 2px solid var(--accent-solid);
     outline-offset: 2px;
 }
 
-input.who { border-color: transparent; padding-left: 0; font-weight: 600; }
+a:focus-visible, .who:has(input:focus-visible) {
+    outline: 2px solid var(--accent-solid);
+    outline-offset: 2px;
+}
 
-button {
-    width: 100%;
-    margin-top: 1.5rem;
-    padding: 0.625rem;
-    font: inherit;
-    font-weight: 600;
-    color: var(--accent-ink);
-    background: var(--accent);
+.who input[type="text"]:focus-visible { outline: none; }
+
+[hidden] { display: none !important; }
+
+/* A field whose contents can be shown, where the script is there to do it. */
+.secret { position: relative; }
+
+.secret input { padding-right: var(--control-lg); }
+
+.reveal {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: var(--control-md);
+    height: var(--control-md);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    color: var(--text-muted);
+    background: none;
     border: 0;
-    border-radius: 8px;
+    border-radius: 9px;
     cursor: pointer;
 }
 
-.message { margin: 0 0 0.75rem; padding: 0.625rem 0.75rem; border-radius: 8px; }
-.message.info { background: var(--info-wash); }
-.message.error { background: var(--error-wash); color: var(--error); }
+.reveal:hover { background: var(--surface-2); }
+.reveal[aria-pressed="true"] { color: var(--accent-quiet); }
+.reveal:focus-visible { outline: 2px solid var(--accent-solid); }
+.reveal svg { width: 16px; height: 16px; }
 
-.aside { margin: 1rem 0 0; font-size: 0.875rem; color: var(--muted); }
-a { color: var(--accent); }
+/* Who is logging on: an initial, the name as typed, and the way back. */
+.who {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: var(--control-lg);
+    padding: 0 6px;
+    background: var(--wash-quiet);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-pill);
+}
+
+.who .initial {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.who input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.who a {
+    flex: none;
+    display: grid;
+    place-items: center;
+    height: 30px;
+    padding: 0 var(--space-3);
+    color: var(--accent-solid);
+    background: var(--border-subtle);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* One primary action a page: the glow stops meaning anything otherwise. */
+.primary, .secondary {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: var(--control-lg);
+    margin-top: var(--space-4);
+    font: inherit;
+    font-weight: 700;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.primary {
+    color: var(--accent-on);
+    background: var(--accent-solid);
+    border: 0;
+    box-shadow: var(--shadow-accent);
+}
+
+.secondary {
+    color: var(--text-primary);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    font-weight: 600;
+}
+
+.primary:focus-visible, .secondary:focus-visible {
+    outline: 2px solid var(--accent-solid);
+    outline-offset: 3px;
+}
+
+.message {
+    display: flex;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    font-size: 13px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    overflow-wrap: anywhere;
+}
+
+.message.error {
+    color: var(--danger-text);
+    background: var(--danger-wash);
+    border-color: var(--danger-edge);
+}
+
+.message svg { flex: none; width: 14px; height: 14px; margin-top: 4px; }
+
+.done { text-align: center; }
+
+.done .mark {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto var(--space-3);
+    display: grid;
+    place-items: center;
+    color: var(--accent-quiet);
+    background: var(--accent-wash);
+    border: 1px solid var(--accent-ring);
+    border-radius: var(--radius-pill);
+}
+
+.done .mark svg { width: 18px; height: 18px; }
+
+h2 {
+    margin: 0 0 var(--space-1);
+    color: var(--text-primary);
+    font: 600 16px/1.4 var(--font-display);
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.done p { margin: 0; color: var(--text-secondary); font-size: 13px; }

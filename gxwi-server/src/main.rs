@@ -8,6 +8,7 @@ use std::os::unix::net::UnixStream;
 mod form;
 mod logon;
 mod pages;
+mod session;
 
 #[tokio::main]
 async fn main() {
@@ -31,7 +32,6 @@ async fn main() {
     let listener = tokio::net::TcpListener::from_std(listener)
         .unwrap_or_else(|e| die(&format!("listener: {e}")));
 
-    // Until there are sessions, logon is all there is to serve.
     let app = logon::routes(channel);
     eprintln!("gxwi-server: serving on descriptor {listener_fd}");
     // The peer's address rides along with each request: gxwid throttles on it.

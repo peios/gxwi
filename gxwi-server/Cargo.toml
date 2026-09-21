@@ -8,6 +8,12 @@ publish.workspace = true
 [dependencies]
 axum = { workspace = true }
 gxwi-channel = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 libauthd = { workspace = true }
 libc = { workspace = true }
+sha1 = { workspace = true }
 tokio = { workspace = true }
+
+[dev-dependencies]
+sha2 = { workspace = true }
