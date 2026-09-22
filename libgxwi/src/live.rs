@@ -168,6 +168,12 @@ impl<L: Live> Surface<L> {
         self.desk.let_go(self.number);
     }
 
+    /// The app's own number for the surface, which is what the desktop's
+    /// list of surfaces gives as [`crate::Listed::own`] for it.
+    pub fn number(&self) -> u64 {
+        self.number
+    }
+
     /// Something that can let the surface go, for the app itself to keep: an
     /// app cannot hold its own surface, which holds it.
     pub fn closer(&self) -> Closer {

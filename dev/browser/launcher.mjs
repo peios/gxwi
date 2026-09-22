@@ -3,8 +3,8 @@
 // that it is in sight only where it was sent for, that the keyboard goes into
 // it and comes back out, and that what it starts is started by the desktop.
 //
-// The dev VM puts the test app in /bin, which is what the launcher lists, so
-// that there is something to start that can be seen.
+// The dev VM declares the test app in the catalogue, which is what the
+// launcher lists, so that there is something to start that can be seen.
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
@@ -134,7 +134,7 @@ out.afterEscape = await a.js(desk);
 
 // A press on a window sends it away too.
 await press(a, "Alt+P");
-const tile = await a.js(`(() => { const r = document.querySelector(".fx-surface[data-kind=debug] .fx-strip").getBoundingClientRect(); return { x: r.left + 200, y: r.top + 10 }; })()`);
+const tile = await a.js(`(() => { const r = document.querySelector(".fx-surface[data-kind=app][data-role=window] .fx-strip").getBoundingClientRect(); return { x: r.left + 200, y: r.top + 10 }; })()`);
 await a.send("Input.dispatchMouseEvent", { type: "mousePressed", ...tile, button: "left", clickCount: 1 });
 await a.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...tile, button: "left", clickCount: 1 });
 await sleep(400);
