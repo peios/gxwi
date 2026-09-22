@@ -83,6 +83,8 @@ const desk = `(() => {
 })()`;
 /** What a taskbar shows. */
 const bar = `[...document.querySelectorAll("button")].map((b) => b.getAttribute("fx-surface") + " " + b.textContent + (b.dataset.fxFocused === "true" ? " FOCUSED" : "") + (b.dataset.fxVisible === "false" ? " (out of sight)" : ""))`;
+/** Each button's icon: the name it asks for, and whether the browser got an image for it. */
+const icons = `[...document.querySelectorAll("button img")].map((i) => i.getAttribute("src").split("/").pop() + (i.complete && i.naturalWidth > 0 ? " drawn" : " MISSING"))`;
 /** Presses a taskbar's button for real, by where it is on the desktop's page. */
 async function press(desktop, taskbar, surface) {
     const frame = await desktop.js(`(() => { const r = document.querySelector(".fx-surface[data-role=panel] iframe").getBoundingClientRect(); return [r.left, r.top]; })()`);
@@ -103,7 +105,7 @@ await launch(a.send);
 await sleep(2500);
 await launch(a.send);
 await sleep(3000);
-out.withTwoApps = { desk: await a.js(desk), bar: await ta.js(bar) };
+out.withTwoApps = { desk: await a.js(desk), bar: await ta.js(bar), icons: await ta.js(icons) };
 
 // The first window, asked for from the taskbar.
 const first = out.withTwoApps.desk.inSight[0];

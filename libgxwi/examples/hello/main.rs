@@ -47,6 +47,11 @@ impl Live for Hello {
     }
 }
 
+// What this program looks like, to whatever lists it. The icon itself is
+// `hello.svg`, beside this file, installed as the base theme's
+// `dev.peios.gxwi.hello.svg`.
+libgxwi::icon!(b"dev.peios.gxwi.hello");
+
 fn main() {
     let mut said: Vec<String> = std::env::args().skip(1).collect();
     let raw = said.first().is_some_and(|first| first == "--raw");

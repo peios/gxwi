@@ -66,6 +66,9 @@ pub struct Listed {
     pub id: u64,
     pub title: String,
     pub role: Role,
+    /// The name of the icon of the program behind it, as PGSS Icons finds
+    /// it, for [`crate::icons::href`].
+    pub icon: String,
 }
 
 /// What the desktop asks of an app, or tells it.
@@ -187,6 +190,7 @@ fn understood(message: &Value) -> Asked {
                     Some(Listed {
                         id: surface["id"].as_u64()?,
                         title: surface["title"].as_str()?.into(),
+                        icon: surface["icon"].as_str().filter(|id| crate::icons::is_id(id)).unwrap_or(crate::icons::GENERIC).into(),
                         // One with a role this library has not heard of is
                         // left out: whatever it is, it is not a window.
                         role: match surface["role"].as_str()? {
@@ -221,13 +225,15 @@ mod tests {
     fn the_surfaces_are_understood_and_what_is_not_a_known_role_is_left_out() {
         let message = json!({ "type": "surfaces", "surfaces": [
             { "id": 4, "title": "Notes", "role": "window" },
-            { "id": 5, "title": "Taskbar", "role": "panel" },
+            { "id": 5, "title": "Taskbar", "role": "panel", "icon": "../etc/passwd" },
             { "id": 6, "title": "Later", "role": "something newer" },
         ] });
         let Asked::Surfaces(surfaces) = understood(&message) else { panic!("not understood") };
         assert_eq!(surfaces.len(), 2);
-        assert_eq!(surfaces[0], Listed { id: 4, title: "Notes".into(), role: Role::Window });
+        assert_eq!(surfaces[0], Listed { id: 4, title: "Notes".into(), role: Role::Window, icon: "generic".into() });
         assert_eq!(surfaces[1].role, Role::Panel);
+        // An icon's name that is no name is not passed on.
+        assert_eq!(surfaces[1].icon, "generic");
         assert!(matches!(understood(&json!({ "type": "close", "surface": 2 })), Asked::Close(2)));
         assert!(matches!(understood(&json!({ "type": "never heard of it" })), Asked::Other));
     }
