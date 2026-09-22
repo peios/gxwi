@@ -15,17 +15,19 @@ cp "$from" /tmp/gxwi-compositor.$$ \
 # The test app and the parts of Fenestra's fallback shell go beside it, where
 # Fenestra looks for them. fenesh, the shell proper, goes there too if
 # ../fenesh/dev/push.sh has put one on the share, for its setting to name.
-for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh; do
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora; do
     [ -e "/gxwi/$beside" ] || continue
     cp "/gxwi/$beside" "/tmp/$beside.$$" \
         && sd allow "/tmp/$beside.$$" Everyone:rx \
         && mv "/tmp/$beside.$$" "/tmp/$beside"
 done
-# Fenestra's launcher lists /bin, where nothing is an app. The test app goes
-# there as well, so that there is something to start that can be seen.
-[ -e /tmp/gxwi-hello-app ] && cp -p /tmp/gxwi-hello-app /bin/gxwi-hello-app.$$ \
-    && sd allow /bin/gxwi-hello-app.$$ Everyone:rx \
-    && mv /bin/gxwi-hello-app.$$ /bin/gxwi-hello-app
+# The launcher lists /bin, where nothing is an app. The test app and Gexora
+# go there as well, so that there is something to start that can be seen.
+for app in gxwi-hello-app gexora; do
+    [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/bin/$app.$$" \
+        && sd allow "/bin/$app.$$" Everyone:rx \
+        && mv "/bin/$app.$$" "/bin/$app"
+done
 # The icon themes on the share go where PGSS Icons has them looked for.
 # Fenestra reads them as whoever logged on, so everyone is let read them. A
 # directory made here has no inheritable ACE of its own, so a file made in it
