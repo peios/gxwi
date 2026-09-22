@@ -196,8 +196,10 @@ fn type_ids(media: &str) -> Vec<String> {
 
 /// The media type of a file, from what can be seen without reading it:
 /// whether it is a directory, its extension, and whether it may be run. How
-/// a type is found is no part of PGSS Icons; this is what libgxwi does.
-fn media_type(path: &Path, metadata: &std::fs::Metadata) -> Option<String> {
+/// a type is found is no part of PGSS Icons; this is what libgxwi does, and
+/// an app that shows what a file is may show this until there is something
+/// that says it better.
+pub fn media_type(path: &Path, metadata: &std::fs::Metadata) -> Option<String> {
     use std::os::unix::fs::PermissionsExt;
     if metadata.is_dir() {
         return Some("inode/directory".into());

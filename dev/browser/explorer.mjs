@@ -69,9 +69,14 @@ const finish = async (code) => {
 const shows = `({
     path: document.querySelector("input[name=path]").value,
     picked: document.querySelector('[aria-selected="true"] span')?.textContent ?? null,
-    entries: [...document.querySelectorAll(".entries button")].map((b) => b.querySelector("span").textContent + " [" + b.querySelector("img").getAttribute("src").split("/").pop() + (b.querySelector("img").naturalWidth > 0 ? "]" : " MISSING]")),
+    entries: [...document.querySelectorAll(".entries button")].map((b) => b.querySelector(".name").textContent + " [" + b.querySelector("img").getAttribute("src").split("/").pop() + (b.querySelector("img").naturalWidth > 0 ? "]" : " MISSING]")),
     trouble: document.querySelector(".trouble")?.textContent ?? null,
     more: document.querySelector(".more")?.textContent ?? null,
+    status: document.querySelector(".status")?.textContent ?? null,
+    details: document.querySelector(".details") ? [...document.querySelectorAll(".details dt, .details dd")].map((e) => e.textContent).join(" | ") : null,
+    sortedBy: document.querySelector(".head [aria-sort]")?.textContent + " " + document.querySelector(".head [aria-sort]")?.getAttribute("aria-sort"),
+    places: [...document.querySelectorAll(".sidebar ul:not(.volumes) button")].map((b) => b.textContent + (b.getAttribute("aria-current") === "true" ? " CURRENT" : "")),
+    volumes: [...document.querySelectorAll(".volumes button")].map((b) => b.textContent),
 })`;
 const windows = () => a.js(`[...document.querySelectorAll(".fx-surface[data-role=window]")].map((s) => s.querySelector(".fx-title")?.textContent)`);
 const HELD = { Alt: 1, Ctrl: 2, Meta: 4, Shift: 8 };
@@ -111,6 +116,21 @@ out.inBin = await ex.js(shows);
 out.inBinNamed = out.inBin.entries.filter((e) => /gexora|hello/.test(e));
 out.inBinIcons = [...new Set(out.inBin.entries.map((e) => e.replace(/^.*\[/, "[")))];
 
+// The columns: a click on an entry picks it and fills the details; a click
+// on a heading sorts, and again the other way, with the pick following.
+await ex.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "gexora").click()`);
+await sleep(600);
+out.pickedGexora = await ex.js(shows);
+out.pickedGexoraRow = await ex.js(`(() => { const b = document.querySelector('[aria-selected="true"]'); return [".modified", ".kind", ".size"].map((c) => b.querySelector(c).textContent); })()`);
+await ex.js(`document.querySelector('.head [fx-value-by="size"]').click()`);
+await sleep(600);
+out.sortedBySize = { first: (await ex.js(shows)).entries[0], sortedBy: (await ex.js(shows)).sortedBy, picked: (await ex.js(shows)).picked };
+await ex.js(`document.querySelector('.head [fx-value-by="size"]').click()`);
+await sleep(600);
+out.sortedBySizeAgain = { first: (await ex.js(shows)).entries[0], sortedBy: (await ex.js(shows)).sortedBy, picked: (await ex.js(shows)).picked };
+await ex.js(`document.querySelector('.head [fx-value-by="name"]').click()`);
+await sleep(600);
+
 // The root, by the up button, and home again by the keyboard.
 await ex.js(`document.querySelector('[fx-click="up"]').click()`);
 await sleep(800);
@@ -128,14 +148,42 @@ await press("Enter");
 await sleep(800);
 out.afterEnterOnHome = await ex.js(shows);
 
+// The edge between Modified and Type, dragged 60px to the right for real:
+// Modified grows by what Type shrinks, the edge ends up under the pointer,
+// and nothing else moves. The widths are the page's: they survive a render.
+const widths = `getComputedStyle(document.querySelector(".head")).gridTemplateColumns.split(" ").map((w) => Math.round(parseFloat(w)))`;
+out.columnsBefore = await ex.js(widths);
+const edges = `[...document.querySelector(".head").children].map((c) => Math.round(c.getBoundingClientRect().right))`;
+out.edgesBefore = await ex.js(edges);
+const frame = await a.js(`(() => { const r = [...document.querySelectorAll(".fx-surface iframe")].find((f) => f.closest(".fx-surface").querySelector(".fx-title")?.textContent === "Gexora").getBoundingClientRect(); return [r.left, r.top]; })()`);
+const edge = await ex.js(`(() => { const r = document.querySelector(".head .modified").getBoundingClientRect(); return [r.right, r.top + r.height / 2]; })()`);
+const at = (x) => ({ x: frame[0] + x, y: frame[1] + edge[1], button: "left", buttons: 1 });
+await a.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...at(edge[0] - 1), buttons: 0 });
+out.cursorAtTheEdge = await ex.js(`document.querySelector(".head").style.cursor`);
+await a.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at(edge[0] - 1), clickCount: 1 });
+for (let x = edge[0]; x <= edge[0] + 60; x += 10) await a.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...at(x) });
+await a.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at(edge[0] + 60), buttons: 0, clickCount: 1 });
+await sleep(300);
+out.columnsAfterDragging = await ex.js(widths);
+out.edgesAfterDragging = await ex.js(edges);
+out.stillSortedBy = (await ex.js(shows)).sortedBy;
+await press("F5");
+await sleep(800);
+out.columnsAfterARender = await ex.js(widths);
+
+// Home again from the sidebar.
+await ex.js(`[...document.querySelectorAll(".sidebar button")].find((b) => b.textContent === "Home").click()`);
+await sleep(800);
+out.homeFromTheSidebar = { path: (await ex.js(shows)).path, places: (await ex.js(shows)).places };
+
 // A directory that is not there says so, and the listing stays.
 await typePath(ex, "/nowhere");
 out.somewhereMissing = await ex.js(shows);
 
 // Opening a program starts it: a new window.
 await typePath(ex, "/bin");
-out.helloFound = await ex.js(`!![...document.querySelectorAll(".entries button")].find((b) => b.textContent === "gxwi-hello-app")`);
-await ex.js(`[...document.querySelectorAll(".entries button")].find((b) => b.textContent === "gxwi-hello-app")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }))`);
+out.helloFound = await ex.js(`!![...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "gxwi-hello-app")`);
+await ex.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "gxwi-hello-app")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }))`);
 await sleep(3000);
 out.windowsAfterOpeningHello = await windows();
 writeFileSync(new URL("explorer.png", import.meta.url), Buffer.from((await a.send("Page.captureScreenshot")).result.data, "base64"));

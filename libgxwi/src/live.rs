@@ -35,6 +35,13 @@ use crate::Desk;
 /// and a form with `fx-submit` sends its fields as well. Nothing else in the
 /// HTML does anything. No script in it runs.
 ///
+/// A grid whose columns the person may widen or narrow is an element with an
+/// id and `fx-columns="16px minmax(0, 1fr) 140px"`, whose rows are styled
+/// with `grid-template-columns: var(--fx-columns)`: the page sets that from
+/// the attribute and changes it as the edges between the cells of the first
+/// row are dragged. The widths depend on the screen, so they are the
+/// device's and never reach the process.
+///
 /// Keys are named there too. An element with `fx-key="Ctrl+Enter"` is clicked
 /// when that is pressed while the surface has the keyboard, and several
 /// chords go in one attribute with spaces between. A chord is its modifiers,
