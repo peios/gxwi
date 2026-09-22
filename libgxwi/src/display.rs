@@ -6,17 +6,27 @@
 //!
 //!   app → compositor   { "type": "serve" }, with a stream socket attached
 //!   app → compositor   { "type": "create", "surface": n, "title", "role"?,
-//!                        "kind": "live", "socket", "styles": [...] }
+//!                        "edge"?, "kind": "live", "socket", "styles": [...] }
 //!                   or { ..., "kind": "raw", "path" }
 //!   app → compositor   { "type": "destroy", "surface": n }
 //!   shell → compositor { "type": "start", "program", "arguments": [...] }
+//!   shell → compositor { "type": "log_off" }
 //!   compositor → app   { "type": "close", "surface": n }
 //!   compositor → shell { "type": "surfaces",
-//!                        "surfaces": [{ "id", "title", "role" }] }
+//!                        "surfaces": [{ "id", "title", "role", "icon", "app",
+//!                                       "workspace", "own"?,
+//!                                       "application"?: { "id", "title" } }] }
 //!
-//! `role` is "window" unless said. The last message goes only to a part of
-//! the shell, which is a program the compositor started as one: see
-//! [`Asked::Surfaces`].
+//! `role` is "window" unless said, and `edge` is which edge a panel lies
+//! along ("top", "bottom", "left" or "right"), "bottom" unless said. `app`
+//! tells the surfaces of one program from another's: it is the compositor's
+//! number for the connection, and 0 for the desktop's own. `workspace` is
+//! which workspace a window is on, from 1, and 0 for anything that is not a
+//! window. `application` is the declaration the program behind a surface
+//! matched (PGSS Applications, [`crate::apps`]), when it matched one: the
+//! id, and the title it is listed under. The two messages marked shell → compositor
+//! are done only for a part of the shell, which is a program the compositor
+//! started as one, and so is the last: see [`Asked::Surfaces`].
 //!
 //! `App` is the way to use this. It is public for a program that wants the
 //! wire and nothing built on it.
@@ -45,6 +55,9 @@ pub enum Role {
     /// gone again when it is done with, such as a launcher. Only the shell
     /// can send for one.
     Overlay,
+    /// Something under everything, filling the desktop: the wallpaper, and
+    /// whatever else a shell puts on the desktop itself.
+    Background,
 }
 
 impl Role {
@@ -53,6 +66,27 @@ impl Role {
             Role::Window => "window",
             Role::Panel => "panel",
             Role::Overlay => "overlay",
+            Role::Background => "background",
+        }
+    }
+}
+
+/// Which edge of the desktop a panel lies along.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Edge {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl Edge {
+    fn name(self) -> &'static str {
+        match self {
+            Edge::Top => "top",
+            Edge::Bottom => "bottom",
+            Edge::Left => "left",
+            Edge::Right => "right",
         }
     }
 }
@@ -69,6 +103,31 @@ pub struct Listed {
     /// The name of the icon of the program behind it, as PGSS Icons finds
     /// it, for [`crate::icons::href`].
     pub icon: String,
+    /// Which program it belongs to, as a number that is the same for every
+    /// surface of one connection and different between two, for showing a
+    /// program's windows together. 0 is the desktop's own.
+    pub app: u64,
+    /// Which workspace a window is on, from 1. Anything that is not a
+    /// window is on none, which is 0. Which workspace a device is showing
+    /// is that device's, and comes to the HTML as `fx-workspace` marks.
+    pub workspace: u32,
+    /// The app's own number for it, when it is one of this app's: what
+    /// [`crate::Surface::number`] gives. So a part of the shell can find the
+    /// desktop's id for one of its own surfaces, which its HTML needs to send
+    /// for an overlay from a panel.
+    pub own: Option<u64>,
+    /// The application the program behind it is declared as (PGSS
+    /// Applications), if it is declared as one.
+    pub application: Option<Declaration>,
+}
+
+/// An application a running program was matched to: enough of its
+/// declaration to name it by, which [`crate::apps::Catalogue::get`] gives the
+/// rest of.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Declaration {
+    pub id: String,
+    pub title: String,
 }
 
 /// What the desktop asks of an app, or tells it.
@@ -132,15 +191,17 @@ impl Display {
     }
 
     /// Asks for a surface this process draws: the desktop's own page shows
-    /// what comes down the websocket at `socket`, styled by `styles`.
-    pub fn create_live(&self, surface: u64, title: &str, role: Role, socket: &str, styles: &[String]) -> io::Result<()> {
-        self.say(
-            json!({
-                "type": "create", "surface": surface, "title": title, "role": role.name(),
-                "kind": "live", "socket": socket, "styles": styles,
-            }),
-            &[],
-        )
+    /// what comes down the websocket at `socket`, styled by `styles`. `edge`
+    /// is for a panel, and says which edge it lies along.
+    pub fn create_live(&self, surface: u64, title: &str, role: Role, edge: Option<Edge>, socket: &str, styles: &[String]) -> io::Result<()> {
+        let mut message = json!({
+            "type": "create", "surface": surface, "title": title, "role": role.name(),
+            "kind": "live", "socket": socket, "styles": styles,
+        });
+        if let Some(edge) = edge {
+            message["edge"] = edge.name().into();
+        }
+        self.say(message, &[])
     }
 
     /// Asks for a surface that is a page of the app's own, at `path`.
@@ -154,6 +215,12 @@ impl Display {
     /// Nothing comes back, whether or not it started.
     pub fn start(&self, program: &str, arguments: &[String]) -> io::Result<()> {
         self.say(json!({ "type": "start", "program": program, "arguments": arguments }), &[])
+    }
+
+    /// Asks the desktop to end the session, which it does for a part of the
+    /// shell and for nobody else. Nothing comes back: the desktop goes.
+    pub fn log_off(&self) -> io::Result<()> {
+        self.say(json!({ "type": "log_off" }), &[])
     }
 
     /// Lets a surface go.
@@ -191,12 +258,19 @@ fn understood(message: &Value) -> Asked {
                         id: surface["id"].as_u64()?,
                         title: surface["title"].as_str()?.into(),
                         icon: surface["icon"].as_str().filter(|id| crate::icons::is_id(id)).unwrap_or(crate::icons::GENERIC).into(),
+                        app: surface["app"].as_u64().unwrap_or(0),
+                        workspace: surface["workspace"].as_u64().and_then(|n| u32::try_from(n).ok()).unwrap_or(0),
+                        own: surface["own"].as_u64(),
+                        application: surface["application"]["id"].as_str().filter(|id| crate::icons::is_id(id)).and_then(|id| {
+                            Some(Declaration { id: id.into(), title: surface["application"]["title"].as_str()?.into() })
+                        }),
                         // One with a role this library has not heard of is
                         // left out: whatever it is, it is not a window.
                         role: match surface["role"].as_str()? {
                             "window" => Role::Window,
                             "panel" => Role::Panel,
                             "overlay" => Role::Overlay,
+                            "background" => Role::Background,
                             _ => return None,
                         },
                     })
@@ -224,14 +298,17 @@ mod tests {
     #[test]
     fn the_surfaces_are_understood_and_what_is_not_a_known_role_is_left_out() {
         let message = json!({ "type": "surfaces", "surfaces": [
-            { "id": 4, "title": "Notes", "role": "window" },
-            { "id": 5, "title": "Taskbar", "role": "panel", "icon": "../etc/passwd" },
+            { "id": 4, "title": "Notes", "role": "window", "workspace": 2 },
+            { "id": 5, "title": "Taskbar", "role": "panel", "icon": "../etc/passwd", "app": 3, "own": 1, "application": { "id": "dev.peios.fenesh", "title": "fenesh" } },
             { "id": 6, "title": "Later", "role": "something newer" },
         ] });
         let Asked::Surfaces(surfaces) = understood(&message) else { panic!("not understood") };
         assert_eq!(surfaces.len(), 2);
-        assert_eq!(surfaces[0], Listed { id: 4, title: "Notes".into(), role: Role::Window, icon: "generic".into() });
+        assert_eq!(surfaces[0], Listed { id: 4, title: "Notes".into(), role: Role::Window, icon: "generic".into(), app: 0, workspace: 2, own: None, application: None });
+        assert_eq!(surfaces[1].application, Some(Declaration { id: "dev.peios.fenesh".into(), title: "fenesh".into() }));
+        assert_eq!(surfaces[1].workspace, 0);
         assert_eq!(surfaces[1].role, Role::Panel);
+        assert_eq!((surfaces[1].app, surfaces[1].own), (3, Some(1)));
         // An icon's name that is no name is not passed on.
         assert_eq!(surfaces[1].icon, "generic");
         assert!(matches!(understood(&json!({ "type": "close", "surface": 2 })), Asked::Close(2)));

@@ -56,9 +56,11 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 use axum::Router;
+use axum::body::Bytes;
 use axum::http::header::CONTENT_TYPE;
 use axum::routing::get;
 
+pub mod apps;
 pub mod display;
 pub mod icons;
 mod live;
@@ -67,7 +69,7 @@ pub use live::{Closer, Facts, Fields, Live, Surface, escape};
 /// What comes with an event.
 pub use serde_json::Value;
 
-pub use display::{Listed, Role};
+pub use display::{Declaration, Edge, Listed, Role};
 
 use display::{Asked, Display};
 
@@ -107,6 +109,13 @@ impl Shell {
     pub fn start(&self, program: &str, arguments: &[String]) -> io::Result<()> {
         self.desk.display.start(program, arguments)
     }
+
+    /// Has the desktop end the session: every app's surfaces go with it, this
+    /// one's included, and the person is back at the logon page. Nothing says
+    /// whether it will, but a desktop that agrees is gone at once.
+    pub fn log_off(&self) -> io::Result<()> {
+        self.desk.display.log_off()
+    }
 }
 
 enum Drawn {
@@ -117,6 +126,7 @@ enum Drawn {
 struct Asking {
     title: String,
     role: Role,
+    edge: Option<Edge>,
     drawn: Drawn,
     /// Whether the surface may go, asked when the person wants it closed.
     closing: Box<dyn Fn() -> bool + Send>,
@@ -150,6 +160,15 @@ impl App {
         self.styles.push(path.into());
     }
 
+    /// Serves `body` at `path` as `content_type`: an image a surface shows,
+    /// a file to download. A live surface refers to it from its HTML as
+    /// `../../<path>`, and a stylesheet at the app's root as `<path>`.
+    pub fn file(&mut self, path: &'static str, content_type: &'static str, body: Vec<u8>) {
+        let body = Bytes::from(body);
+        let router = std::mem::take(&mut self.router);
+        self.router = router.route(path, get(move || async move { ([(CONTENT_TYPE, content_type)], body.clone()) }));
+    }
+
     /// Whatever else the app serves: images, downloads, anything HTTP.
     pub fn routes(&mut self, routes: Router) {
         self.router = std::mem::take(&mut self.router).merge(routes);
@@ -158,15 +177,15 @@ impl App {
     /// A window, drawn by this process. The surface it returns is for
     /// changing the app from the process's side ([`Surface::update`]).
     pub fn live<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
-        self.live_as(Role::Window, title, app)
+        self.live_as(Role::Window, None, title, app)
     }
 
-    /// A live surface along an edge of the desktop, which the windows make
-    /// room for. Where it goes and how thick it is are the window manager's,
-    /// so it is drawn to fit whatever it is given. It has no strip, so the
-    /// person has no way to ask for it closed.
-    pub fn panel<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
-        self.live_as(Role::Panel, title, app)
+    /// A live surface along `edge` of the desktop, which the windows make
+    /// room for. How thick it is and how far along the edge it lies are the
+    /// window manager's, so it is drawn to fit whatever it is given. It has
+    /// no strip, so the person has no way to ask for it closed.
+    pub fn panel<L: Live>(&mut self, edge: Edge, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Panel, Some(edge), title, app)
     }
 
     /// A live surface over the windows, for a part of the shell: out of sight
@@ -177,8 +196,20 @@ impl App {
     /// is in when clicked, and with `fx-global-key` as well it can be sent for
     /// from anywhere. When it comes into sight the keyboard goes to the
     /// element marked `fx-autofocus`.
+    ///
+    /// A panel of the same app can send for it too: an element there with
+    /// `fx-overlay` and `fx-surface="<id>"` does that to the overlay the
+    /// desktop knows by that id, which the app finds in what it is told of
+    /// the surfaces, by [`Listed::own`] and [`Surface::number`].
     pub fn overlay<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
-        self.live_as(Role::Overlay, title, app)
+        self.live_as(Role::Overlay, None, title, app)
+    }
+
+    /// A live surface under everything, filling the desktop, for a part of
+    /// the shell: the wallpaper, and whatever a shell puts on the desktop
+    /// itself. It never has the focus and has no strip.
+    pub fn background<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Background, None, title, app)
     }
 
     /// What a part of the shell may ask of the desktop, for the app itself to
@@ -187,14 +218,14 @@ impl App {
         Shell { desk: self.desk.clone() }
     }
 
-    fn live_as<L: Live>(&mut self, role: Role, title: &str, app: L) -> Arc<Surface<L>> {
+    fn live_as<L: Live>(&mut self, role: Role, edge: Option<Edge>, title: &str, app: L) -> Arc<Surface<L>> {
         let number = self.number();
         let surface = Surface::new(app, number, self.desk.clone());
         let socket = format!("/.live/{number}");
         self.router = std::mem::take(&mut self.router).route(&socket, surface.socket());
         let asked = surface.clone();
         let closing = Box::new(move || asked.closing());
-        let asking = Asking { title: title.into(), role, drawn: Drawn::Live { socket }, closing };
+        let asking = Asking { title: title.into(), role, edge, drawn: Drawn::Live { socket }, closing };
         self.surfaces.insert(number, asking);
         surface
     }
@@ -215,7 +246,7 @@ impl App {
     pub fn raw_page(&mut self, title: &str, path: &str) {
         let number = self.number();
         let drawn = Drawn::Raw { path: path.into() };
-        let asking = Asking { title: title.into(), role: Role::Window, drawn, closing: Box::new(|| true) };
+        let asking = Asking { title: title.into(), role: Role::Window, edge: None, drawn, closing: Box::new(|| true) };
         self.surfaces.insert(number, asking);
     }
 
@@ -230,7 +261,11 @@ impl App {
     /// `false`, as that is on the device showing it. One with `fx-focus="<id>"`
     /// gives the surface the focus when clicked. Both are between the pages,
     /// on one device: which surface has the focus differs from device to
-    /// device, and is never this process's to know.
+    /// device, and is never this process's to know. So is which workspace a
+    /// device is showing: an element with `fx-workspace="2"` is marked
+    /// `data-fx-current` as that is on the device, and shows workspace 2
+    /// there when clicked. Which workspace each window is on is the
+    /// session's, and comes with the surfaces ([`Listed::workspace`]).
     ///
     /// A shell's surface may also claim chords for the whole desktop. An
     /// element with `fx-global-key="Ctrl+Space"` is clicked when that is
@@ -259,7 +294,9 @@ impl App {
         for (&number, asking) in &surfaces {
             desk.open.lock().unwrap_or_else(|e| e.into_inner()).insert(number);
             match &asking.drawn {
-                Drawn::Live { socket } => desk.display.create_live(number, &asking.title, asking.role, socket, &styles)?,
+                Drawn::Live { socket } => {
+                    desk.display.create_live(number, &asking.title, asking.role, asking.edge, socket, &styles)?
+                }
                 Drawn::Raw { path } => desk.display.create_raw(number, &asking.title, path)?,
             }
         }

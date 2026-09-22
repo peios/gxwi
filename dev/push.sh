@@ -23,6 +23,9 @@ mv "$share/gxwi-hello-app.new" "$share/gxwi-hello-app"
 # Its icon, for the base theme (PGSS Icons), under the name the app carries.
 mkdir -p "$share/icons/base"
 cp libgxwi/examples/hello/hello.svg "$share/icons/base/dev.peios.gxwi.hello.svg"
+# And its declaration, for the catalogue (PGSS Applications).
+mkdir -p "$share/apps"
+cp libgxwi/examples/hello/dev.peios.gxwi.hello.toml "$share/apps/dev.peios.gxwi.hello.toml"
 cp target/x86_64-unknown-linux-musl/release/gxwi-server "$share/gxwi-server.new"
 mv "$share/gxwi-server.new" "$share/gxwi-server"
 cp target/release/gxwi-hello "$share/gxwi-hello.new"

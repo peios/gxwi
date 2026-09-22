@@ -21,13 +21,27 @@ for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora; d
         && sd allow "/tmp/$beside.$$" Everyone:rx \
         && mv "/tmp/$beside.$$" "/tmp/$beside"
 done
-# The launcher lists /bin, where nothing is an app. The test app and Gexora
-# go there as well, so that there is something to start that can be seen.
+# The test app and Gexora go where a package would put them, /usr/bin, which
+# is where their declarations say they are, so that the launcher has
+# something to start that can be seen.
 for app in gxwi-hello-app gexora; do
-    [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/bin/$app.$$" \
-        && sd allow "/bin/$app.$$" Everyone:rx \
-        && mv "/bin/$app.$$" "/bin/$app"
+    [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/usr/bin/$app.$$" \
+        && sd allow "/usr/bin/$app.$$" Everyone:rx \
+        && mv "/usr/bin/$app.$$" "/usr/bin/$app"
 done
+# Their declarations (PGSS Applications) go where the catalogue is, which
+# the launcher lists and Fenestra names a running program by. Readable by
+# everyone, as the icons are: every part of the shell reads them as whoever
+# logged on.
+if [ -d /gxwi/apps ]; then
+    mkdir -p /usr/share/apps \
+        && sd allow --replace --flags CI,OI /usr/share/apps SYSTEM:full Administrators:full Everyone:rx
+    for declaration in /gxwi/apps/*.toml; do
+        [ -e "$declaration" ] || continue
+        cp "$declaration" "/usr/share/apps/$(basename "$declaration").$$" \
+            && mv "/usr/share/apps/$(basename "$declaration").$$" "/usr/share/apps/$(basename "$declaration")"
+    done
+fi
 # The icon themes on the share go where PGSS Icons has them looked for.
 # Fenestra reads them as whoever logged on, so everyone is let read them. A
 # directory made here has no inheritable ACE of its own, so a file made in it

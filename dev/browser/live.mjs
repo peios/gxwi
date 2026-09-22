@@ -39,7 +39,8 @@ const page = async (url) => attach(await browser(`/json/new?${url}`, "PUT"));
 async function frames(parent) {
     const all = await Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === parent.id).map(attach));
     const apps = [];
-    for (const frame of all) if (!(await frame.js(`!!document.querySelector("nav[aria-label=Windows], [fx-global-key]")`))) apps.push(frame);
+    // A frame that says something only the shell may say is the shell's.
+    for (const frame of all) if (!(await frame.js(`!!document.querySelector("[fx-focus], [fx-overlay], [fx-global-key]")`))) apps.push(frame);
     return apps;
 }
 
@@ -57,7 +58,7 @@ await sleep(3000);
 const out = {};
 const finish = async (code) => {
     out.desktopErrors = a.log;
-    await a.js(`document.querySelector("form")?.submit()`);
+    await a.js(`fetch("/.fenestra/logoff", { method: "POST" }).then(() => 0, () => 0)`);
     await sleep(1500);
     console.log(JSON.stringify(out, null, 1));
     chrome.kill();

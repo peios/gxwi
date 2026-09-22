@@ -5,8 +5,9 @@
 // directory by its name), that going into a directory and back works by
 // mouse and by keyboard, and that opening a program starts it.
 //
-// The dev VM puts Gexora and the test app in /bin, so "gexora" starts it at
-// alice's home and /bin is where the programs are.
+// The dev VM declares Gexora and the test app in the catalogue and puts them
+// in /usr/bin, so "gexora" starts it at alice's home and /bin, the view over
+// /usr/bin, is where the programs are.
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { launch } from "./launch.mjs";
