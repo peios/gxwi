@@ -31,17 +31,20 @@ use crate::Desk;
 ///
 /// The HTML names what the person can do: an element with `fx-click="press"`
 /// sends the event `press` when it is clicked, with its `fx-value-*`
-/// attributes as the value, and a form with `fx-submit` sends its fields as
-/// well. Nothing else in the HTML does anything. No script in it runs.
+/// attributes as the value, `fx-dblclick` does the same for a double click,
+/// and a form with `fx-submit` sends its fields as well. Nothing else in the
+/// HTML does anything. No script in it runs.
 ///
 /// Keys are named there too. An element with `fx-key="Ctrl+Enter"` is clicked
 /// when that is pressed while the surface has the keyboard, and several
 /// chords go in one attribute with spaces between. A chord is its modifiers,
 /// as Ctrl, Alt, Shift and Meta, then the key: a letter or digit, or a name
-/// such as `Enter`, `Escape`, `ArrowDown`, `Space` or `F5`. One that would be
-/// typing, like `P`, is left alone while the keyboard is in a field. Some
-/// chords are the desktop's and never arrive: what they are is the desktop's
-/// to say, and they all have Ctrl, Alt or Meta in them.
+/// such as `Enter`, `Escape`, `ArrowDown`, `Space` or `F5`. While the
+/// keyboard is in a field, what would type or edit there (`P`, `Backspace`,
+/// `ArrowLeft`, `Home`) is the field's, and so is `Enter` in a field of a
+/// form with `fx-submit`, which sends the form. Some chords are the desktop's
+/// and never arrive: what they are is the desktop's to say, and they all
+/// have Ctrl, Alt or Meta in them.
 pub trait Live: Send + 'static {
     /// The surface as HTML. Called after anything that might have changed it.
     /// Text that came from anywhere goes through [`escape`].
