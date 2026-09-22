@@ -7,7 +7,8 @@ while :; do
     while ! [ /gxwi/gxwid -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-server -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-hello -nt /tmp/gxwi.stamp ] \
-        && ! [ /gxwi/fenestra -nt /tmp/gxwi.stamp ]; do
+        && ! [ /gxwi/fenestra -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/fenesh -nt /tmp/gxwi.stamp ]; do
         sleep 1
     done
     svctl restart gxwid >> /share/svctl.txt 2>&1

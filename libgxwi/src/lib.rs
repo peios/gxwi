@@ -60,6 +60,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::routing::get;
 
 pub mod display;
+pub mod icons;
 mod live;
 
 pub use live::{Closer, Facts, Fields, Live, Surface, escape};
