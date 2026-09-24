@@ -52,6 +52,17 @@ use crate::Desk;
 /// form with `fx-submit`, which sends the form. Some chords are the desktop's
 /// and never arrive: what they are is the desktop's to say, and they all
 /// have Ctrl, Alt or Meta in them.
+///
+/// A menu is named there as well. An element with `fx-menu="tools"` names a
+/// `<menu id="tools" hidden>` elsewhere in the HTML, whose descendants with
+/// `fx-click` are its items in the order written, with an `<hr>` among them
+/// as a separator and a `disabled` one shown but not to be chosen. A
+/// secondary press on the element, a right-click, the Menu key, or a long
+/// press, opens the menu, which the desktop draws over every surface; the
+/// chosen item is clicked, with its `fx-value-*` attributes over the
+/// element's, so one menu serves every row of a list and the row's values
+/// come with the choice. A menu's labels cross to the desktop as text: an
+/// item is what its text says and nothing more is drawn.
 pub trait Live: Send + 'static {
     /// The surface as HTML. Called after anything that might have changed it.
     /// Text that came from anywhere goes through [`escape`].
