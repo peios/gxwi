@@ -1,6 +1,7 @@
 //! A small app: one window, which greets whoever is looking, counts presses
-//! of a button and keeps a note. It is what compositors are tried with, and
-//! the shortest honest answer to "how do I write an app".
+//! of a button, keeps a note, and has a menu on the count. It is what
+//! compositors are tried with, and the shortest honest answer to "how do I
+//! write an app".
 //!
 //! Everything about the window is in this process. The count, and the note
 //! half typed, are the same on every device looking at it, and are still
@@ -26,11 +27,20 @@ struct Hello {
 
 impl Live for Hello {
     fn render(&self, facts: &Facts) -> String {
+        // The menu on the count is the desktop's to draw; only its items,
+        // and what each does, are said here.
         format!(
             "<h1>{greeting}</h1>\n\
-             <p><button fx-click=\"press\" fx-key=\"Ctrl+Enter P\">Press</button> <span id=\"count\">pressed {count} times</span></p>\n\
+             <p fx-menu=\"count-menu\"><button fx-click=\"press\" fx-key=\"Ctrl+Enter P\">Press</button> <span id=\"count\">pressed {count} times</span></p>\n\
              <p><label>Note <input name=\"note\" autocomplete=\"off\"></label> <button fx-click=\"clear\" fx-key=\"Escape\">Clear</button></p>\n\
-             <p id=\"facts\">process {pid}, showing in {views} places</p>\n",
+             <p id=\"facts\">process {pid}, showing in {views} places</p>\n\
+             <menu id=\"count-menu\" hidden>\n\
+             <li><button fx-click=\"press\">Press</button></li>\n\
+             <li><button fx-click=\"reset\"{reset}>Start the count again</button></li>\n\
+             <li><hr></li>\n\
+             <li><button fx-click=\"clear\">Clear the note</button></li>\n\
+             </menu>\n",
+            reset = if self.count == 0 { " disabled" } else { "" },
             greeting = escape(&self.greeting),
             count = self.count,
             pid = std::process::id(),
@@ -41,6 +51,7 @@ impl Live for Hello {
     fn event(&mut self, name: &str, _value: &Value, fields: &mut Fields) {
         match name {
             "press" => self.count += 1,
+            "reset" => self.count = 0,
             "clear" => fields.set("note", ""),
             _ => {}
         }
