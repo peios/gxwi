@@ -453,7 +453,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 [[package]]
 name = "libauthd"
 version = "0.0.22"
-source = "git+https://github.com/peios/authd.git?rev=06f9750350ac727583738bf2e0b2b905464ebfa3#06f9750350ac727583738bf2e0b2b905464ebfa3"
+source = "git+https://github.com/peios/authd.git?rev=5966669b523585c2e901b4c27d8bba6547691fc8#5966669b523585c2e901b4c27d8bba6547691fc8"
 dependencies = [
  "libc",
 ]

@@ -97,6 +97,8 @@ impl Relay {
         }
         self.claimed_address = claimed.remote_host.clone();
         let start = LogonStart {
+            required_credential_type: None,
+            ssh_binding: None,
             logon_type: self.logon_type,
             identifier_type: IdentifierType::Username,
             identifier: claimed.identifier,
@@ -212,6 +214,8 @@ mod tests {
 
     fn start(identifier: &str) -> Vec<u8> {
         wire::encode_logon_start(&LogonStart {
+            required_credential_type: None,
+            ssh_binding: None,
             // Everything but the identifier and the host is there to be ignored.
             logon_type: LogonType::Service,
             identifier_type: IdentifierType::Username,
@@ -229,6 +233,7 @@ mod tests {
             prompts: refs
                 .iter()
                 .map(|&credential_ref| Prompt {
+            parameters: Vec::new(),
                     credential_ref,
                     credential_type: CredentialType::Password,
                     credential_name: "Password".into(),

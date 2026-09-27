@@ -120,6 +120,7 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
         let (kind, autocomplete) = match prompt.credential_type {
             // PGSS: a password is collected without echo.
             CredentialType::Password => ("password", "current-password"),
+            CredentialType::SshPublicKey => return self::username(Some("This sign-in method is not supported by this client.")),
         };
         // The button to show what was typed stays hidden unless the script
         // runs, since without the script it would do nothing.
@@ -244,6 +245,7 @@ mod tests {
                 text: "<script>alert(1)</script>".into(),
             }],
             prompts: vec![Prompt {
+            parameters: Vec::new(),
                 credential_ref: 7,
                 credential_type: CredentialType::Password,
                 credential_name: "\"><img src=x>".into(),
