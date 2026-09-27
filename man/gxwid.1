@@ -9,6 +9,7 @@ Started by peinit. Listens at the registry-configured address and authenticates 
 Machine\\Software\\GXWI controls Listen, Compositor and Logon text.
 .SH SECURITY
 HTTP has no TLS yet. The Experimental image enables TCP 7780 for trusted development networks only.
+The SYSTEM service retains SeImpersonatePrivilege to pass an authenticated principal's token to peinit using KACS_SCM_TOKEN. It does not mint principal tokens.
 
 .SH SEE ALSO
 The Peios learn documentation and installed registry manuals.
