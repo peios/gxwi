@@ -7,6 +7,12 @@ gxwid \- privileged GXWI listener and PGSS session manager
 Started by peinit. Listens at the registry-configured address and authenticates with PGSS. Sessions use RemoteInteractive tokens and run the configured compositor as the principal.
 .SH CONFIGURATION
 Machine\\Software\\GXWI controls Listen, Compositor and Logon text.
+.PP
+New compositor sessions resolve LANG and individual LC_* preferences from
+Machine\eSystem\eLocale and Users\e<SID>\eLocale using the authenticated
+principal. The fallback is C.UTF-8. Inherited locale overrides are cleared;
+rejoining an existing session does not change its environment. Registry locale
+preferences are administrator-managed; base-layer permissions are unchanged.
 .SH SECURITY
 HTTP has no TLS yet. The Experimental image enables TCP 7780 for trusted development networks only.
 The SYSTEM service retains SeImpersonatePrivilege to pass an authenticated principal's token to peinit using KACS_SCM_TOKEN. It does not mint principal tokens.

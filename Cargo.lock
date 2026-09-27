@@ -313,6 +313,7 @@ dependencies = [
  "gxwi-channel",
  "libauthd",
  "libc",
+ "libsession",
  "peios",
  "serde_json",
  "sha2",
@@ -453,7 +454,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 [[package]]
 name = "libauthd"
 version = "0.0.22"
-source = "git+https://github.com/peios/authd.git?rev=5966669b523585c2e901b4c27d8bba6547691fc8#5966669b523585c2e901b4c27d8bba6547691fc8"
+source = "git+https://github.com/peios/authd.git?rev=3aec2905a4e0bcbe7a4fd07682fb328847d6fc18#3aec2905a4e0bcbe7a4fd07682fb328847d6fc18"
 dependencies = [
  "libc",
 ]
@@ -487,6 +488,14 @@ checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
 dependencies = [
  "cfg-if",
  "windows-link",
+]
+
+[[package]]
+name = "libsession"
+version = "0.0.22"
+source = "git+https://github.com/peios/authd.git?rev=3aec2905a4e0bcbe7a4fd07682fb328847d6fc18#3aec2905a4e0bcbe7a4fd07682fb328847d6fc18"
+dependencies = [
+ "peios",
 ]
 
 [[package]]
