@@ -31,3 +31,10 @@ for key in network['keys']:
     path = key['path']
     assert path.rsplit('\\', 1)[0] in known, path
     known.add(path)
+
+# KACS_SCM_TOKEN uses the impersonation gate when handing a principal's
+# identity to peinit; SYSTEM identity alone does not satisfy that gate.
+service = json.loads((root / 'usr/share/regim/gxwid-service.reg').read_text())
+privileges = next(v['data'] for v in service['keys'][0]['values']
+                  if v['name'] == 'RequiredPrivileges')
+assert 'SeImpersonatePrivilege' in privileges
