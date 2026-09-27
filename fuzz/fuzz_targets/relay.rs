@@ -19,7 +19,7 @@ use libfuzzer_sys::fuzz_target;
 mod relay;
 use relay::{Action, Outcome, Relay};
 
-const TYPE: LogonType = LogonType::NetworkCleartext;
+const TYPE: LogonType = LogonType::RemoteInteractive;
 
 const TYPES: [u16; 6] = [
     wire::MSG_LOGON_START,

@@ -12,7 +12,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-libauthd = { git = "https://github.com/peios/authd.git", rev = "e9eb688d075d9c8b9f302d963bb75f651beea489", package = "libauthd" }
+libauthd = { git = "https://github.com/peios/authd.git", rev = "06f9750350ac727583738bf2e0b2b905464ebfa3", package = "libauthd" }
 
 [[bin]]
 name = "relay"

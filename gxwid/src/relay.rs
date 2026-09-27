@@ -208,7 +208,7 @@ mod tests {
     use libauthd::Secret;
     use libauthd::wire::{Answer, CredentialRequest, CredentialResponse, Prompt};
 
-    const TYPE: LogonType = LogonType::NetworkCleartext;
+    const TYPE: LogonType = LogonType::RemoteInteractive;
 
     fn start(identifier: &str) -> Vec<u8> {
         wire::encode_logon_start(&LogonStart {
