@@ -1,0 +1,13 @@
+[package]
+name = "dev.peios.gxwi-debugsource"
+description = "Peios web display server and demonstration application-debugsource"
+license = "(((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0 OR BSD-2-Clause OR MIT) AND (Apache-2.0 OR BSL-1.0) AND (Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND MIT AND (MIT AND BSD-3-Clause) AND (MIT OR Unlicense)) AND OFL-1.1"
+
+[dependencies]
+"dev.peios.gxwi" = "= {{release}}"
+
+[files]
+"@source:LICENSE" = "usr/share/licenses/dev.peios.gxwi-debugsource/LICENSE"
+":licenses/**" = "usr/share/licenses/dev.peios.gxwi-debugsource/third-party"
+"@source:gxwi-server/src/fonts/*.LICENSE" = "usr/share/licenses/dev.peios.gxwi-debugsource/fonts"
+":usr/src/debug/**" = "usr/src/debug"
