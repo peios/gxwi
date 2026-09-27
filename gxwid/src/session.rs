@@ -92,7 +92,16 @@ impl Sessions {
         }
         std::fs::create_dir(&runtime)?;
         stamp(&runtime, &format!("D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;{user})"))?;
-        let definition = self.definition(&user.to_string(), &runtime, profile);
+        let mut definition = self.definition(&user.to_string(), &runtime, profile);
+        let environment = definition["environment"].as_object_mut().expect("session environment");
+        // Neutralize inherited peinit/service locale variables. Empty locale
+        // categories fall back to LANG; neither LC_ALL nor LANGUAGE is policy.
+        for name in ["LC_ALL", "LANGUAGE"].into_iter().chain(libsession::locale::CATEGORIES.iter().copied()) {
+            environment.insert(name.into(), json!(""));
+        }
+        for (name, value) in libsession::locale::for_principal(user.as_ref()) {
+            environment.insert(name, json!(value));
+        }
         let job = Jobs::connect()?.submit(definition, token.as_fd(), &[listener.as_fd()])?;
         drop(listener);
         if job.state != "running" {
