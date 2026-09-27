@@ -7,7 +7,12 @@ for binary in ['gxwid', 'gxwi-server', 'gxwi-hello', 'gxwi-hello-app']:
     assert 'BIND_NOW' in dynamic and 'RELR' in dynamic
     assert 'RPATH' not in dynamic and 'RUNPATH' not in dynamic and 'TEXTREL' not in dynamic
     notes = subprocess.check_output(['readelf', '-n', elf], text=True)
-    assert 'IBT' in notes and 'SHSTK' in notes
+    if binary == 'gxwi-server':
+        headers = subprocess.check_output(['readelf', '-lW', elf], text=True)
+        assert 'INTERP' not in headers and 'NEEDED' not in dynamic
+        assert 'GNU_RELRO' in headers
+    else:
+        assert 'IBT' in notes and 'SHSTK' in notes
     build_id = notes.split('Build ID: ')[1].split()[0]
     debug = root / 'debug' / 'gxwi' / 'usr/lib/debug/.build-id' / build_id[:2] / (build_id[2:] + '.debug')
     assert debug.is_file()

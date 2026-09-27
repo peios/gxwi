@@ -18,6 +18,8 @@ cargo vendor --locked "$PEKIT_OUT/vendor" > "$PEKIT_OUT/cargo-config.toml"
 needs = ["vendor"]
 command = "sh packaging/build.sh"
 [build.main.dependencies.peipkg]
+"org.rust-lang.rust-std-x86-64-unknown-linux-musl" = ">= 1.98.1"
+"org.libc.musl-sysroot" = ">= 1.2.6"
 "org.gnu.gzip" = "*"
 "org.git.kernel.dash" = "*"
 "dev.peios.peiosutils" = "*"
@@ -47,9 +49,12 @@ export BINDGEN_EXTRA_CLANG_ARGS="-isystem $(gcc -print-file-name=include) ${BIND
 export RUSTC_BOOTSTRAP=1
 export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-Zcf-protection=full"
 cargo test --release --workspace --locked --offline --target-dir "$PEKIT_OUT/tests"
+RUSTFLAGS="$RUSTFLAGS -C relocation-model=pic -C link-self-contained=yes -C link-arg=-static-pie -C link-arg=-Wl,-z,ibtplt" \
+  cargo test --release -p gxwi-server --target x86_64-unknown-linux-musl --locked --offline --target-dir "$PEKIT_OUT/tests"
 python3 packaging/check-payload.py "$PEKIT_MAIN_OUT"
 '''
 [test.dependencies.peipkg]
+"org.rust-lang.rust-std-x86-64-unknown-linux-musl" = ">= 1.98.1"
 "org.git.kernel.dash" = "*"
 "dev.peios.peiosutils" = "*"
 "org.gnu.findutils" = "*"

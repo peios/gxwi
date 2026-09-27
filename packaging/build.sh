@@ -9,13 +9,17 @@ pkg-config --atleast-version=0.5.0 peios
 export BINDGEN_EXTRA_CLANG_ARGS="-isystem $(gcc -print-file-name=include) ${BINDGEN_EXTRA_CLANG_ARGS:-}"
 export RUSTC_BOOTSTRAP=1
 export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-Zcf-protection=full --remap-path-prefix=$PEKIT_WORKSPACE_ROOT=/usr/src/debug/dev.peios.$COMPONENT/.workspace --remap-path-prefix=$PEKIT_OUT_BASE=/usr/src/debug/dev.peios.$COMPONENT/.build --remap-path-prefix=$SRC=/usr/src/debug/dev.peios.$COMPONENT --remap-path-prefix=$PEKIT_VENDOR_OUT/vendor=/usr/src/debug/dev.peios.$COMPONENT/vendor"
-cargo build --release --workspace --bins --locked --offline --target-dir "$PEKIT_OUT/target"
+cargo build --release --workspace --exclude gxwi-server --bins --locked --offline --target-dir "$PEKIT_OUT/target"
+# The restricted worker cannot open the dynamic loader or shared libraries.
+# Use the distribution's self-contained musl target, matching dev/push.sh.
+RUSTFLAGS="$RUSTFLAGS -C relocation-model=pic -C link-self-contained=yes -C link-arg=-static-pie -C link-arg=-Wl,-z,ibtplt" \
+  cargo build --release -p gxwi-server --target x86_64-unknown-linux-musl --locked --offline --target-dir "$PEKIT_OUT/target"
 cargo build --release -p libgxwi --example hello --locked --offline --target-dir "$PEKIT_OUT/target"
 /usr/libexec/peios-packaging/collect-rust-licences --licence-root "$PEKIT_OUT/licenses" --root gxwid --root gxwi-server --root gxwi-hello --root libgxwi  --notice "git+https://github.com/peios/peios-rs.git=third-party/peios-rs-LICENSE" --notice "git+https://github.com/peios/authd.git=third-party/authd-LICENSE" --expression-out "$PEKIT_OUT/license-expression"
 python3 packaging/check-licenses.py "$PEKIT_OUT/license-expression"
 mkdir -p "$PEKIT_OUT/usr/bin" "$PEKIT_OUT/usr/share/regman" "$PEKIT_OUT/usr/share/regim"
 cp "$PEKIT_OUT/target/release/gxwid" "$PEKIT_OUT/usr/bin/gxwid"
-cp "$PEKIT_OUT/target/release/gxwi-server" "$PEKIT_OUT/usr/bin/gxwi-server"
+cp "$PEKIT_OUT/target/x86_64-unknown-linux-musl/release/gxwi-server" "$PEKIT_OUT/usr/bin/gxwi-server"
 cp "$PEKIT_OUT/target/release/gxwi-hello" "$PEKIT_OUT/usr/bin/gxwi-hello"
 cp "$PEKIT_OUT/target/release/examples/hello" "$PEKIT_OUT/usr/bin/gxwi-hello-app"
 cp gxwi.regman "$PEKIT_OUT/usr/share/regman/"
@@ -70,3 +74,6 @@ python3 packaging/stage-sdk.py "$PEKIT_OUT"
 
 mkdir -p "$PEKIT_OUT/usr/share/man/man1"
 for manual in man/*.1; do gzip -n -9 -c "$manual" > "$PEKIT_OUT/usr/share/man/man1/$(basename "$manual").gz"; done
+
+# musl is statically included; its notice must travel with the worker.
+cp /usr/share/licenses/org.libc.musl-sysroot/COPYRIGHT "$PEKIT_OUT/licenses/musl-COPYRIGHT"
