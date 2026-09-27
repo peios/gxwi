@@ -291,7 +291,7 @@ impl Logon {
         conversation.set_write_timeout(Some(GXWID_TIMEOUT))?;
         let start = LogonStart {
             // gxwid settles these two itself, whatever is written here.
-            logon_type: LogonType::NetworkCleartext,
+            logon_type: LogonType::RemoteInteractive,
             supported_credential_types: vec![CredentialType::Password],
             identifier_type: IdentifierType::Username,
             identifier: username.as_bytes().to_vec(),

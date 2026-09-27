@@ -21,10 +21,9 @@ use crate::relay::{self, Action, Outcome, Relay};
 use crate::session::Sessions;
 use crate::throttle::Throttle;
 
-/// The kind of sign-on a GXWI logon is. NetworkCleartext says what happened:
-/// the credential reached us over a network, in the clear. It stands in until
-/// PGSS has a remote-interactive type.
-const LOGON_TYPE: LogonType = LogonType::NetworkCleartext;
+/// A GXWI session is an interactive desktop reached over a network. authd
+/// derives Interactive and Remote Interactive groups, without Network.
+const LOGON_TYPE: LogonType = LogonType::RemoteInteractive;
 
 /// The authority serves 64 conversations for the whole machine. GXWI never
 /// takes more than a quarter of them, so it cannot crowd out the console.
