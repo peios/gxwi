@@ -17,3 +17,12 @@ for seed in (root / 'usr/share/regim').glob('*.reg'):
     assert '/tmp/' not in seed.read_text() and '/share/' not in seed.read_text()
 for app in (root / 'usr/share/apps').glob('*.toml'):
     tomllib.loads(app.read_text())
+
+# Seeds are applied in filename order: GXWI precedes port-reservations.
+# Its network seed must create every parent below the existing System key.
+known = {r'Machine', r'Machine\System'}
+network = json.loads((root / 'usr/share/regim/gxwi-network.reg').read_text())
+for key in network['keys']:
+    path = key['path']
+    assert path.rsplit('\\', 1)[0] in known, path
+    known.add(path)
