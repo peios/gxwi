@@ -1,6 +1,12 @@
 {
   "keys": [
     {
+      "path": "Machine\\System\\Network"
+    },
+    {
+      "path": "Machine\\System\\Network\\TcpIp"
+    },
+    {
       "path": "Machine\\System\\Network\\TcpIp\\PortReservations",
       "values": [
         {
@@ -9,6 +15,12 @@
           "data": "010004801400000020000000000000002c0000000101000000000005120000000101000000000005120000000200300001000000000028000100020001060000000000055000000024e79408b68d0d957654fb1d90e232b821187616"
         }
       ]
+    },
+    {
+      "path": "Machine\\System\\Network\\Rules"
+    },
+    {
+      "path": "Machine\\System\\Network\\Rules\\Flow"
     },
     {
       "path": "Machine\\System\\Network\\Rules\\Flow\\gxwi-experimental",
