@@ -1,0 +1,57 @@
+{
+  "keys": [
+    {
+      "path": "Machine\\System\\Services\\gxwid",
+      "values": [
+        {
+          "name": "ImagePath",
+          "type": "sz",
+          "data": "/usr/bin/gxwid"
+        },
+        {
+          "name": "Identity",
+          "type": "sz",
+          "data": "SYSTEM"
+        },
+        {
+          "name": "Triggers",
+          "type": "multi",
+          "data": [
+            "boot"
+          ]
+        },
+        {
+          "name": "Requires",
+          "type": "multi",
+          "data": [
+            "lpsd"
+          ]
+        },
+        {
+          "name": "RequiredPrivileges",
+          "type": "multi",
+          "data": [
+            "SeChangeNotifyPrivilege",
+            "SeAssignPrimaryTokenPrivilege",
+            "SeTcbPrivilege"
+          ]
+        },
+        {
+          "name": "Readiness",
+          "type": "dword",
+          "data": 1
+        },
+        {
+          "name": "RestartPolicy",
+          "type": "dword",
+          "data": 1
+        },
+        {
+          "name": "DisplayName",
+          "type": "sz",
+          "data": "GXWI display server"
+        }
+      ]
+    }
+  ]
+}

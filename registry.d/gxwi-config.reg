@@ -1,0 +1,36 @@
+{
+  "keys": [
+    {
+      "path": "Machine\\Software",
+      "values": []
+    },
+    {
+      "path": "Machine\\Software\\GXWI",
+      "values": [
+        {
+          "name": "Listen",
+          "type": "sz",
+          "data": "0.0.0.0:7780"
+        }
+      ]
+    },
+    {
+      "path": "Machine\\Software\\GXWI\\Logon",
+      "values": [
+        {
+          "name": "Name",
+          "type": "sz",
+          "data": "Peios Experimental"
+        },
+        {
+          "name": "Notice",
+          "type": "multi",
+          "data": [
+            "Development image. GXWI currently uses unencrypted HTTP; use only on a trusted development network.",
+            "The live image account is peios, with no password."
+          ]
+        }
+      ]
+    }
+  ]
+}

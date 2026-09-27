@@ -1,0 +1,9 @@
+# Source-only Cargo directory input. No compiled Rust ABI is promised.
+[package]
+name = "dev.peios.gxwi-sdk"
+architecture = "noarch"
+description = "Pinned libgxwi source for isolated Cargo builds"
+license = "MIT"
+[files]
+"@source:LICENSE" = "usr/share/licenses/dev.peios.gxwi-sdk/LICENSE"
+":usr/share/cargo/gxwi/**" = "usr/share/cargo/gxwi"

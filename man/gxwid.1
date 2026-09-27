@@ -1,0 +1,14 @@
+.TH GXWID 1 "2026-09-27" "Peios"
+.SH NAME
+gxwid \- privileged GXWI listener and PGSS session manager
+.SH SYNOPSIS
+.B gxwid
+.SH DESCRIPTION
+Started by peinit. Listens at the registry-configured address and authenticates with PGSS. Sessions use RemoteInteractive tokens and run the configured compositor as the principal.
+.SH CONFIGURATION
+Machine\\Software\\GXWI controls Listen, Compositor and Logon text.
+.SH SECURITY
+HTTP has no TLS yet. The Experimental image enables TCP 7780 for trusted development networks only.
+
+.SH SEE ALSO
+The Peios learn documentation and installed registry manuals.
