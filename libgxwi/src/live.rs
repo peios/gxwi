@@ -48,8 +48,8 @@ use crate::Desk;
 /// as Ctrl, Alt, Shift and Meta, then the key: a letter or digit, or a name
 /// such as `Enter`, `Escape`, `ArrowDown`, `Space` or `F5`. While the
 /// keyboard is in a field, what would type or edit there (`P`, `Backspace`,
-/// `ArrowLeft`, `Home`) is the field's, and so is `Enter` in a field of a
-/// form with `fx-submit`, which sends the form. Some chords are the desktop's
+/// `ArrowLeft`, `Home`, `Ctrl+V`, `Ctrl+Z`) is the field's, and so is
+/// `Enter` in a field of a form with `fx-submit`, which sends the form. Some chords are the desktop's
 /// and never arrive: what they are is the desktop's to say, and they all
 /// have Ctrl, Alt or Meta in them.
 ///
@@ -151,10 +151,12 @@ enum FromPage {
     },
 }
 
-/// The most one field may hold, and the most fields: a page is not trusted
-/// to be the compositor's.
-const MAX_FIELD_BYTES: usize = 64 * 1024;
+/// The most one field may hold, the most fields, and the most they may hold
+/// between them: a page is not trusted to be the compositor's. A field is
+/// let hold a file's worth of text, for an app that edits one.
+pub const MAX_FIELD_BYTES: usize = 1024 * 1024;
 const MAX_FIELDS: usize = 256;
+const MAX_FIELDS_BYTES: usize = 4 * MAX_FIELD_BYTES;
 
 pub struct Surface<L> {
     state: Mutex<(L, Fields)>,
@@ -191,6 +193,14 @@ impl<L: Live> Surface<L> {
     pub fn look<T>(&self, at: impl FnOnce(&L, &Fields, &Facts) -> T) -> T {
         let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
         at(&state.0, &state.1, &Facts { views: self.views.load(Ordering::Relaxed), fields: &state.1 })
+    }
+
+    /// Calls the surface something else than it was made as: what is on its
+    /// window's strip, and what a shell lists it as. Nothing happens before
+    /// the app is on the desktop ([`crate::App::run`]), where a surface is
+    /// called what it was made as.
+    pub fn retitle(&self, title: &str) {
+        self.desk.retitle(self.number, title);
     }
 
     /// Lets the surface go. When an app's last surface goes, `App::run` ends.
@@ -263,7 +273,8 @@ impl<L: Live> Surface<L> {
             Ok(FromPage::Event { name, value }) => app.event(&name, &value, fields),
             Ok(FromPage::Input { name, value }) => {
                 let room = fields.0.len() < MAX_FIELDS || fields.0.contains_key(&name);
-                if room && value.len() <= MAX_FIELD_BYTES && name.len() <= 256 {
+                let others: usize = fields.0.iter().filter(|(other, _)| **other != name).map(|(_, field)| field.value.len()).sum();
+                if room && value.len() <= MAX_FIELD_BYTES && others + value.len() <= MAX_FIELDS_BYTES && name.len() <= 256 {
                     fields.0.insert(name.clone(), Field { value, by: page });
                     app.input(&name, fields);
                 }
@@ -284,6 +295,11 @@ pub struct Closer {
 impl Closer {
     pub(crate) fn new(number: u64, desk: Arc<Desk>) -> Closer {
         Closer { number, desk }
+    }
+
+    /// Calls the surface something else. See [`Surface::retitle`].
+    pub fn retitle(&self, title: &str) {
+        self.desk.retitle(self.number, title);
     }
 
     pub fn close(&self) {

@@ -65,7 +65,7 @@ pub mod display;
 pub mod icons;
 mod live;
 
-pub use live::{Closer, Facts, Fields, Live, Surface, escape};
+pub use live::{Closer, Facts, Fields, Live, MAX_FIELD_BYTES, Surface, escape};
 /// What comes with an event.
 pub use serde_json::Value;
 
@@ -81,6 +81,16 @@ pub(crate) struct Desk {
 }
 
 impl Desk {
+    /// Calls a surface something else, if it is still there.
+    pub(crate) fn retitle(&self, surface: u64, title: &str) {
+        if !self.open.lock().unwrap_or_else(|e| e.into_inner()).contains(&surface) {
+            return;
+        }
+        if let Err(e) = self.display.title(surface, title) {
+            eprintln!("libgxwi: calling surface {surface} something else: {e}");
+        }
+    }
+
     /// Lets a surface go, and the app with it if that was the last.
     pub(crate) fn let_go(&self, surface: u64) {
         let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
