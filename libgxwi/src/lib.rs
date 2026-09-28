@@ -110,6 +110,15 @@ impl Shell {
         self.desk.display.start(program, arguments)
     }
 
+    /// Has the desktop ask for a surface to be closed, as the person does
+    /// with the button on a window's strip: `id` is the desktop's for it
+    /// ([`Listed::id`]), and the app whose surface it is decides what
+    /// closing means ([`Live::closing`]). Nothing says whether it went; the
+    /// surfaces a shell is told are what says.
+    pub fn close(&self, id: u64) -> io::Result<()> {
+        self.desk.display.close(id)
+    }
+
     /// Has the desktop end the session: every app's surfaces go with it, this
     /// one's included, and the person is back at the logon page. Nothing says
     /// whether it will, but a desktop that agrees is gone at once.
@@ -259,7 +268,9 @@ impl App {
     /// HTML. An element with `fx-surface="<id>"` is about that surface, and
     /// the page marks it `data-fx-focused` and `data-fx-visible`, `true` or
     /// `false`, as that is on the device showing it. One with `fx-focus="<id>"`
-    /// gives the surface the focus when clicked. Both are between the pages,
+    /// gives the surface the focus when clicked, and one with several ids,
+    /// spaces between, the one after whichever of them has the focus, so
+    /// that pressing it again goes through them. Both are between the pages,
     /// on one device: which surface has the focus differs from device to
     /// device, and is never this process's to know. So is which workspace a
     /// device is showing: an element with `fx-workspace="2"` is marked
