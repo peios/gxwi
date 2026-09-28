@@ -34,7 +34,14 @@ export async function session(port) {
             else if (msg.method === "Runtime.consoleAPICalled") log.push(msg.params.args.map((a) => a.value).join(" "));
             else if (msg.method === "Runtime.exceptionThrown") log.push(msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text);
         };
-        const send = (method, params = {}) => new Promise((r) => { const id = next++; waiting.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
+        // A frame that has gone answers nothing, and is not waited for.
+        const send = (method, params = {}) => new Promise((r) => {
+            const id = next++;
+            waiting.set(id, r);
+            setTimeout(() => r({ error: { message: `no answer to ${method}` }, result: {} }), 15000);
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ id, method, params }));
+            else r({ error: { message: "gone" }, result: {} });
+        });
         await send("Log.enable");
         await send("Runtime.enable");
         const js = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.result?.value;

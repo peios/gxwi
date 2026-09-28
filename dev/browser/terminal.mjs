@@ -77,6 +77,11 @@ await type("printf '\\033[31mred \\033[1;32mgreen\\033[m plain\\n'\n");
 out.colours = await term.js(`[...document.querySelectorAll(".xterm-rows span")].filter((s) => /^(red|green)/.test(s.textContent.trim())).map((s) => ({ says: s.textContent.trim(), colour: getComputedStyle(s).color, weight: getComputedStyle(s).fontWeight }))`);
 await desk.picture("terminal.png");
 
+// ---- the window is called what the shell calls the terminal
+
+await type("printf '\\033]0;called by the shell\\007'\n");
+out.called = await a.js(`document.querySelector('${WINDOW} .fx-title')?.textContent`);
+
 // ---- Ctrl+C reaches what is running
 
 await type("sleep 300\n");
