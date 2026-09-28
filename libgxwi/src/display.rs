@@ -8,6 +8,7 @@
 //!   app → compositor   { "type": "create", "surface": n, "title", "role"?,
 //!                        "edge"?, "kind": "live", "socket", "styles": [...] }
 //!                   or { ..., "kind": "raw", "path" }
+//!   app → compositor   { "type": "title", "surface": n, "title" }
 //!   app → compositor   { "type": "destroy", "surface": n }
 //!   shell → compositor { "type": "start", "program", "arguments": [...] }
 //!   shell → compositor { "type": "close", "id": n }
@@ -233,6 +234,11 @@ impl Display {
     /// shell and for nobody else. Nothing comes back: the desktop goes.
     pub fn log_off(&self) -> io::Result<()> {
         self.say(json!({ "type": "log_off" }), &[])
+    }
+
+    /// Calls a surface something else than it was made as.
+    pub fn title(&self, surface: u64, title: &str) -> io::Result<()> {
+        self.say(json!({ "type": "title", "surface": surface, "title": title }), &[])
     }
 
     /// Lets a surface go.
