@@ -252,11 +252,16 @@ impl App {
     /// `<script type="module" src="../.fx/keys.js">` from a page at `/raw/`.
     /// A page without it is one the person cannot leave by the keyboard, and
     /// the desktop says so on its window.
-    pub fn raw_page(&mut self, title: &str, path: &str) {
+    ///
+    /// The person closing the window lets it go without asking. What comes
+    /// back lets it go from the process's side, as when what the page was
+    /// showing has ended.
+    pub fn raw_page(&mut self, title: &str, path: &str) -> Closer {
         let number = self.number();
         let drawn = Drawn::Raw { path: path.into() };
         let asking = Asking { title: title.into(), role: Role::Window, edge: None, drawn, closing: Box::new(|| true) };
         self.surfaces.insert(number, asking);
+        Closer::new(number, self.desk.clone())
     }
 
     /// For a part of the shell: `told` hears every surface the session has,
