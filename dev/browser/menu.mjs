@@ -68,8 +68,9 @@ const finish = async (code) => {
 
 await launch(a.send);
 await sleep(3000);
-const fa = await frame(a, "[fx-menu]");
-if (!fa) { out.stopped = "no frame with a menu in it"; await finish(1); }
+// The test app's frame, by its own menu: a shell's dock has menus as well.
+const fa = await frame(a, "#count-menu");
+if (!fa) { out.stopped = "no frame with the test app's menu in it"; await finish(1); }
 
 /** What the desktop's page shows of the menu. */
 const shown = `(() => {
