@@ -57,10 +57,14 @@ out.anotherWindow = (await desk.desk()).windows.length - windows;
 // Back to the first window, which the keyboard follows.
 await desk.press(gexora, ".status");
 
-// Nothing on this machine says it opens text.
+// What opens text is the editor, if ../../../peitor/dev/push.sh has put it
+// on the share, and nothing if it has not, which is said.
 await desk.menuOn(gexora, row("notes.txt"));
+const before = (await desk.desk()).windows.length;
 await desk.choose("Open");
-out.openingWhatNothingOpens = await says();
+await sleep(3000);
+out.openingAFile = { ...(await says()), windowsMore: (await desk.desk()).windows.length - before };
+await desk.press(gexora, ".status");
 
 // ---- copying a path
 

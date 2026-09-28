@@ -15,16 +15,16 @@ cp "$from" /tmp/gxwi-compositor.$$ \
 # The test app and the parts of Fenestra's fallback shell go beside it, where
 # Fenestra looks for them. fenesh, the shell proper, goes there too if
 # ../fenesh/dev/push.sh has put one on the share, for its setting to name.
-for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora peiterm; do
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora peiterm peitor; do
     [ -e "/gxwi/$beside" ] || continue
     cp "/gxwi/$beside" "/tmp/$beside.$$" \
         && sd allow "/tmp/$beside.$$" Everyone:rx \
         && mv "/tmp/$beside.$$" "/tmp/$beside"
 done
-# The test app, Gexora and peiterm go where a package would put them,
-# /usr/bin, which is where their declarations say they are, so that the
-# launcher has something to start that can be seen.
-for app in gxwi-hello-app gexora peiterm; do
+# The test app, Gexora, peiterm and peitor go where a package would put
+# them, /usr/bin, which is where their declarations say they are, so that
+# the launcher has something to start that can be seen.
+for app in gxwi-hello-app gexora peiterm peitor; do
     [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/usr/bin/$app.$$" \
         && sd allow "/usr/bin/$app.$$" Everyone:rx \
         && mv "/usr/bin/$app.$$" "/usr/bin/$app"
