@@ -96,14 +96,14 @@ out.atFirst = await where();
 // The window manager's chord, with the keyboard in the desktop's own page,
 // which the first window is drawn by.
 await press("Alt+1");
-await press("Alt+J");
+await press("Alt+K");
 out.nextFromTheDesktop = await where();
 // The shell's: the taskbar's third button, which is clicked though nobody is near it.
 await press("Alt+3");
 out.theThirdWindowByItsNumber = await where();
 // And the window manager's again with the keyboard in an app's page, which
 // the desktop cannot hear.
-await press("Alt+K");
+await press("Alt+J");
 out.previousFromInsideAnApp = await where();
 
 // An app's own keys, in whichever app has the keyboard now.
