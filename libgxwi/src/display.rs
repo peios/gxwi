@@ -10,6 +10,7 @@
 //!                   or { ..., "kind": "raw", "path" }
 //!   app → compositor   { "type": "destroy", "surface": n }
 //!   shell → compositor { "type": "start", "program", "arguments": [...] }
+//!   shell → compositor { "type": "close", "id": n }
 //!   shell → compositor { "type": "log_off" }
 //!   compositor → app   { "type": "close", "surface": n }
 //!   compositor → shell { "type": "surfaces",
@@ -24,9 +25,12 @@
 //! which workspace a window is on, from 1, and 0 for anything that is not a
 //! window. `application` is the declaration the program behind a surface
 //! matched (PGSS Applications, [`crate::apps`]), when it matched one: the
-//! id, and the title it is listed under. The two messages marked shell → compositor
+//! id, and the title it is listed under. The messages marked shell → compositor
 //! are done only for a part of the shell, which is a program the compositor
-//! started as one, and so is the last: see [`Asked::Surfaces`].
+//! started as one, and so is the last: see [`Asked::Surfaces`]. The `id` a
+//! shell asks to have closed is the desktop's for a surface of anyone's, as
+//! `surfaces` gave it, and the asking is passed on to the app whose surface
+//! it is as `close`, with that app's own number.
 //!
 //! `App` is the way to use this. It is public for a program that wants the
 //! wire and nothing built on it.
@@ -215,6 +219,14 @@ impl Display {
     /// Nothing comes back, whether or not it started.
     pub fn start(&self, program: &str, arguments: &[String]) -> io::Result<()> {
         self.say(json!({ "type": "start", "program": program, "arguments": arguments }), &[])
+    }
+
+    /// Asks the desktop to have a surface closed, anyone's, by the desktop's
+    /// id for it ([`Listed::id`]), which it does for a part of the shell and
+    /// for nobody else. It is the person asking: the app whose surface it is
+    /// is asked in turn, and decides. Nothing comes back.
+    pub fn close(&self, id: u64) -> io::Result<()> {
+        self.say(json!({ "type": "close", "id": id }), &[])
     }
 
     /// Asks the desktop to end the session, which it does for a part of the

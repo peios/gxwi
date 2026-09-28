@@ -53,9 +53,28 @@ use crate::Desk;
 /// and never arrive: what they are is the desktop's to say, and they all
 /// have Ctrl, Alt or Meta in them.
 ///
+/// The keyboard goes to an element marked `fx-autofocus` when a render
+/// brings it where there was none, if the keyboard is in the surface
+/// already, and what a field holds is selected: a field that appears because
+/// the person asked for it is where they type next.
+///
+/// What the person may copy is named there. An element with `fx-copy="path"`
+/// puts the value it has by that name, its `fx-value-path`, where the person
+/// pastes from when it is clicked, on the device it was clicked on. The text
+/// does not come by the process; an element that has `fx-click` as well
+/// tells the process it was pressed.
+///
+/// A list the person may put in another order is an element with
+/// `fx-reorder="moved"`, whose children marked `fx-drag` are dragged along
+/// it, across or down as the list lies. Let go somewhere else among them,
+/// the event `moved` comes with the list's `fx-value-*` attributes, the
+/// dragged child's over them, and `to`: where among the `fx-drag` children
+/// it now is, counted from `"0"`. The children want ids, and what is
+/// rendered next says where each of them is, whatever the person did.
+///
 /// A menu is named there as well. An element with `fx-menu="tools"` names a
 /// `<menu id="tools" hidden>` elsewhere in the HTML, whose descendants with
-/// `fx-click` are its items in the order written, with an `<hr>` among them
+/// `fx-click` or `fx-copy` are its items in the order written, with an `<hr>` among them
 /// as a separator and a `disabled` one shown but not to be chosen. A
 /// secondary press on the element, a right-click, the Menu key, or a long
 /// press, opens the menu, which the desktop draws over every surface; the
