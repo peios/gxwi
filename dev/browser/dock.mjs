@@ -79,10 +79,11 @@ const desk = `(() => {
 })()`;
 /** What the dock shows: each program, its icon, its windows, and what the page marks. */
 const shows = `({
-    programs: [...document.querySelectorAll(".dock li")].map((li) => ({
+    programs: [...document.querySelectorAll(".dock > ul > li")].map((li) => ({
         id: li.id,
         icon: li.querySelector("img").getAttribute("src").split("/").pop() + (li.querySelector("img").naturalWidth > 0 ? "" : " MISSING"),
-        goesTo: Number(li.querySelector("button").getAttribute("fx-focus")),
+        // The first of the windows its icon goes through, and 0 for a pin that is not running.
+        goesTo: Number((li.querySelector("button").getAttribute("fx-focus") ?? "").split(" ")[0]),
         key: li.querySelector("button").getAttribute("fx-global-key"),
         titles: li.querySelector("button").title,
         windows: [...li.querySelectorAll(".windows i")].map((i) => Number(i.getAttribute("fx-surface")) + (i.dataset.fxFocused === "true" ? " FOCUSED" : "") + (i.dataset.fxVisible === "false" ? " (out of sight)" : "")),
@@ -107,7 +108,8 @@ out.atFirst = { desk: await a.js(desk), dock: await dock.js(shows) };
 
 // Two windows of the desktop's own (Space, while the keyboard is on the
 // desktop's own page), and two programs started from the launcher: three
-// programs, the first with two windows.
+// programs, the first with two windows. They come after whatever is pinned,
+// which the dev VM's settings make Gexora (pins.mjs is about that).
 for (let i = 0; i < 2; i++) {
     await a.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: " ", code: "Space", windowsVirtualKeyCode: 32 });
     await a.send("Input.dispatchKeyEvent", { type: "keyUp", key: " ", code: "Space", windowsVirtualKeyCode: 32 });
@@ -122,17 +124,22 @@ writeFileSync(new URL("dock.png", import.meta.url), Buffer.from((await a.send("P
 
 // The first program's icon, pressed for real: its first window has the focus.
 // Then its second dot: the second window.
-const first = out.withThreePrograms.dock.programs[0];
+// What is running has windows, whether it is drawn in a pin's place or not.
+const running = out.withThreePrograms.dock.programs.filter((program) => program.windows.length > 0).sort((x, y) => x.goesTo - y.goesTo);
+const first = running[0];
 await click(DOCK, dock, `#${first.id} button`);
 out.afterPressingTheFirstIcon = { focused: (await a.js(desk)).focused, expected: first.goesTo, dock: (await dock.js(shows)).programs.map((p) => [p.marked, p.windows]) };
 await click(DOCK, dock, `#${first.id} .windows i:nth-child(2)`);
 out.afterPressingItsSecondDot = { focused: (await a.js(desk)).focused, expected: Number(first.windows[1]), dock: (await dock.js(shows)).programs.map((p) => [p.marked, p.windows]) };
 
-// The second program, by its chord from anywhere.
-await a.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "2", code: "Digit2", windowsVirtualKeyCode: 50, modifiers: 1 });
-await a.send("Input.dispatchKeyEvent", { type: "keyUp", key: "2", code: "Digit2", windowsVirtualKeyCode: 50, modifiers: 1 });
+// The second program, by its chord from anywhere: the chords count every
+// entry, pinned or running.
+const second = out.withThreePrograms.dock.programs.find((program) => program.id === running[1].id);
+const digit = second.key.split("+").pop();
+await a.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: digit, code: `Digit${digit}`, windowsVirtualKeyCode: 48 + Number(digit), modifiers: 1 });
+await a.send("Input.dispatchKeyEvent", { type: "keyUp", key: digit, code: `Digit${digit}`, windowsVirtualKeyCode: 48 + Number(digit), modifiers: 1 });
 await sleep(500);
-out.afterAlt2 = { focused: (await a.js(desk)).focused, expected: out.withThreePrograms.dock.programs[1].goesTo };
+out.afterItsChord = { chord: second.key, focused: (await a.js(desk)).focused, expected: second.goesTo };
 
 // The launcher, from the button at the bottom.
 await click(DOCK, dock, ".launch");
@@ -151,7 +158,7 @@ await a.send("Emulation.clearDeviceMetricsOverride");
 await sleep(1000);
 
 // A window closed is a dot gone, and a program's last window is its icon gone.
-const hello = out.withThreePrograms.dock.programs[2];
+const hello = running[2];
 await a.js(`document.querySelector('.fx-surface[data-id="${hello.goesTo}"] [data-part=close]').click()`);
 await sleep(1500);
 out.afterClosingTheThird = (await dock.js(shows)).programs.map((p) => [p.id, p.windows.length]);
