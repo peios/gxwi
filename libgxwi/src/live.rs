@@ -274,7 +274,7 @@ impl<L: Live> Surface<L> {
     }
 }
 
-/// Lets one surface go. See [`Surface::closer`].
+/// Lets one surface go. See [`Surface::closer`] and [`crate::App::raw_page`].
 #[derive(Clone)]
 pub struct Closer {
     number: u64,
@@ -282,6 +282,10 @@ pub struct Closer {
 }
 
 impl Closer {
+    pub(crate) fn new(number: u64, desk: Arc<Desk>) -> Closer {
+        Closer { number, desk }
+    }
+
     pub fn close(&self) {
         self.desk.let_go(self.number);
     }
