@@ -30,4 +30,6 @@ def value(v):
 shutil.copy(src / 'LICENSE', crate / 'LICENSE')
 files = {str(p.relative_to(crate)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(crate.rglob('*')) if p.is_file()}
 (crate / '.cargo-checksum.json').write_text(json.dumps({'files': files, 'package': None})+'\n')
-(out / 'revision').write_text('6a5fa25efea9fd651b7f89669126a3344a8d2106\n')
+# The commit consumers pin libgxwi at, whose libgxwi is what is staged here:
+# the one before this file last changed.
+(out / 'revision').write_text('c6df8a1e3dbdd28a48752f87ba87f6edb8adaf33\n')
