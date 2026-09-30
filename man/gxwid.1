@@ -6,7 +6,14 @@ gxwid \- privileged GXWI listener and PGSS session manager
 .SH DESCRIPTION
 Started by peinit. Listens at the registry-configured address and authenticates with PGSS. Sessions use RemoteInteractive tokens and run the configured compositor as the principal.
 .SH CONFIGURATION
-Machine\\Software\\GXWI controls Listen, Compositor and Logon text.
+Machine\\Software\\GXWI controls Listen, Compositor, the overlay and Logon text.
+.PP
+While OverlaySession is set, gxwid runs that program as OverlayUsername and
+every request is sent to it, in place of the logon pages and of any session.
+gxwid logs the account on through PGSS offering no credential types, so only
+an account that needs no credential can be named. The values are watched and
+apply without a restart. An overlay that cannot run leaves a page saying the
+machine is not ready; the logon pages are not served in its place.
 .PP
 New compositor sessions resolve LANG and individual LC_* preferences from
 Machine\eSystem\eLocale and Users\e<SID>\eLocale using the authenticated

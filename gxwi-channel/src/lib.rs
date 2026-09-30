@@ -1,10 +1,19 @@
 //! What gxwid and gxwi-server say to each other.
 //!
-//! There are two kinds of socket between them, and gxwid made both.
+//! There are three kinds of socket between them, and gxwid made them all.
 //!
 //! The **control channel** is the socket pair gxwi-server is started with. It
 //! carries one request: open a logon conversation. gxwid answers with a fresh
 //! socket dedicated to that conversation, or a refusal.
+//!
+//! The **overlay channel** is a second socket pair gxwi-server is started
+//! with, and only gxwid speaks on it. It says where the overlay stands: that
+//! there is none, that there is one and it cannot be reached, or that there is
+//! one, with a socket to it. The first of these is written before gxwi-server
+//! starts, so the server knows where the overlay stands before it serves
+//! anything, and another follows whenever that changes. gxwi-server asks
+//! nothing here and decides nothing: an overlay is the administrator's, read
+//! from the registry by gxwid.
 //!
 //! A **conversation socket** carries exactly one logon, and speaks PGSS Logon
 //! unchanged (`libauthd::wire`), with gxwid in the authority's role. No message
@@ -40,6 +49,15 @@ pub const MSG_CONVERSATION: u16 = 0x8001;
 /// gxwid → gxwi-server: not now, too many conversations are open. No body.
 pub const MSG_REFUSED: u16 = 0x8002;
 
+/// gxwid → gxwi-server, on the overlay channel: there is no overlay. No body.
+pub const MSG_OVERLAY_NONE: u16 = 0x8011;
+/// gxwid → gxwi-server, on the overlay channel: there is an overlay and it
+/// cannot be reached, so nobody is to be shown anything else. No body.
+pub const MSG_OVERLAY_UNAVAILABLE: u16 = 0x8012;
+/// gxwid → gxwi-server, on the overlay channel: here is the overlay. No body;
+/// a socket to it rides along as the message's descriptor.
+pub const MSG_OVERLAY: u16 = 0x8013;
+
 /// Encodes a control message. None of them has a body.
 pub fn control_message(msg_type: u16) -> [u8; frame::COMMON_HEADER_BYTES] {
     let mut buf = [0u8; frame::COMMON_HEADER_BYTES];
@@ -68,6 +86,13 @@ mod tests {
     fn a_control_message_round_trips() {
         let buf = control_message(MSG_CONVERSATION);
         assert_eq!(control_message_type(&buf), Ok(MSG_CONVERSATION));
+    }
+
+    #[test]
+    fn where_the_overlay_stands_round_trips() {
+        for standing in [MSG_OVERLAY_NONE, MSG_OVERLAY_UNAVAILABLE, MSG_OVERLAY] {
+            assert_eq!(control_message_type(&control_message(standing)), Ok(standing));
+        }
     }
 
     #[test]

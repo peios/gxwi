@@ -20,6 +20,9 @@ pub struct Submitted {
     pub id: String,
     pub state: String,
     pub cause: Option<String>,
+    /// A handle on the job's process, which comes with a job that is running
+    /// and reads as ready once that process has gone.
+    pub process: Option<OwnedFd>,
 }
 
 impl Jobs {
@@ -62,23 +65,40 @@ impl Jobs {
         let request = serde_json::to_vec(&definition)?;
         peios::socket::send_message(self.0.as_fd(), &request, Some(token), descriptors, 0)?;
 
-        let mut buf = vec![0u8; MAX_RESPONSE_BYTES];
-        // The answer to a running job brings a handle on its process. gxwid
-        // watches the session's socket instead, so it is received and closed.
-        let got = peios::socket::recv_message(self.0.as_fd(), &mut buf, 1, 0)?;
-        if got.len == 0 || got.truncated {
-            return Err(io::Error::other("peinit's answer could not be read"));
-        }
-        let answer: Value = serde_json::from_slice(&buf[..got.len]).map_err(io::Error::other)?;
-        if answer["status"] != "ok" {
-            let (code, message) = (answer["code"].as_str().unwrap_or("?"), answer["message"].as_str().unwrap_or(""));
-            return Err(io::Error::other(format!("peinit refused the job: {code}: {message}")));
-        }
-        let job = &answer["job"];
+        // The answer to a running job brings a handle on its process. A
+        // session is watched by its socket instead and lets the handle go; the
+        // overlay, which gxwid has to start again, keeps it.
+        let (job, mut descriptors) = self.answer("refused the job")?;
         Ok(Submitted {
             id: job["id"].as_str().unwrap_or_default().into(),
             state: job["state"].as_str().unwrap_or("?").into(),
             cause: job["cause"].as_str().map(str::to_string),
+            process: descriptors.pop(),
         })
+    }
+
+    /// Ends the job `id` and returns once it has ended: peinit asks the
+    /// process to go, and kills what is left when the job's own stop timeout
+    /// has passed. Ending a job that has ended already is no error.
+    pub fn stop(&mut self, id: &str) -> io::Result<()> {
+        let request = serde_json::to_vec(&json!({ "command": "stop", "job_id": id }))?;
+        peios::socket::send_message(self.0.as_fd(), &request, None, &[], 0)?;
+        self.answer("would not stop the job").map(drop)
+    }
+
+    /// peinit's answer to the request just sent: the job as it now stands,
+    /// and whatever descriptors came with it.
+    fn answer(&mut self, refused: &str) -> io::Result<(Value, Vec<OwnedFd>)> {
+        let mut buf = vec![0u8; MAX_RESPONSE_BYTES];
+        let got = peios::socket::recv_message(self.0.as_fd(), &mut buf, 1, 0)?;
+        if got.len == 0 || got.truncated {
+            return Err(io::Error::other("peinit's answer could not be read"));
+        }
+        let mut answer: Value = serde_json::from_slice(&buf[..got.len]).map_err(io::Error::other)?;
+        if answer["status"] != "ok" {
+            let (code, message) = (answer["code"].as_str().unwrap_or("?"), answer["message"].as_str().unwrap_or(""));
+            return Err(io::Error::other(format!("peinit {refused}: {code}: {message}")));
+        }
+        Ok((answer["job"].take(), got.fds))
     }
 }

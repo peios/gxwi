@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 
 mod jobs;
 mod logon;
+mod overlay;
 mod relay;
 mod sandbox;
 mod session;
@@ -25,6 +26,7 @@ const DEFAULT_LISTEN: &str = "127.0.0.1:7780";
 // Where gxwi-server finds what it is handed. It opens nothing for itself.
 const SERVER_LISTENER_FD: RawFd = 3;
 const SERVER_CHANNEL_FD: RawFd = 4;
+const SERVER_OVERLAY_FD: RawFd = 5;
 
 const RESTART_DELAY_MIN: Duration = Duration::from_secs(1);
 const RESTART_DELAY_MAX: Duration = Duration::from_secs(30);
@@ -68,8 +70,18 @@ fn main() {
     } else {
         let stand_in = beside("gxwi-hello", None);
         eprintln!("gxwid: sessions run {}", settings::compositor(&stand_in).display());
-        Some(session::Sessions::new(stand_in).unwrap_or_else(|e| die(&format!("sessions: {e}"))))
+        Some(Arc::new(session::Sessions::new(stand_in).unwrap_or_else(|e| die(&format!("sessions: {e}")))))
     };
+
+    // The overlay, if the registry asks for one, is kept on a thread of its
+    // own for as long as gxwid runs. Where it stands is known before the
+    // first gxwi-server starts, so that server is told before it serves.
+    let overlay = overlay::Overlay::new(sessions.clone());
+    let keeper = Arc::clone(&overlay);
+    std::thread::Builder::new()
+        .name("overlay".into())
+        .spawn(move || keeper.keep())
+        .unwrap_or_else(|e| die(&format!("overlay thread: {e}")));
 
     // Outlives every gxwi-server: restarting the server must not reset the
     // logon throttle.
@@ -78,7 +90,7 @@ fn main() {
     let mut delay = RESTART_DELAY_MIN;
     loop {
         let started = Instant::now();
-        match run_server(&server, &listener, unrestricted, &logons) {
+        match run_server(&server, &listener, unrestricted, &logons, &overlay) {
             Ok(status) => eprintln!("gxwid: gxwi-server exited: {status}"),
             Err(e) => eprintln!("gxwid: gxwi-server did not start: {e}"),
         }
@@ -97,11 +109,18 @@ fn run_server(
     listener: &OwnedFd,
     unrestricted: bool,
     logons: &Arc<logon::Logons>,
+    overlay: &overlay::Overlay,
 ) -> io::Result<std::process::ExitStatus> {
     // A fresh pair per server: the old one died with the old server.
     let (ours, theirs_low) = UnixStream::pair()?;
     let theirs = dup_high(theirs_low.as_raw_fd())?;
     drop(theirs_low);
+    // And a second pair, on which only gxwid speaks: where the overlay
+    // stands. It is written before the server exists, to be read first.
+    let (overlay_ours, overlay_theirs_low) = UnixStream::pair()?;
+    let overlay_theirs = dup_high(overlay_theirs_low.as_raw_fd())?;
+    drop(overlay_theirs_low);
+    overlay.serve(overlay_ours);
     let token = if unrestricted {
         None
     } else {
@@ -110,10 +129,11 @@ fn run_server(
     // The server can open nothing, the registry included, so what its pages
     // are to say is read here and told to it as it starts.
     let page = if unrestricted { settings::LogonPage::default() } else { settings::logon_page() };
-    let mut child = spawn_server(server, listener, &theirs, token, &page)?;
-    // Only the server holds its end now, so its death reads as EOF on ours,
+    let mut child = spawn_server(server, listener, &theirs, &overlay_theirs, token, &page)?;
+    // Only the server holds its ends now, so its death reads as EOF on ours,
     // which is what ends the control thread.
     drop(theirs);
+    drop(overlay_theirs);
     let logons = Arc::clone(logons);
     std::thread::Builder::new()
         .name("control".into())
@@ -125,15 +145,17 @@ fn spawn_server(
     server: &PathBuf,
     listener: &OwnedFd,
     channel: &OwnedFd,
+    overlay: &OwnedFd,
     token: Option<peios::token::Token>,
     page: &settings::LogonPage,
 ) -> io::Result<Child> {
-    let (listener, channel) = (listener.as_raw_fd(), channel.as_raw_fd());
+    let (listener, channel, overlay) = (listener.as_raw_fd(), channel.as_raw_fd(), overlay.as_raw_fd());
     let parent = std::process::id() as libc::pid_t;
 
     let mut cmd = Command::new(server);
     cmd.arg("--listener-fd").arg(SERVER_LISTENER_FD.to_string());
     cmd.arg("--channel-fd").arg(SERVER_CHANNEL_FD.to_string());
+    cmd.arg("--overlay-fd").arg(SERVER_OVERLAY_FD.to_string());
     if token.is_none() {
         // Without this the server refuses to run outside the restricted token.
         cmd.arg("--unrestricted");
@@ -150,10 +172,11 @@ fn spawn_server(
     // may allocate or take one.
     unsafe {
         cmd.pre_exec(move || {
-            // dup2 clears close-on-exec on the copy. Both sources are above
-            // the targets (dup_high), so neither dup2 can clobber the other.
+            // dup2 clears close-on-exec on the copy. Every source is above
+            // the targets (dup_high), so no dup2 can clobber another.
             if libc::dup2(listener, SERVER_LISTENER_FD) == -1
                 || libc::dup2(channel, SERVER_CHANNEL_FD) == -1
+                || libc::dup2(overlay, SERVER_OVERLAY_FD) == -1
             {
                 return Err(io::Error::last_os_error());
             }
