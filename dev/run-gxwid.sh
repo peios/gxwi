@@ -12,6 +12,12 @@ from=/gxwi/gxwi-hello
 cp "$from" /tmp/gxwi-compositor.$$ \
     && sd allow /tmp/gxwi-compositor.$$ Everyone:rx \
     && mv /tmp/gxwi-compositor.$$ /tmp/gxwi-compositor
+# GXWI's stand-in is also what dev/browser/overlay.mjs sets as the overlay,
+# because it says who it is running as. It is copied off the share for the
+# same reason the compositor is.
+cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ \
+    && sd allow /tmp/gxwi-overlay.$$ Everyone:rx \
+    && mv /tmp/gxwi-overlay.$$ /tmp/gxwi-overlay
 # The test app and the parts of Fenestra's fallback shell go beside it, where
 # Fenestra looks for them. fenesh, the shell proper, goes there too if
 # ../fenesh/dev/push.sh has put one on the share, for its setting to name.
