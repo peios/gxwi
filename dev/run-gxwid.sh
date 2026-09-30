@@ -39,6 +39,18 @@ for app in gxwi-hello-app gexora peiterm peitor; do
         && sd allow "/usr/bin/$app.$$" Everyone:rx \
         && mv "/usr/bin/$app.$$" "/usr/bin/$app"
 done
+# An installerd on the share, from ../installer-gxwi/dev/push.sh, takes the
+# place of the one the image ships, for the installer to be tried against one
+# that is still being written. It is a service of its own, so it is replaced
+# where it lives and restarted, and only when the share's is newer: restarting
+# it ends whatever conversation it was holding.
+if [ -e /gxwi/installerd ] && [ /gxwi/installerd -nt /usr/sbin/installerd ]; then
+    cp /gxwi/installerd "/usr/sbin/installerd.$$" \
+        && sd allow "/usr/sbin/installerd.$$" Everyone:rx \
+        && mv "/usr/sbin/installerd.$$" /usr/sbin/installerd \
+        && svctl restart installerd >> /share/svctl.txt 2>&1
+    echo "run-gxwid: installerd replaced from the share" >> /share/gxwi.log
+fi
 # Their declarations (PGSS Applications) go where the catalogue is, which
 # the launcher lists and Fenestra names a running program by. Readable by
 # everyone, as the icons are: every part of the shell reads them as whoever
