@@ -17,7 +17,8 @@ while :; do
         && ! [ /gxwi/gexora -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peiterm -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peitor -nt /tmp/gxwi.stamp ] \
-        && ! [ /gxwi/installer-gxwi -nt /tmp/gxwi.stamp ]; do
+        && ! [ /gxwi/installer-gxwi -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/installerd -nt /tmp/gxwi.stamp ]; do
         sleep 1
     done
     svctl restart gxwid >> /share/svctl.txt 2>&1
