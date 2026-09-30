@@ -13,7 +13,11 @@
     "",
     "Listen is every address because the host reaches the guest through QEMU's",
     "forward. Compositor is where dev/run-gxwid.sh puts a copy of whichever",
-    "compositor is on the share."
+    "compositor is on the share.",
+    "",
+    "OverlaySession and OverlayUsername are not here, so the dev VM has no",
+    "overlay. dev/browser/overlay.mjs sets and removes them with `reg` while",
+    "gxwid runs, which is the point of them: they apply live."
   ],
   "keys": [
     { "path": "Machine\\Software" },

@@ -1,6 +1,11 @@
 # Runs in the guest: keep the gxwid service running, restarting it whenever the
 # host pushes a newer binary. File-change notifications do not cross 9p, so
 # poll. Stopping gxwid stops gxwi-server with it.
+#
+# The image ships a gxwid of its own and has it running by now, so starting
+# the service would find it running and do nothing. It is stopped first, and
+# what starts is the dev service the registry now describes.
+svctl stop gxwid >> /share/svctl.txt 2>&1
 svctl start gxwid >> /share/svctl.txt 2>&1
 while :; do
     touch /tmp/gxwi.stamp
