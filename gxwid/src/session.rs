@@ -9,6 +9,13 @@
 //!
 //! Nothing here is remembered. A session is its socket, named for whose it is,
 //! so gxwid can be restarted under running sessions and find them again.
+//!
+//! The overlay is started the same way and is not a session. It is one program
+//! for the whole machine, which happens to run as somebody: it has a socket of
+//! its own, not that person's, so it is never mistaken for their session nor
+//! theirs for it. And it is gxwid's to end, which a session never is, so the
+//! one thing kept is its job's name, for a gxwid that starts after another
+//! left an overlay running.
 
 use std::io;
 use std::os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd};
@@ -23,7 +30,7 @@ use peios::security::sddl;
 use peios::token::{ImpersonationLevel, Token};
 use serde_json::json;
 
-use crate::jobs::Jobs;
+use crate::jobs::{Jobs, Submitted};
 
 const DEFAULT_DIRECTORY: &str = "/run/gxwi";
 /// SYSTEM and nobody else, whatever `/run` would have handed down. The
@@ -35,6 +42,19 @@ const DEFAULT_RUNTIME: &str = "/run/gxwi-user";
 const RUNTIME_SDDL: &str = "D:P(A;;GA;;;SY)(A;;GRGX;;;WD)";
 /// How long a new compositor has to take up its socket.
 const STARTING: Duration = Duration::from_secs(10);
+/// The overlay's socket, its runtime directory, and where its job's name is
+/// kept. None can be taken for a person's: theirs are named for their SID.
+const OVERLAY_SOCKET: &str = "overlay.sock";
+const OVERLAY_RUNTIME: &str = "overlay";
+const OVERLAY_JOB: &str = "overlay.job";
+
+/// An overlay that has started.
+pub struct Running {
+    /// Its job, for ending it.
+    pub job: String,
+    /// A handle on its process, which reads as ready once the process has gone.
+    pub process: OwnedFd,
+}
 
 pub struct Sessions {
     directory: PathBuf,
@@ -81,18 +101,94 @@ impl Sessions {
             },
         }
 
-        let listener = UnixListener::bind(&path)?;
-        stamp(&path, SOCKET_SDDL)?;
+        // Asked as each session starts, so a change needs no restart and
+        // reaches nobody who is already logged on.
+        let compositor = crate::settings::compositor(&self.stand_in);
         // A new session starts with an empty runtime directory: whatever the
         // last one left there was that session's.
         let runtime = self.runtime.join(user.to_string());
-        match std::fs::remove_dir_all(&runtime) {
+        let job = self.start(&path, &runtime, &compositor, &format!("GXWI session for {user}"), &token, profile)?;
+        eprintln!("gxwid: started a session for {user} as job {}", job.id);
+        taken_up(&path, &token)
+    }
+
+    /// Starts `program` as the overlay, running as whoever `token` names, and
+    /// returns once it has taken up its socket. Whatever overlay ran before
+    /// has been ended by then: there is one socket, and this takes it.
+    pub fn start_overlay(&self, token: OwnedFd, profile: &Profile, program: &Path) -> io::Result<Running> {
+        let token = Token::from(token);
+        let user = token.user()?;
+        let path = self.directory.join(OVERLAY_SOCKET);
+        match std::fs::remove_file(&path) {
             Err(e) if e.kind() != io::ErrorKind::NotFound => return Err(e),
             _ => {}
         }
-        std::fs::create_dir(&runtime)?;
-        stamp(&runtime, &format!("D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;{user})"))?;
-        let mut definition = self.definition(&user.to_string(), &runtime, profile);
+        let runtime = self.runtime.join(OVERLAY_RUNTIME);
+        let job = self.start(&path, &runtime, program, &format!("GXWI overlay, as {user}"), &token, profile)?;
+        // Kept before anything else can fail, so that whatever follows, this
+        // gxwid or the next can end the job.
+        let started = std::fs::write(self.directory.join(OVERLAY_JOB), &job.id)
+            .and_then(|()| job.process.ok_or_else(|| io::Error::other("peinit gave no handle on the overlay's process")));
+        match started.and_then(|process| taken_up(&path, &token).map(|_| process)) {
+            Ok(process) => {
+                eprintln!("gxwid: started the overlay {} for {user} as job {}", program.display(), job.id);
+                Ok(Running { job: job.id, process })
+            }
+            Err(e) => {
+                self.end_overlay(&job.id);
+                Err(e)
+            }
+        }
+    }
+
+    /// A connection to the overlay, for a gxwi-server to send requests down.
+    pub fn connect_overlay(&self) -> io::Result<UnixStream> {
+        connect(&self.directory.join(OVERLAY_SOCKET))
+    }
+
+    /// Ends the overlay's job and forgets it. A job that has already gone is
+    /// the ordinary case and not a failure; one peinit would not end is said,
+    /// and forgotten all the same, since nothing more can be done about it.
+    pub fn end_overlay(&self, job: &str) {
+        if let Err(e) = Jobs::connect().and_then(|mut jobs| jobs.stop(job)) {
+            eprintln!("gxwid: the overlay's job {job} was not ended: {e}");
+        }
+        let _ = std::fs::remove_file(self.directory.join(OVERLAY_JOB));
+        let _ = std::fs::remove_file(self.directory.join(OVERLAY_SOCKET));
+    }
+
+    /// Ends an overlay an earlier gxwid left running. gxwid has to be able to
+    /// end its overlay and to know when it has gone, and it can do neither
+    /// for one it did not start, so it starts its own.
+    pub fn end_left_over_overlay(&self) {
+        if let Ok(job) = std::fs::read_to_string(self.directory.join(OVERLAY_JOB)) {
+            eprintln!("gxwid: ending the overlay an earlier gxwid left running, job {}", job.trim());
+            self.end_overlay(job.trim());
+        }
+    }
+
+    /// Binds `path`, submits `program` to run as `token` holding it, with
+    /// `runtime` as a fresh runtime directory, and returns the job once it is
+    /// running. The socket is not yet the program's: see [`taken_up`].
+    fn start(
+        &self,
+        path: &Path,
+        runtime: &Path,
+        program: &Path,
+        description: &str,
+        token: &Token,
+        profile: &Profile,
+    ) -> io::Result<Submitted> {
+        let user = token.user()?;
+        let listener = UnixListener::bind(path)?;
+        stamp(path, SOCKET_SDDL)?;
+        match std::fs::remove_dir_all(runtime) {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+        std::fs::create_dir(runtime)?;
+        stamp(runtime, &format!("D:P(A;OICI;GA;;;SY)(A;OICI;GA;;;{user})"))?;
+        let mut definition = definition(program, description, runtime, profile);
         let environment = definition["environment"].as_object_mut().expect("session environment");
         // Neutralize inherited peinit/service locale variables. Empty locale
         // categories fall back to LANG; neither LC_ALL nor LANGUAGE is policy.
@@ -106,42 +202,42 @@ impl Sessions {
         drop(listener);
         if job.state != "running" {
             let cause = job.cause.map(|c| format!(" ({c})")).unwrap_or_default();
-            return Err(io::Error::other(format!("the compositor's job {} is {}{cause}", job.id, job.state)));
+            return Err(io::Error::other(format!("the job {} for {} is {}{cause}", job.id, program.display(), job.state)));
         }
-        eprintln!("gxwid: started a session for {user} as job {}", job.id);
-
-        // The socket answers from the moment it was bound, but as gxwid, who
-        // bound it. It is the session's once the compositor has put its own
-        // name to it, and not before.
-        let deadline = Instant::now() + STARTING;
-        loop {
-            let connection = connect(&path)?;
-            if answered_by(&connection, &token)? {
-                return Ok(connection);
-            }
-            if Instant::now() > deadline {
-                return Err(io::Error::other("the compositor never took up its socket"));
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
+        Ok(job)
     }
+}
 
-    fn definition(&self, user: &str, runtime: &Path, profile: &Profile) -> serde_json::Value {
-        // As `login` has it: a home that is not there is not a failed logon.
-        let home = if profile.home.starts_with('/') && Path::new(&profile.home).is_dir() { &profile.home } else { "/" };
-        let shell = if profile.shell.starts_with('/') { &profile.shell } else { "/bin/sh" };
-        // Asked as each session starts, so a change needs no restart and
-        // reaches nobody who is already logged on.
-        let compositor = crate::settings::compositor(&self.stand_in);
-        json!({
-            "image_path": compositor,
-            "arguments": [],
-            "environment": { "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin", "GXWI_RUNTIME_DIR": runtime },
-            "working_directory": home,
-            "description": format!("GXWI session for {user}"),
-            "descriptors": ["gxwi-session"],
-            "stop_timeout": 10,
-        })
+fn definition(program: &Path, description: &str, runtime: &Path, profile: &Profile) -> serde_json::Value {
+    // As `login` has it: a home that is not there is not a failed logon.
+    let home = if profile.home.starts_with('/') && Path::new(&profile.home).is_dir() { &profile.home } else { "/" };
+    let shell = if profile.shell.starts_with('/') { &profile.shell } else { "/bin/sh" };
+    json!({
+        "image_path": program,
+        "arguments": [],
+        "environment": { "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin", "GXWI_RUNTIME_DIR": runtime },
+        "working_directory": home,
+        "description": description,
+        "descriptors": ["gxwi-session"],
+        "stop_timeout": 10,
+    })
+}
+
+/// A connection to the program that has taken up the socket at `path`, once
+/// it has. The socket answers from the moment it was bound, but as gxwid, who
+/// bound it. It is the program's once the program has put its own name to it,
+/// and not before.
+fn taken_up(path: &Path, token: &Token) -> io::Result<UnixStream> {
+    let deadline = Instant::now() + STARTING;
+    loop {
+        let connection = connect(path)?;
+        if answered_by(&connection, token)? {
+            return Ok(connection);
+        }
+        if Instant::now() > deadline {
+            return Err(io::Error::other("the program never took up its socket"));
+        }
+        std::thread::sleep(Duration::from_millis(50));
     }
 }
 

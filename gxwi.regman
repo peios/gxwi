@@ -1,8 +1,8 @@
 --- machine\software\gxwi
 canonical: Machine\Software\GXWI
 
-GXWI's settings: where it listens, what a session runs, and what its logon
-pages say.
+GXWI's settings: where it listens, what a session runs, what stands in front
+of logon, and what its logon pages say.
 
 gxwid reads this subtree. gxwi-server, the half that faces the network, runs
 under a token that can open nothing, the registry included: what it needs
@@ -15,8 +15,10 @@ value it refused and what it is using instead.
 Default security: inherits the Machine hive root (SYSTEM and Administrators
 full, Authenticated Users read). That descriptor is the only gate on
 `Compositor`, and whoever can write `Compositor` chooses what runs as
-everyone who logs on. Nothing in gxwid's environment can say any of this
-instead.
+everyone who logs on. It is the only gate on `OverlaySession` and
+`OverlayUsername` too, and whoever can write those chooses what everyone who
+reaches the machine is shown, and whose authority they are given without
+logging on. Nothing in gxwid's environment can say any of this instead.
 
 --- machine\software\gxwi listen
 canonical: Machine\Software\GXWI Listen
@@ -53,6 +55,71 @@ you would write access to the program itself.
 
 A path that is not there is not refused here. The session fails to start,
 and the person who logged on is told so.
+
+--- machine\software\gxwi overlaysession
+canonical: Machine\Software\GXWI OverlaySession
+type: REG_SZ
+default: (absent — no overlay)
+valid: an absolute path
+applies: live
+
+A program that everyone who reaches GXWI is sent to, in place of the logon
+pages and of any session: the overlay.
+
+It is for a machine that is not, for now, something to log on to: one
+running an installer, one still being set up, one that is starting.
+
+While it is set, nobody is asked to log on and nobody reaches a session,
+their own included. Every request goes to the overlay, except for the few
+paths under `/.gxwi/` that are GXWI's own. Sessions that were running go on
+running behind it, and are there again when the value is removed.
+
+There is one overlay for the machine, and everyone who reaches it shares it.
+gxwid starts it as a job running as `OverlayUsername` and hands it a socket
+as it hands a compositor its session's: the program finds a listening socket
+as its first descriptor, puts its own name to it, and answers HTTP/2 there.
+It is not that account's session, and the two are never taken for each
+other: the overlay has a socket and a runtime directory of its own.
+
+gxwid watches this key. Setting the value starts the overlay. Changing it,
+or `OverlayUsername`, ends the one running and starts another. Removing it
+ends the overlay and gives the logon pages back. None of these needs a
+restart. An overlay that exits is started again.
+
+An overlay that is set and cannot run is not replaced by the logon pages.
+Whoever set it meant people to be kept from what is behind it, so they are
+shown a page saying the machine is not ready yet, which asks again by itself.
+gxwid keeps trying, a second later at first and then less often, up to every
+thirty seconds, and its log says why. This covers a program that is not
+there, an `OverlayUsername` that is missing, and an account the authority
+will not log on without a credential.
+
+Only a value that makes no sense in itself is ignored as other settings are,
+and then there is no overlay.
+
+--- machine\software\gxwi overlayusername
+canonical: Machine\Software\GXWI OverlayUsername
+type: REG_SZ
+default: (absent — an overlay cannot run)
+valid: an account's name, as it would be given at a logon page; at most 1024 bytes, no control characters
+applies: live
+
+The account the overlay runs as.
+
+gxwid logs this account on itself, through the authority, with the kind of
+logon a person at a browser gets (Remote Interactive), and tells the
+authority that no credential can be collected. The authority therefore
+grants the logon only for an account that needs no credential. An account
+with a password or a key is refused and the overlay does not start, so an
+overlay is never a way in to an account that has one.
+
+Everyone who reaches the machine uses the overlay, and so acts with this
+account's authority, without having said who they are. Name the account
+with the least authority the program needs.
+
+It does nothing without `OverlaySession`. With `OverlaySession` set and this
+absent, or not text, or not a name as described above, the overlay cannot
+run: there is no account an overlay runs as by default.
 
 --- machine\software\gxwi\logon
 canonical: Machine\Software\GXWI\Logon

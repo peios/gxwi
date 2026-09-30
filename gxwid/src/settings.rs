@@ -11,9 +11,11 @@
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
-use peios::registry::{Key, KeyAccess, OpenFlags, RegValue, ValueType};
+use peios::registry::{Key, KeyAccess, NotifyFilter, OpenFlags, RegValue, ValueType};
 
 pub const KEY: &str = "Machine\\Software\\GXWI";
+/// As long as a name given at a logon page may be (`libauthd::wire`).
+const MAX_USERNAME_BYTES: usize = libauthd::wire::MAX_IDENTIFIER_BYTES;
 /// The subkey for what the logon pages say.
 const LOGON: &str = "Logon";
 
@@ -67,6 +69,86 @@ pub fn logon_page() -> LogonPage {
         .and_then(|entries| kept(&path, "Notice", &entries.join(" / "), notice_from(entries.clone()), STANDING))
         .unwrap_or_default();
     LogonPage { name, notice }
+}
+
+/// The overlay the registry asks for: a program every visitor is sent to, in
+/// place of the logon pages and of any session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Overlay {
+    /// `OverlaySession` (REG_SZ): the program.
+    pub session: PathBuf,
+    /// `OverlayUsername` (REG_SZ): who it runs as. `None` where that is
+    /// missing or makes no sense, which leaves an overlay that cannot run:
+    /// there is nobody it would run as by default.
+    pub username: Option<String>,
+}
+
+/// The overlay as the registry now has it, and what was wrong with what was
+/// read. `None` is no overlay.
+///
+/// It is read again whenever the key changes, so nothing is said here: the
+/// complaints are returned, for the caller to say once and not at every read.
+///
+/// An `OverlaySession` that makes no sense is ignored like any other setting,
+/// and there is no overlay. An `OverlayUsername` that makes no sense does not
+/// make the overlay go away: the administrator asked for one, and what stands
+/// in for it must not be the logon pages it was there to keep people from.
+pub fn overlay() -> (Option<Overlay>, Vec<String>) {
+    let mut wrong = Vec::new();
+    let key = match Key::open(None, KEY, KeyAccess::QUERY_VALUE, OpenFlags::empty()) {
+        Ok(key) => key,
+        Err(e) if e.raw_os_error() == Some(ENOENT) => return (None, wrong),
+        Err(e) => {
+            wrong.push(format!("{KEY} could not be opened: {e}; no overlay"));
+            return (None, wrong);
+        }
+    };
+    let mut text = |name: &str, read: fn(&str) -> Result<(), String>, standing: &str| {
+        let value = match key.query_value(name.as_bytes(), None) {
+            Ok(value) => value,
+            Err(e) if e.raw_os_error() == Some(ENOENT) => return None,
+            Err(e) => {
+                wrong.push(format!("{KEY}\\{name} could not be read: {e}; {standing}"));
+                return None;
+            }
+        };
+        let Some(text) = sz(&value) else {
+            wrong.push(format!("ignoring {KEY}\\{name}: not a REG_SZ of text (type {:#x}); {standing}", value.ty.0));
+            return None;
+        };
+        match read(&text) {
+            Ok(()) => Some(text),
+            Err(why) => {
+                wrong.push(format!("ignoring {KEY}\\{name} = {text:?}: {why}; {standing}"));
+                None
+            }
+        }
+    };
+    let session = text("OverlaySession", |text| compositor_from(text).map(drop), "no overlay");
+    let username = text("OverlayUsername", username_from, "the overlay has nobody to run as");
+    (session.map(|session| Overlay { session: PathBuf::from(session), username }), wrong)
+}
+
+/// The key, armed to say when a value under it changes: its descriptor then
+/// reads as ready. `None` where there is no key, or it cannot be watched.
+pub fn watch() -> Option<Key> {
+    let key = Key::open(None, KEY, KeyAccess::QUERY_VALUE | KeyAccess::NOTIFY, OpenFlags::empty()).ok()?;
+    key.notify(NotifyFilter::VALUE, false).ok()?;
+    key.set_nonblocking(true).ok()?;
+    Some(key)
+}
+
+fn username_from(text: &str) -> Result<(), String> {
+    if text.is_empty() {
+        return Err("empty".into());
+    }
+    if text.len() > MAX_USERNAME_BYTES {
+        return Err(format!("longer than {MAX_USERNAME_BYTES} bytes"));
+    }
+    if text.chars().any(char::is_control) {
+        return Err("has control characters in it".into());
+    }
+    Ok(())
 }
 
 fn listen_from(text: &str) -> Result<SocketAddr, String> {
@@ -220,5 +302,9 @@ mod tests {
         assert!(notice_from(vec!["Authorised use only.".into()]).is_ok());
         assert!(notice_from(vec!["x".repeat(MAX_NOTICE_CHARS + 1)]).is_err());
         assert!(notice_from(vec!["x".into(); MAX_NOTICE_PARAGRAPHS + 1]).is_err());
+        assert!(username_from("peios").is_ok());
+        assert!(username_from("").is_err());
+        assert!(username_from(&"x".repeat(MAX_USERNAME_BYTES + 1)).is_err());
+        assert!(username_from("pe\nios").is_err());
     }
 }

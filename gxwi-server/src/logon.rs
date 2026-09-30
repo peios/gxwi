@@ -28,6 +28,7 @@ use libauthd::wire::{
 
 use crate::form::{self, Form};
 use crate::origin::{self, Origins};
+use crate::overlay::{Overlay, Route};
 use crate::pages;
 use crate::session::{self, Sessions};
 
@@ -46,6 +47,7 @@ pub struct Logon {
     pending: Mutex<HashMap<String, Pending>>,
     sessions: Arc<Sessions>,
     origins: Origins,
+    overlay: Arc<Overlay>,
 }
 
 /// A conversation waiting on the person at the browser.
@@ -70,12 +72,17 @@ enum Step {
 /// session. Logon has no path: whoever has no session is shown it wherever they
 /// are, its forms post back to the same place, and so logging on leaves a
 /// person where they were going without anything having to carry the address.
-pub fn routes(control: UnixStream) -> Router {
+///
+/// An overlay, while there is one, comes before all of it: every path that is
+/// not GXWI's own is the overlay's, whoever asks and whether or not they have
+/// a session. The sessions go on running behind it and are there when it goes.
+pub fn routes(control: UnixStream, overlay: Arc<Overlay>) -> Router {
     let logon = Arc::new(Logon {
         control: Mutex::new(control),
         pending: Mutex::default(),
         sessions: Arc::default(),
         origins: Origins::default(),
+        overlay,
     });
     Router::new()
         .route("/.gxwi/logon.css", get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }))
@@ -93,6 +100,11 @@ async fn anywhere(
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     request: Request<Body>,
 ) -> Response<Body> {
+    match logon.overlay.route() {
+        Route::Overlay(overlay) => return session::forward(overlay, request).await,
+        Route::Unavailable => return overlay_unavailable(),
+        Route::Behind => {}
+    }
     // A page kept apart from the session it belongs to is sent no cookies, and
     // is known by its address. That comes first: the same address means the
     // same thing to a browser that happens to be logged on.
@@ -151,6 +163,21 @@ async fn apart(logon: &Logon, mut request: Request<Body>) -> Response<Body> {
 fn status(status: StatusCode) -> Response<Body> {
     let mut response = Response::new(Body::empty());
     *response.status_mut() = status;
+    response
+}
+
+/// How long a browser shown that the overlay is not available waits before it
+/// asks again, in seconds. gxwid is trying to start it all the while.
+const OVERLAY_RETRY: &str = "5";
+
+/// What everyone is shown while there is an overlay that cannot be reached.
+/// The page asks again by itself: whoever is looking at it is waiting for a
+/// machine, and has nothing to do about it.
+fn overlay_unavailable() -> Response<Body> {
+    let mut response = html(StatusCode::SERVICE_UNAVAILABLE, pages::overlay_unavailable(), None);
+    let headers = response.headers_mut();
+    headers.insert(header::RETRY_AFTER, HeaderValue::from_static(OVERLAY_RETRY));
+    headers.insert(header::REFRESH, HeaderValue::from_static(OVERLAY_RETRY));
     response
 }
 

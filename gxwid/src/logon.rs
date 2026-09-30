@@ -23,7 +23,7 @@ use crate::throttle::Throttle;
 
 /// A GXWI session is an interactive desktop reached over a network. authd
 /// derives Interactive and Remote Interactive groups, without Network.
-const LOGON_TYPE: LogonType = LogonType::RemoteInteractive;
+pub(crate) const LOGON_TYPE: LogonType = LogonType::RemoteInteractive;
 
 /// The authority serves 64 conversations for the whole machine. GXWI never
 /// takes more than a quarter of them, so it cannot crowd out the console.
@@ -45,11 +45,11 @@ pub struct Logons {
     throttle: Throttle,
     open: AtomicUsize,
     /// `None` where gxwid is not on Peios, and a grant leads nowhere.
-    sessions: Option<Sessions>,
+    sessions: Option<Arc<Sessions>>,
 }
 
 impl Logons {
-    pub fn new(sessions: Option<Sessions>) -> Logons {
+    pub fn new(sessions: Option<Arc<Sessions>>) -> Logons {
         Logons { throttle: Throttle::default(), open: AtomicUsize::new(0), sessions }
     }
 }
@@ -177,7 +177,7 @@ fn exchange(
     relay.on_authority(answer.expose(), token.is_some())
 }
 
-fn connect_authority() -> io::Result<UnixStream> {
+pub(crate) fn connect_authority() -> io::Result<UnixStream> {
     let path = std::env::var_os("GXWI_LOGON_SOCKET")
         .unwrap_or_else(|| libauthd::LOGON_SOCKET_PATH.into());
     let authority = UnixStream::connect(path)?;

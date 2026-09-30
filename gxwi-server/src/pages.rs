@@ -173,6 +173,17 @@ pub fn unavailable(why: &str) -> String {
     page("Cannot sign in", &card(&body))
 }
 
+/// Shown to everyone while an overlay is asked for and cannot be reached. It
+/// says neither what the overlay is nor why it is not there: that is the
+/// administrator's to know, and gxwid's log says it.
+pub fn overlay_unavailable() -> String {
+    let body = format!(
+        "{}<a class=\"primary\" href=\"\">Try again</a>",
+        message("info", "This machine is not ready to be used yet. This page tries again by itself.")
+    );
+    page("Not available yet", &card(&body))
+}
+
 const ICON_MARK: &str = "<svg viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\">\
     <rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"5.5\" stroke=\"currentColor\" stroke-width=\"2\"/>\
     <path d=\"M8.5 8h7.5v5h-4v3.5H8.5z\" fill=\"currentColor\"/></svg>";

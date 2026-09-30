@@ -1,5 +1,6 @@
 //! gxwi-server — the network-facing half of GXWI. It opens nothing for itself:
-//! gxwid hands it a listening socket and a channel back to gxwid.
+//! gxwid hands it a listening socket, a channel back to gxwid, and a channel
+//! on which gxwid says where the overlay stands.
 
 use std::net::SocketAddr;
 use std::os::fd::{FromRawFd, RawFd};
@@ -8,6 +9,7 @@ use std::os::unix::net::UnixStream;
 mod form;
 mod logon;
 mod origin;
+mod overlay;
 mod pages;
 mod session;
 
@@ -15,6 +17,7 @@ mod session;
 async fn main() {
     let listener_fd = fd_arg("--listener-fd");
     let channel_fd = fd_arg("--channel-fd");
+    let overlay_fd = fd_arg("--overlay-fd");
     if !std::env::args().any(|a| a == "--unrestricted") {
         refuse_unless_sandboxed();
     }
@@ -25,10 +28,11 @@ async fn main() {
 
     // SAFETY: gxwid placed these descriptors for us and nothing else in this
     // process owns them.
-    let (listener, channel) = unsafe {
+    let (listener, channel, overlay) = unsafe {
         (
             std::net::TcpListener::from_raw_fd(listener_fd),
             UnixStream::from_raw_fd(channel_fd),
+            UnixStream::from_raw_fd(overlay_fd),
         )
     };
     listener
@@ -37,7 +41,13 @@ async fn main() {
     let listener = tokio::net::TcpListener::from_std(listener)
         .unwrap_or_else(|e| die(&format!("listener: {e}")));
 
-    let app = logon::routes(channel);
+    // Before anything is served: a server that does not know where the
+    // overlay stands would show what an overlay is there to keep people from.
+    let overlay = overlay::Overlay::listen(overlay)
+        .await
+        .unwrap_or_else(|e| die(&format!("gxwid did not say where the overlay stands: {e}")));
+
+    let app = logon::routes(channel, overlay);
     eprintln!("gxwi-server: serving on descriptor {listener_fd}");
     // The peer's address rides along with each request: gxwid throttles on it.
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
@@ -62,7 +72,7 @@ fn page_args() -> (Option<String>, Vec<String>) {
         match arg.as_str() {
             "--logon-name" => name = args.next(),
             "--logon-notice" => notice.extend(args.next()),
-            "--listener-fd" | "--channel-fd" => drop(args.next()),
+            "--listener-fd" | "--channel-fd" | "--overlay-fd" => drop(args.next()),
             _ => {}
         }
     }
