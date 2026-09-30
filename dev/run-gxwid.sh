@@ -21,7 +21,11 @@ cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ \
 # The test app and the parts of Fenestra's fallback shell go beside it, where
 # Fenestra looks for them. fenesh, the shell proper, goes there too if
 # ../fenesh/dev/push.sh has put one on the share, for its setting to name.
-for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora peiterm peitor; do
+#
+# The installer goes there too if ../installer-gxwi/dev/push.sh has put one on
+# the share. Nothing here starts it: its dev/overlay.sh names it as the
+# overlay, and takes that away again.
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora peiterm peitor installer-gxwi; do
     [ -e "/gxwi/$beside" ] || continue
     cp "/gxwi/$beside" "/tmp/$beside.$$" \
         && sd allow "/tmp/$beside.$$" Everyone:rx \
