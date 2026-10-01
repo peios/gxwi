@@ -5,6 +5,11 @@ gxwid \- privileged GXWI listener and PGSS session manager
 .B gxwid
 .SH DESCRIPTION
 Started by peinit. Listens at the registry-configured address and authenticates with PGSS. Sessions use RemoteInteractive tokens and run the configured compositor as the principal.
+.PP
+The compositor's environment has HOME, SHELL, PATH and GXWI_RUNTIME_DIR, and
+GXWI_DISPLAY_NAME: what to call the person, from the authority's profile, or
+the account name they logged on as where the profile has none. It is the
+first logon's; a session joined again keeps it.
 .SH CONFIGURATION
 Machine\\Software\\GXWI controls Listen, Compositor, the overlay and Logon text.
 .PP

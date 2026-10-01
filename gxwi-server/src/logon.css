@@ -362,6 +362,10 @@ h2 {
 .arriving main > :nth-child(n + 4) { animation-delay: 270ms; }
 @keyframes arrive { from { opacity: 0; transform: translateY(18px); } }
 
+/* Signing in: the page's own parts go while the answer is checked, the
+   stars and the lockup staying for the desktop to take up. */
+.leaving main { opacity: 0; transform: translateY(-10px); transition: opacity .4s ease, transform .5s var(--ease-out); }
+
 @media (max-width: 520px) {
     body { padding-top: 88px; }
     .card { padding: 20px; }
