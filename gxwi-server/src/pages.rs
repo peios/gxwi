@@ -11,8 +11,9 @@ use std::sync::OnceLock;
 use libauthd::wire::{CredentialRequest, CredentialType, Denial, MessageSeverity};
 
 pub const STYLESHEET: &str = include_str!("logon.css");
-/// Inlined into the pages that want it, and the one script their policy lets
-/// run: the policy names it by the hash of these bytes.
+/// Inlined into every page, and the one script their policy lets run: the
+/// policy names it by the hash of these bytes. It draws the stars, and shows
+/// a password on asking.
 pub const SCRIPT: &str = include_str!("logon.js");
 /// Latin subsets, under the licences beside them. Served from here because a
 /// logon page may fetch from nowhere else, and a server may have no route out.
@@ -136,9 +137,6 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
     }
     let button = if request.prompts.is_empty() { "Continue" } else { "Sign in" };
     body.push_str(&format!("<button class=\"primary\" type=\"submit\">{button}</button></form>"));
-    if !request.prompts.is_empty() {
-        body.push_str(&format!("<script>{SCRIPT}</script>"));
-    }
     page("Sign in", &card(&body))
 }
 
@@ -184,9 +182,20 @@ pub fn overlay_unavailable() -> String {
     page("Not available yet", &card(&body))
 }
 
-const ICON_MARK: &str = "<svg viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\">\
+/// The lockup, mark and name, as the installer and first-boot setup have it in
+/// their corner, and in the same place, so that a page of theirs can give way
+/// to this one without it moving. The name is a letter a box, as theirs is,
+/// so that it is set the same.
+const LOCKUP: &str = "<div class=\"lockup\" role=\"img\" aria-label=\"Peios\">\
+    <svg class=\"lockup-mark\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\">\
     <rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"5.5\" stroke=\"currentColor\" stroke-width=\"2\"/>\
-    <path d=\"M8.5 8h7.5v5h-4v3.5H8.5z\" fill=\"currentColor\"/></svg>";
+    <path d=\"M8.5 8h7.5v5h-4v3.5H8.5z\" fill=\"currentColor\"/></svg>\
+    <span class=\"word\" aria-hidden=\"true\"><span>P</span><span>e</span><span>i</span><span>o</span><span>s</span></span></div>";
+/// What every page stands on: three glows, the stars, and a vignette. The
+/// script draws the stars; without it there are only the glows.
+const BACKDROP: &str = "<div class=\"aurora\" aria-hidden=\"true\"><i class=\"blue\"></i><i class=\"violet\"></i>\
+    <i class=\"teal\"></i></div><canvas id=\"field\" aria-hidden=\"true\"></canvas>\
+    <div class=\"vignette\" aria-hidden=\"true\"></div>";
 const ICON_ALERT: &str = "<svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" \
     stroke-width=\"1.5\" stroke-linecap=\"round\" aria-hidden=\"true\">\
     <circle cx=\"8\" cy=\"8\" r=\"6.25\"/><path d=\"M8 4.75v3.5M8 11v.25\"/></svg>";
@@ -220,9 +229,10 @@ fn page_under(said: Option<&Said>, title: &str, body: &str) -> String {
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+         <meta name=\"color-scheme\" content=\"dark\">\
          <title>{title}</title><link rel=\"stylesheet\" href=\"/.gxwi/logon.css\"></head>\
-         <body><main><div class=\"brand\">{ICON_MARK}<span>Peios</span></div>\
-         <h1>{title}</h1>{machine}{body}</main></body></html>"
+         <body>{BACKDROP}<header class=\"top\">{LOCKUP}</header>\
+         <main><h1>{title}</h1>{machine}{body}</main><script>{SCRIPT}</script></body></html>"
     )
 }
 
@@ -308,6 +318,18 @@ mod tests {
 
         let plain = username_under(None, None);
         assert!(!plain.contains("class=\"machine\"") && !plain.contains("class=\"notice\""));
+    }
+
+    /// Every page has the stars and the lockup, so that going from one to
+    /// the next changes only what the page says.
+    #[test]
+    fn every_page_stands_on_the_same_ground() {
+        let request = CredentialRequest { messages: vec![], prompts: vec![] };
+        for html in [username(None), ask("alice", "tok", &request), granted("alice"), unavailable("No."), overlay_unavailable()] {
+            assert!(html.contains(&format!("<script>{SCRIPT}</script>")));
+            assert_eq!(html.matches("<script").count(), 1);
+            assert!(html.contains(BACKDROP) && html.contains(LOCKUP));
+        }
     }
 
     #[test]
