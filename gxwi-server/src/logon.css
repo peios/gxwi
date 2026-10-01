@@ -1,71 +1,40 @@
-/* The Peios Appkit tokens, under their own names with the dots as hyphens.
-   Only the ones these pages use. Surfaces are washes over one opaque ground;
-   nothing here blurs, because nothing sits behind a logon card but the ground. */
+/* The logon pages stand where the installer and first-boot setup do: one
+   deliberate dark look, Fenestra's dark tokens on the fenesh wallpaper's three
+   glows, with the stars over them. The lockup sits in the corner exactly
+   where theirs does, so that one of their pages can give way to these with
+   nothing but the page's own words changing. */
 :root {
-    color-scheme: light dark;
+    color-scheme: dark;
 
-    --bg-base: #eef1f5;
-    --bg-sunken: #e4e8ee;
-    --surface-1: rgb(255 255 255 / 62%);
-    --surface-2: rgb(13 20 29 / 7%);
-    /* Not on the sheet: the mockups' fill for the pill, quieter than surface.1. */
-    --wash-quiet: rgb(13 20 29 / 4%);
-    --border-subtle: rgb(13 20 29 / 7%);
-    --border-default: rgb(13 20 29 / 10%);
-    --border-strong: rgb(13 20 29 / 12%);
-    --text-primary: #0d141d;
-    --text-body: #131a24;
-    --text-secondary: #3c4756;
-    --text-muted: #5a6473;
-    --accent-solid: #0e6fa6;
-    --accent-on: #ffffff;
-    --accent-quiet: #0a5480;
-    --accent-ring: rgb(14 111 166 / 25%);
-    --accent-wash: rgb(14 111 166 / 12%);
-    --shadow-accent: 0 4px 16px rgb(14 111 166 / 28%);
-    --danger-text: #b23b2e;
-    --danger-wash: rgb(178 59 46 / 8%);
-    --danger-edge: rgb(178 59 46 / 35%);
-
-    --radius-md: 11px;
-    --radius-lg: 14px;
-    --radius-pill: 999px;
-    --control-md: 36px;
-    --control-lg: 44px;
-    --space-1: 4px;
-    --space-2: 9px;
-    --space-3: 14px;
-    --space-4: 16px;
-    --space-5: 28px;
+    --void: #06080c;
+    --surface-1: rgb(255 255 255 / 6%);
+    --surface-2: rgb(255 255 255 / 10%);
+    --border-subtle: rgb(255 255 255 / 7%);
+    --border-default: rgb(255 255 255 / 10%);
+    --border-strong: rgb(255 255 255 / 16%);
+    --text-primary: #f3f6fb;
+    --text-body: #e8ecf3;
+    --text-secondary: #b9c2cf;
+    --text-muted: #a3adbc;
+    --accent: #62d2ff;
+    --accent-on: #05141d;
+    --accent-quiet: #9be4ff;
+    --accent-glow: rgb(98 210 255 / 55%);
+    --accent-wash: rgb(98 210 255 / 14%);
+    --accent-ring: rgb(98 210 255 / 25%);
+    --glow-blue: rgb(29 74 134 / 85%);
+    --glow-violet: rgb(59 42 99 / 90%);
+    --glow-teal: rgb(15 90 90 / 85%);
+    --danger: #ff9e92;
+    --danger-quiet: rgb(178 59 46 / 18%);
+    --danger-edge: rgb(224 95 80 / 45%);
 
     --font-display: "Schibsted Grotesk", system-ui, sans-serif;
     --font-text: "Manrope", system-ui, sans-serif;
-}
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-base: #0e1116;
-        --bg-sunken: #0a0d11;
-        --surface-1: rgb(255 255 255 / 6%);
-        --surface-2: rgb(255 255 255 / 10%);
-        --wash-quiet: rgb(255 255 255 / 4%);
-        --border-subtle: rgb(255 255 255 / 7%);
-        --border-default: rgb(255 255 255 / 10%);
-        --border-strong: rgb(255 255 255 / 16%);
-        --text-primary: #f3f6fb;
-        --text-body: #e8ecf3;
-        --text-secondary: #b9c2cf;
-        --text-muted: #a3adbc;
-        --accent-solid: #62d2ff;
-        --accent-on: #05141d;
-        --accent-quiet: #9be4ff;
-        --accent-ring: rgb(98 210 255 / 25%);
-        --accent-wash: rgb(98 210 255 / 12%);
-        --shadow-accent: 0 4px 16px rgb(98 210 255 / 28%);
-        --danger-text: #ff9e92;
-        --danger-wash: rgb(224 95 80 / 14%);
-        --danger-edge: rgb(224 95 80 / 45%);
-    }
+    --gutter: clamp(16px, 8vw, 128px);
+    --ease-out: cubic-bezier(.2, .7, .2, 1);
 }
 
 @font-face {
@@ -84,225 +53,271 @@
 
 * { box-sizing: border-box; }
 
+html { min-height: 100%; background: var(--void); }
+
 body {
     margin: 0;
     min-height: 100vh;
+    min-height: 100dvh;
     display: grid;
     place-items: center;
-    padding: var(--space-4);
-    background: var(--bg-base);
+    padding: 96px var(--gutter) 64px;
+    background: var(--void);
     color: var(--text-body);
-    font: 500 14px/1.6 var(--font-text);
+    font: 400 15px/1.55 var(--font-text);
+    -webkit-font-smoothing: antialiased;
 }
 
-main { width: 100%; max-width: 400px; }
+[hidden] { display: none !important; }
 
-.brand {
-    display: flex;
+/* ---- what the page stands on: three glows, the stars, a vignette ---- */
+.aurora { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.aurora i {
+    position: absolute;
+    width: 95vmax; height: 95vmax;
+    border-radius: 50%;
+    translate: -50% -50%;
+    opacity: .8;
+}
+.aurora .blue   { left: 12%; top: 28%;  background: radial-gradient(closest-side, var(--glow-blue), transparent); animation: drift-a 38s ease-in-out infinite alternate; }
+.aurora .violet { left: 92%; top: 42%;  background: radial-gradient(closest-side, var(--glow-violet), transparent); animation: drift-b 44s ease-in-out infinite alternate; }
+.aurora .teal   { left: 62%; top: 105%; background: radial-gradient(closest-side, var(--glow-teal), transparent); animation: drift-c 50s ease-in-out infinite alternate; }
+@keyframes drift-a { to { transform: translate(8vmax, 6vmax) scale(1.12); } }
+@keyframes drift-b { to { transform: translate(-10vmax, -4vmax) scale(.9); } }
+@keyframes drift-c { to { transform: translate(-6vmax, -8vmax) scale(1.15); } }
+
+#field { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.vignette {
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgb(0 0 0 / 55%) 100%);
+}
+
+/* ---- the lockup, in the corner ---- */
+.top {
+    position: absolute;
+    top: 28px; left: var(--gutter);
+    z-index: 2;
+    display: flex; align-items: center;
+}
+.lockup {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
+    font-size: 22px;
+    line-height: 1;
     color: var(--text-primary);
-    font: 700 20px/1 var(--font-display);
-    letter-spacing: -0.02em;
 }
+.lockup-mark { display: block; flex: none; width: 1.35em; height: 1.35em; overflow: visible; color: var(--accent); }
+.word {
+    display: flex;
+    margin-left: .32em;
+    padding-block: .12em;
+    font: 700 1em/1 var(--font-display);
+    letter-spacing: -.025em;
+    white-space: nowrap;
+}
+.word span { display: inline-block; }
 
-.brand svg { width: 26px; height: 26px; color: var(--accent-solid); }
+/* ---- the page: a heading, which machine this is, and a card ---- */
+main {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+}
 
 h1 {
-    margin: var(--space-3) 0 var(--space-4);
-    text-align: center;
+    margin: 0 0 6px;
     color: var(--text-primary);
-    font: 700 26px/1.2 var(--font-display);
-    letter-spacing: -0.03em;
+    font: 700 clamp(2rem, 4vw, 2.6rem)/1.05 var(--font-display);
+    letter-spacing: -.03em;
 }
 
-/* Which machine this is, when the administrator has said. It sits up under
-   the heading and takes over the heading's gap above the card. */
+/* Which machine this is, when the administrator has said. */
 .machine {
-    margin: calc(var(--space-2) - var(--space-4)) 0 var(--space-4);
-    text-align: center;
+    margin: 0;
     color: var(--text-muted);
-    font-size: 14px;
+    font: 400 13px/1.3 var(--font-mono);
     overflow-wrap: anywhere;
 }
 
 .card {
-    padding: var(--space-5);
-    background: var(--surface-1);
+    margin-top: 18px;
+    padding: 24px;
     border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
+    border-radius: 18px;
+    background: rgb(14 17 22 / 62%);
+    backdrop-filter: blur(14px);
 }
 
 .card > :first-child, form > :first-child { margin-top: 0; }
+/* A form that opens with what the page carries unseen still opens with its
+   first label. */
+form > input[type="hidden"]:first-child + label { margin-top: 0; }
+
+/* From one logon page to the next, where the browser can, what changes
+   crossfades rather than cutting; the stars carry on either way. */
+@view-transition { navigation: auto; }
 
 label {
     display: block;
-    margin: var(--space-4) 0 var(--space-1);
-    color: var(--text-body);
-    font-size: 12px;
-    font-weight: 700;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+    font: 500 13px/1.2 var(--font-text);
 }
 
 input[type="text"], input[type="password"] {
     width: 100%;
-    height: var(--control-lg);
-    padding: 0 var(--space-3);
-    font: inherit;
+    height: 44px;
+    padding: 0 14px;
     color: var(--text-primary);
-    background: var(--surface-1);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-md);
+    background: rgb(6 8 12 / 55%);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    font: 400 15px/1 var(--font-text);
 }
 
 input[type="text"]:focus-visible, input[type="password"]:focus-visible {
-    outline: 2px solid var(--accent-solid);
-    outline-offset: 2px;
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 a:focus-visible, .who:has(input:focus-visible) {
-    outline: 2px solid var(--accent-solid);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 
 .who input[type="text"]:focus-visible { outline: none; }
 
-[hidden] { display: none !important; }
-
 /* A field whose contents can be shown, where the script is there to do it. */
 .secret { position: relative; }
 
-.secret input { padding-right: var(--control-lg); }
+.secret input { padding-right: 48px; }
 
 .reveal {
     position: absolute;
     top: 4px;
     right: 4px;
-    width: var(--control-md);
-    height: var(--control-md);
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
     padding: 0;
     color: var(--text-muted);
     background: none;
     border: 0;
-    border-radius: 9px;
+    border-radius: 8px;
     cursor: pointer;
 }
 
-.reveal:hover { background: var(--surface-2); }
-.reveal[aria-pressed="true"] { color: var(--accent-quiet); }
-.reveal:focus-visible { outline: 2px solid var(--accent-solid); }
-.reveal svg { width: 16px; height: 16px; }
+.reveal:hover, .reveal[aria-pressed="true"] { color: var(--text-primary); background: var(--surface-1); }
+.reveal:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+.reveal svg { width: 18px; height: 18px; }
 
 /* Who is logging on: an initial, the name as typed, and the way back. */
 .who {
-    display: flex;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 10px;
     align-items: center;
-    gap: var(--space-2);
-    height: var(--control-lg);
-    padding: 0 6px;
-    background: var(--wash-quiet);
+    padding: 6px 6px 6px 8px;
+    background: rgb(255 255 255 / 3%);
     border: 1px solid var(--border-default);
-    border-radius: var(--radius-pill);
+    border-radius: 12px;
 }
 
 .who .initial {
-    flex: none;
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     display: grid;
     place-items: center;
     overflow: hidden;
-    color: var(--text-secondary);
-    background: var(--surface-2);
-    border-radius: var(--radius-pill);
-    font-size: 12px;
-    font-weight: 700;
+    color: var(--accent-quiet);
+    background: rgb(98 210 255 / 16%);
+    border-radius: 50%;
+    font: 700 14px/1 var(--font-display);
 }
 
 .who input[type="text"] {
-    flex: 1;
     min-width: 0;
     height: auto;
     padding: 0;
     background: none;
     border: 0;
     border-radius: 0;
-    box-shadow: none;
+    font: 600 15px/1.4 var(--font-text);
 }
 
 .who a {
-    flex: none;
-    display: grid;
-    place-items: center;
-    height: 30px;
-    padding: 0 var(--space-3);
-    color: var(--accent-solid);
-    background: var(--border-subtle);
-    border-radius: var(--radius-pill);
-    font-size: 12px;
-    font-weight: 700;
+    padding: 8px;
+    color: var(--accent-quiet);
+    border-radius: 8px;
+    font: 500 13px/1 var(--font-text);
     text-decoration: none;
 }
 
+.who a:hover { background: var(--surface-1); }
+
 /* One primary action a page: the glow stops meaning anything otherwise. */
 .primary, .secondary {
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    height: var(--control-lg);
-    margin-top: var(--space-4);
-    font: inherit;
-    font-weight: 700;
-    border-radius: var(--radius-md);
+    height: 44px;
+    margin-top: 20px;
+    border-radius: 12px;
+    font: 600 15px/1 var(--font-display);
     text-decoration: none;
     cursor: pointer;
+    transition: background-color .2s, color .2s, box-shadow .3s, border-color .2s;
 }
 
 .primary {
     color: var(--accent-on);
-    background: var(--accent-solid);
-    border: 0;
-    box-shadow: var(--shadow-accent);
+    background: var(--accent);
+    border: 1px solid var(--accent);
 }
+
+.primary:hover { box-shadow: 0 0 0 4px rgb(98 210 255 / 18%), 0 10px 32px -8px var(--accent-glow); }
 
 .secondary {
-    color: var(--text-primary);
-    background: var(--surface-1);
-    border: 1px solid var(--border-strong);
-    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-default);
 }
 
+.secondary:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
 .primary:focus-visible, .secondary:focus-visible {
-    outline: 2px solid var(--accent-solid);
+    outline: 2px solid var(--accent);
     outline-offset: 3px;
 }
 
 .message {
     display: flex;
-    gap: var(--space-2);
-    margin: 0 0 var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    font-size: 13px;
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-md);
-    background: var(--surface-2);
+    gap: 9px;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    background: var(--surface-1);
+    border-radius: 10px;
     overflow-wrap: anywhere;
 }
 
 .message.error {
-    color: var(--danger-text);
-    background: var(--danger-wash);
-    border-color: var(--danger-edge);
+    color: var(--danger);
+    background: var(--danger-quiet);
 }
 
-.message svg { flex: none; width: 14px; height: 14px; margin-top: 4px; }
+.message svg { flex: none; width: 15px; height: 15px; margin-top: 3px; }
 
 /* The administrator's notice, read before a name is given. */
 .notice {
-    margin: 0 0 var(--space-4);
-    padding-bottom: var(--space-4);
+    margin: 0 0 16px;
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--border-default);
     color: var(--text-secondary);
     font-size: 13px;
@@ -310,30 +325,56 @@ a:focus-visible, .who:has(input:focus-visible) {
 }
 
 .notice p { margin: 0; }
-.notice p + p { margin-top: var(--space-2); }
+.notice p + p { margin-top: 9px; }
 
 .done { text-align: center; }
 
 .done .mark {
     width: 44px;
     height: 44px;
-    margin: 0 auto var(--space-3);
+    margin: 0 auto 14px;
     display: grid;
     place-items: center;
     color: var(--accent-quiet);
     background: var(--accent-wash);
     border: 1px solid var(--accent-ring);
-    border-radius: var(--radius-pill);
+    border-radius: 50%;
 }
 
 .done .mark svg { width: 18px; height: 18px; }
 
 h2 {
-    margin: 0 0 var(--space-1);
+    margin: 0 0 4px;
     color: var(--text-primary);
     font: 600 16px/1.4 var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -.02em;
     overflow-wrap: anywhere;
 }
 
 .done p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+
+/* Arriving from a page that was not one of these, which handed over its
+   stars as it went (first-boot setup, finishing): the lockup and the stars
+   were there already, and the page's own parts rise into place under them. */
+.arriving main > * { animation: arrive .9s var(--ease-out) both; }
+.arriving main > :nth-child(2) { animation-delay: 90ms; }
+.arriving main > :nth-child(3) { animation-delay: 180ms; }
+.arriving main > :nth-child(n + 4) { animation-delay: 270ms; }
+@keyframes arrive { from { opacity: 0; transform: translateY(18px); } }
+
+@media (max-width: 520px) {
+    body { padding-top: 88px; }
+    .card { padding: 20px; }
+}
+
+/* forced colours (Windows High Contrast and the like): the backdrop goes,
+   and the card keeps an edge the system colours draw */
+@media (forced-colors: active) {
+    #field, .aurora, .vignette { display: none; }
+    .card, .who, .message { border: 1px solid CanvasText; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-delay: 0s !important; }
+    .arriving main > * { animation: none; }
+}

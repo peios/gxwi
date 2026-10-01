@@ -458,7 +458,7 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
 /// The one script named is `pages::SCRIPT`, by hash rather than as `'self'`:
 /// this origin will come to serve sessions too, and none of that may run here.
 const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
-    script-src 'sha256-YDkPJmFXnybaZwI2JWR4KYoCULRARv5wK46Kv23Y9fM='; \
+    script-src 'sha256-QQPMIHxgf8VffZUPR8BQq5uezNj1cP3mWS5H0ue7Lv8='; \
     form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 /// One script, no framing, nothing kept: these pages take passwords.

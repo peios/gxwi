@@ -15,6 +15,42 @@ an account that needs no credential can be named. The values are watched and
 apply without a restart. An overlay that cannot run leaves a page saying the
 machine is not ready; the logon pages are not served in its place.
 .PP
+GXWI's own files, under /.gxwi/, are served while an overlay is up, so an
+overlay's page can fetch the logon pages' stylesheet and fonts before it gives
+way to them. The logon pages draw a field of stars, and each takes up the
+field the page before it left, so the stars carry on from one step to the
+next. A page of the same origin can leave its own field for the next logon
+page to take up. It stores JSON in sessionStorage under the key
+.BR gxwi.field ,
+in the shape
+.BR "{v: 1, at, w, h, t, glows, stars, rise}" .
+.IP \(bu 2
+.B at
+is the time it was left, from Date.now(). A field older than 15 seconds is
+ignored.
+.IP \(bu 2
+.B w
+and
+.B h
+are the size of the window it was drawn in.
+.IP \(bu 2
+.B t
+is the field's clock in milliseconds.
+.IP \(bu 2
+.B glows
+holds how far, in milliseconds, each of the three glows is into its drift.
+.IP \(bu 2
+.B stars
+holds seven numbers a star, at most 4000 stars: x, y, nearness (0 to 1), phase,
+colour (an index into the palette 0 #62d2ff, 1 #c8f1ff, 2 #9d8cff, 3 #4fd1c5),
+whether it glints (0 or 1), and brightness (0 to 1).
+.IP \(bu 2
+.B rise
+true has the page's contents rise into place, for a page arriving from one
+that was not a logon page.
+.PP
+Anything malformed is ignored. The numbers are only drawn.
+.PP
 New compositor sessions resolve LANG and individual LC_* preferences from
 Machine\eSystem\eLocale and Users\e<SID>\eLocale using the authenticated
 principal. The fallback is C.UTF-8. Inherited locale overrides are cleared;
