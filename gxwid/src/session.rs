@@ -212,10 +212,15 @@ fn definition(program: &Path, description: &str, runtime: &Path, profile: &Profi
     // As `login` has it: a home that is not there is not a failed logon.
     let home = if profile.home.starts_with('/') && Path::new(&profile.home).is_dir() { &profile.home } else { "/" };
     let shell = if profile.shell.starts_with('/') { &profile.shell } else { "/bin/sh" };
+    // What to call the person, for a compositor to greet them by. Only the
+    // first logon's: a session joined again keeps the name it started with.
     json!({
         "image_path": program,
         "arguments": [],
-        "environment": { "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin", "GXWI_RUNTIME_DIR": runtime },
+        "environment": {
+            "HOME": home, "SHELL": shell, "PATH": "/usr/bin:/bin", "GXWI_RUNTIME_DIR": runtime,
+            "GXWI_DISPLAY_NAME": profile.display_name,
+        },
         "working_directory": home,
         "description": description,
         "descriptors": ["gxwi-session"],

@@ -19,6 +19,15 @@ for (const button of document.querySelectorAll("button.reveal")) {
     field.form.addEventListener("submit", () => show(false));
 }
 
+// Answering what was asked, the page's own parts go while the answer is
+// checked, and the stars and the lockup stay for whatever comes next to take
+// up: the desktop, most often. A name alone leads only to another page like
+// this one, which needs nothing to go.
+for (const form of document.querySelectorAll("form")) {
+    if (!form.querySelector('input[type="password"]')) continue;
+    form.addEventListener("submit", () => document.documentElement.classList.add("leaving"));
+}
+
 // The stars, as the installer and first-boot setup draw theirs: a slow drift
 // that answers the pointer a little, a few near ones catching the light now
 // and then.

@@ -86,8 +86,8 @@ pub fn routes(control: UnixStream, overlay: Arc<Overlay>) -> Router {
     });
     Router::new()
         .route("/.gxwi/logon.css", get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }))
-        .route("/.gxwi/fonts/manrope.woff2", get(|| async { asset("font/woff2", pages::FONT_TEXT) }))
-        .route("/.gxwi/fonts/schibsted-grotesk.woff2", get(|| async { asset("font/woff2", pages::FONT_DISPLAY) }))
+        .route("/.gxwi/fonts/manrope.woff2", get(|| async { font(pages::FONT_TEXT) }))
+        .route("/.gxwi/fonts/schibsted-grotesk.woff2", get(|| async { font(pages::FONT_DISPLAY) }))
         .fallback(anywhere)
         .with_state(logon)
 }
@@ -197,6 +197,17 @@ fn asset(content_type: &'static str, bytes: &'static [u8]) -> Response<Body> {
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
     harden(headers);
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=3600"));
+    response
+}
+
+/// A face, for any page at this address: the logon pages', a desktop's, and
+/// an app's in a frame of its own, whose origin is nobody's and to which this
+/// is a request from elsewhere. A browser fetches a face as such a request
+/// asks to be let, and is let: the files are the same for everyone, and say
+/// nothing about anyone.
+fn font(bytes: &'static [u8]) -> Response<Body> {
+    let mut response = asset("font/woff2", bytes);
+    response.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
     response
 }
 
@@ -458,7 +469,7 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
 /// The one script named is `pages::SCRIPT`, by hash rather than as `'self'`:
 /// this origin will come to serve sessions too, and none of that may run here.
 const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
-    script-src 'sha256-QQPMIHxgf8VffZUPR8BQq5uezNj1cP3mWS5H0ue7Lv8='; \
+    script-src 'sha256-WsnSOBDWSdS0j7lgt80pvVqLjfKUdDbnqr/IVIDQpsw='; \
     form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 /// One script, no framing, nothing kept: these pages take passwords.

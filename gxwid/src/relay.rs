@@ -52,11 +52,14 @@ pub struct Relay {
     state: State,
     logon_type: LogonType,
     claimed_address: Option<String>,
+    /// Who the server said is logging on: a claim until the authority grants
+    /// the logon, and then the account it granted.
+    identifier: String,
 }
 
 impl Relay {
     pub fn new(logon_type: LogonType) -> Self {
-        Relay { state: State::AwaitStart, logon_type, claimed_address: None }
+        Relay { state: State::AwaitStart, logon_type, claimed_address: None, identifier: String::new() }
     }
 
     /// Where gxwi-server says the user is, once a `LogonStart` has said so.
@@ -96,6 +99,7 @@ impl Relay {
             return deny(Denial::MalformedRequest);
         }
         self.claimed_address = claimed.remote_host.clone();
+        self.identifier = String::from_utf8_lossy(&claimed.identifier).into_owned();
         let start = LogonStart {
             required_credential_type: None,
             ssh_binding: None,
@@ -173,9 +177,16 @@ impl Relay {
                         ..Profile::default()
                     },
                 };
+                // The session is told what to call the person too. An
+                // account with no display name is called by the name it was
+                // logged on as, which the authority has just vouched for.
+                let mut profile = granted.profile;
+                if profile.display_name.is_empty() {
+                    profile.display_name = std::mem::take(&mut self.identifier);
+                }
                 match wire::encode_access_granted(&shown) {
                     Ok(to_server) => {
-                        Action::Finish { to_server, outcome: Outcome::Granted(granted.profile) }
+                        Action::Finish { to_server, outcome: Outcome::Granted(profile) }
                     }
                     Err(_) => deny(Denial::Internal),
                 }
@@ -299,6 +310,26 @@ mod tests {
         assert_eq!(shown.profile.home, "");
         assert_eq!(shown.profile.shell, "");
         assert!(matches!(outcome, Outcome::Granted(p) if p.home == "/home/alice"));
+    }
+
+    #[test]
+    fn an_account_with_no_display_name_is_called_what_it_logged_on_as() {
+        let unnamed = wire::encode_access_granted(&AccessGranted {
+            session_id: 1003,
+            profile: Profile { home: "/home/jack".into(), shell: "/bin/sh".into(), display_name: String::new() },
+        })
+        .unwrap();
+        let mut relay = Relay::new(TYPE);
+        relay.on_server(&start("jack"));
+        let Action::Finish { to_server, outcome } = relay.on_authority(&unnamed, true) else { panic!() };
+        assert!(matches!(outcome, Outcome::Granted(p) if p.display_name == "jack"));
+        // The server is told only what the authority said.
+        assert_eq!(wire::decode_access_granted(&to_server).unwrap().profile.display_name, "");
+
+        let mut relay = Relay::new(TYPE);
+        relay.on_server(&start("alice"));
+        let Action::Finish { outcome, .. } = relay.on_authority(&granted(), true) else { panic!() };
+        assert!(matches!(outcome, Outcome::Granted(p) if p.display_name == "Alice"));
     }
 
     #[test]
