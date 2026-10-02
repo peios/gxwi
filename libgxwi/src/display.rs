@@ -63,6 +63,9 @@ pub enum Role {
     /// Something under everything, filling the desktop: the wallpaper, and
     /// whatever else a shell puts on the desktop itself.
     Background,
+    /// A window of its own that floats over the others, such as a program's
+    /// dialog.
+    Dialog,
 }
 
 impl Role {
@@ -72,6 +75,7 @@ impl Role {
             Role::Panel => "panel",
             Role::Overlay => "overlay",
             Role::Background => "background",
+            Role::Dialog => "dialog",
         }
     }
 }
@@ -289,6 +293,7 @@ fn understood(message: &Value) -> Asked {
                             "panel" => Role::Panel,
                             "overlay" => Role::Overlay,
                             "background" => Role::Background,
+                            "dialog" => Role::Dialog,
                             _ => return None,
                         },
                     })
