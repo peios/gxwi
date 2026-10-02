@@ -11,12 +11,19 @@
 // open, and neither can be changed, and each says why. With what dana gave
 // her she stops sshd and starts it again. Then sshd's ServiceSecurity is
 // taken away, so it is as it was.
+//
+// As dana, the defaults (`node service-permissions.mjs defaults`): Default
+// permissions… lets Authenticated Users reload every service without its
+// own; sshd is given its own and then Use the default takes it away; and
+// Use the built-in default takes away the default set for every service.
 import { guest, session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
-const desk = await session(alice ? 9364 : 9363, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const defaults = process.argv[2] === "defaults";
+const desk = await session(alice ? 9364 : defaults ? 9366 : 9363, alice ? undefined : { user: "dana", password: "dana-dev-password" });
 const out = {};
-const name = alice ? "permissions-alice" : "permissions";
+const name = alice ? "permissions-alice" : defaults ? "permissions-defaults" : "permissions";
+const services = "Machine\\System\\Services";
 const sshd = "Machine\\System\\Services\\sshd";
 
 // A first sign-in brings Get started with it, which takes half the screen
@@ -93,6 +100,58 @@ const open = async (which) => {
     await desk.press(manager, `.details .permissions button[fx-value-which="${which}"]`);
     return dialog();
 };
+
+if (defaults) {
+    const value = (key) => guest(`reg get '${key}' ServiceSecurity 2>&1 | head -1`).split("\n")[0];
+    /** Presses `selector` until `then` holds of the details, as a pane
+        drawn again under the pointer can take the first press. */
+    const press = async (selector, then) => {
+        for (let tries = 0; tries < 4; tries++) {
+            await manager.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`);
+            await desk.press(manager, selector);
+            if (await until(then, details, 2500).then(then)) return true;
+        }
+        return false;
+    };
+    // The default for every service: Authenticated Users may reload them too.
+    out.before = { every: value(services), sshd: value(sshd) };
+    await desk.press(manager, `.details .permissions button[fx-value-which="every"]`);
+    let editor = await dialog();
+    out.every = editor ? await shows(editor) : "no dialog";
+    if (!editor) await desk.finish(out, 1);
+    await desk.press(editor, ".who[fx-value-sid='S-1-5-11']");
+    await desk.press(editor, "button[fx-value-right='3'][fx-value-way='allow']");
+    await desk.picture(`${name}-every.png`);
+    await desk.press(editor, "footer .primary");
+    out.everyClosed = await gone();
+    out.everyValue = value(services);
+    out.afterEvery = await until((d) => d.text?.includes("takes the default set for every service"), details);
+    // sshd's own, and then the default again.
+    editor = await open("control");
+    if (editor) {
+        await desk.press(editor, ".who[fx-value-sid='S-1-5-11']");
+        await desk.press(editor, "button[fx-value-right='1'][fx-value-way='allow']");
+        await desk.press(editor, "footer .primary");
+        await gone();
+    }
+    out.ownValue = value(sshd);
+    out.own = await until((d) => d.buttons.includes("Use the default"), details);
+    await press(`button[fx-click="forget"][fx-value-which="service"]`, (d) => d.buttons.includes("Keep its own"));
+    out.asked = await details();
+    await desk.picture(`${name}-asking.png`);
+    await press(`button[fx-click="forget-yes"]`, (d) => d.said !== null);
+    out.forgot = await details();
+    out.ownAfter = value(sshd);
+    // The built-in default again, for every service.
+    await until((d) => d.buttons.includes("Use the built-in default"), details);
+    await press(`button[fx-click="forget"][fx-value-which="every"]`, (d) => d.buttons.includes("Keep it"));
+    out.askedEvery = (await details()).text;
+    await press(`button[fx-click="forget-yes"]`, (d) => d.said?.includes("built-in"));
+    out.forgotEvery = await details();
+    out.everyAfter = value(services);
+    await desk.picture(`${name}-after.png`);
+    await desk.finish(out);
+}
 
 if (alice) {
     // Who may control it: hers to read, not to change, and it says why.
