@@ -369,6 +369,33 @@ h2 {
    with the card still most of the way there. */
 .leaving main { opacity: 0; transform: translateY(-6px); transition: opacity .14s ease-out, transform .2s var(--ease-out); }
 
+/* And if the answer is slow in coming (logon.js says when), that it is being
+   checked, in the middle, where the card was. */
+.signing-in {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0;
+    font: 500 15px/1.4 var(--font-text);
+    color: var(--accent-quiet);
+    pointer-events: none;
+    opacity: 0;
+}
+.checking .signing-in { opacity: 1; transition: opacity .3s ease; }
+.spinner {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent-ring);
+    border-top-color: var(--accent-quiet);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(1turn); } }
+
 /* Waiting for the machine (pages::away, shown by the service worker): the
    mark in the middle, pulsing as a desktop's does while it waits for a
    restart, and what is waited for under it. */
