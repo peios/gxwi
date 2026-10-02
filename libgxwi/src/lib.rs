@@ -224,6 +224,17 @@ impl App {
         self.live_as(Role::Overlay, None, title, app)
     }
 
+    /// A window of its own that floats over the others rather than taking a
+    /// place among them, for a program's dialog: it comes up over the middle
+    /// of the desktop with the focus, with a strip saying whose it is, and
+    /// the person can move it by its strip. It is tied to no other window,
+    /// and the others can be used while it is up. It is as big as the
+    /// element marked `fx-fit` in its HTML, within the room there is, and
+    /// otherwise as big as the window manager makes it.
+    pub fn dialog<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Dialog, None, title, app)
+    }
+
     /// A live surface under everything, filling the desktop, for a part of
     /// the shell: the wallpaper, and whatever a shell puts on the desktop
     /// itself. It never has the focus and has no strip.
