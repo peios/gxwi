@@ -369,6 +369,35 @@ h2 {
    with the card still most of the way there. */
 .leaving main { opacity: 0; transform: translateY(-6px); transition: opacity .14s ease-out, transform .2s var(--ease-out); }
 
+/* Waiting for the machine (pages::away, shown by the service worker): the
+   mark in the middle, pulsing as a desktop's does while it waits for a
+   restart, and what is waited for under it. */
+.away main {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0 16px;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 28px;
+    text-align: center;
+}
+.away-mark {
+    width: clamp(64px, 12vw, 132px);
+    height: clamp(64px, 12vw, 132px);
+    overflow: visible;
+    color: var(--accent);
+    animation: away-heartbeat 2.4s ease-in-out infinite;
+}
+@keyframes away-heartbeat {
+    0%, 100% { opacity: .3; filter: drop-shadow(0 0 2px rgb(98 210 255 / 40%)); }
+    45% { opacity: .85; filter: drop-shadow(0 0 18px var(--accent)); }
+}
+.away main p { margin: 0; font: 400 15px/1.5 var(--font-text); color: var(--text-secondary); }
+
 @media (max-width: 520px) {
     body { padding-top: 88px; }
     .card { padding: 20px; }

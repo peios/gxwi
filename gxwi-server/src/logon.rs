@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use axum::Router;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, State};
-use axum::http::header::{self, HeaderMap, HeaderValue};
+use axum::http::header::{self, HeaderMap, HeaderName, HeaderValue};
 use axum::http::{Method, Request, Response, StatusCode, Uri};
 use axum::routing::get;
 use gxwi_channel::{CONTROL, MSG_CONVERSATION, MSG_OPEN_CONVERSATION};
@@ -88,6 +88,8 @@ pub fn routes(control: UnixStream, overlay: Arc<Overlay>) -> Router {
         .route("/.gxwi/logon.css", get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }))
         .route("/.gxwi/fonts/manrope.woff2", get(|| async { font(pages::FONT_TEXT) }))
         .route("/.gxwi/fonts/schibsted-grotesk.woff2", get(|| async { font(pages::FONT_DISPLAY) }))
+        .route("/.gxwi/sw.js", get(|| async { worker() }))
+        .route("/.gxwi/away", get(|| async { html(StatusCode::OK, pages::away(), None) }))
         .fallback(anywhere)
         .with_state(logon)
 }
@@ -208,6 +210,21 @@ fn asset(content_type: &'static str, bytes: &'static [u8]) -> Response<Body> {
 fn font(bytes: &'static [u8]) -> Response<Body> {
     let mut response = asset("font/woff2", bytes);
     response.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+    response
+}
+
+/// The service worker, for the whole address: the pages it stands in for are
+/// everywhere, a session's included. Under a policy of its own, since the
+/// pages' lets nothing be fetched and fetching is all it does; and checked
+/// for a new one at every load rather than kept.
+fn worker() -> Response<Body> {
+    let mut response = Response::new(Body::from(pages::WORKER));
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/javascript; charset=utf-8"));
+    headers.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'self'"));
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    headers.insert(HeaderName::from_static("service-worker-allowed"), HeaderValue::from_static("/"));
     response
 }
 
@@ -468,8 +485,11 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
 
 /// The one script named is `pages::SCRIPT`, by hash rather than as `'self'`:
 /// this origin will come to serve sessions too, and none of that may run here.
+/// It may register the service worker, and ask this address whether the
+/// machine is there, as the waiting page does.
 const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
-    script-src 'sha256-WsnSOBDWSdS0j7lgt80pvVqLjfKUdDbnqr/IVIDQpsw='; \
+    script-src 'sha256-pRtXlHPc+lJ5XSR+n/NblGZYGVhXoEjwc92h/gzyWcA='; \
+    connect-src 'self'; worker-src 'self'; \
     form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 /// One script, no framing, nothing kept: these pages take passwords.
