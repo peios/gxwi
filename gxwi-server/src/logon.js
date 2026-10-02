@@ -2,8 +2,9 @@
 // they are served under names these exact bytes by hash; change one and the
 // test beside the hash says what it has become.
 //
-// It does two things: the button that shows a password, and the stars behind
-// the page.
+// It does the button that shows a password and the stars behind the page; and
+// it keeps the service worker that stands in for a page while the machine does
+// not answer, and on that page waits for the machine.
 for (const button of document.querySelectorAll("button.reveal")) {
     const field = button.previousElementSibling;
     const show = (on) => {
@@ -26,6 +27,27 @@ for (const button of document.querySelectorAll("button.reveal")) {
 for (const form of document.querySelectorAll("form")) {
     if (!form.querySelector('input[type="password"]')) continue;
     form.addEventListener("submit", () => document.documentElement.classList.add("leaving"));
+}
+
+// The service worker (sw.js), registered from every page so that it is there
+// the next time the machine is not. A browser runs one only on HTTPS and on
+// the local machine.
+if (window.isSecureContext && navigator.serviceWorker) {
+    navigator.serviceWorker.register("/.gxwi/sw.js", { scope: "/" }).catch(() => {});
+}
+
+// The page the service worker shows while the machine does not answer: the
+// machine is asked every little while, in a way nothing kept can answer, and
+// once it does, the page that was asked for is loaded again.
+if (document.body.classList.contains("away")) {
+    const ask = async () => {
+        try {
+            const answer = await fetch("/.gxwi/logon.css", { cache: "no-store", signal: AbortSignal.timeout(4000) });
+            if (answer.ok) return location.reload();
+        } catch { /* not yet */ }
+        setTimeout(ask, 1500);
+    };
+    setTimeout(ask, 1500);
 }
 
 // The stars, as the installer and first-boot setup draw theirs: a slow drift

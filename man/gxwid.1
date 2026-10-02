@@ -56,6 +56,18 @@ that was not a logon page.
 .PP
 Anything malformed is ignored. The numbers are only drawn.
 .PP
+The logon pages register a service worker (/.gxwi/sw.js) for the whole
+address, so that a page loaded while the machine does not answer is not the
+browser's own error. Every request goes to the machine as before; only a page
+in the tab that fails, or does not come within 10 seconds, is answered with
+the waiting page (/.gxwi/away) kept from when the machine last answered. It
+shows the Peios mark pulsing and the machine's hostname, asks the machine
+every 1.5 seconds, and loads the page asked for once it answers. Nothing else
+is answered from what is kept but the waiting page's stylesheet and fonts, and
+never a request made with cache: "no-store". Browsers run service workers only
+over HTTPS and on the local machine, so over plain HTTP from elsewhere there is
+none.
+.PP
 New compositor sessions resolve LANG and individual LC_* preferences from
 Machine\eSystem\eLocale and Users\e<SID>\eLocale using the authenticated
 principal. The fallback is C.UTF-8. Inherited locale overrides are cleared;

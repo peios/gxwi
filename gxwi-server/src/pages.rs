@@ -15,6 +15,9 @@ pub const STYLESHEET: &str = include_str!("logon.css");
 /// policy names it by the hash of these bytes. It draws the stars, and shows
 /// a password on asking.
 pub const SCRIPT: &str = include_str!("logon.js");
+/// The service worker the pages register, which shows `away` in place of a
+/// page the machine does not answer with.
+pub const WORKER: &str = include_str!("sw.js");
 /// Latin subsets, under the licences beside them. Served from here because a
 /// logon page may fetch from nowhere else, and a server may have no route out.
 pub const FONT_TEXT: &[u8] = include_bytes!("fonts/manrope.woff2");
@@ -182,6 +185,35 @@ pub fn overlay_unavailable() -> String {
     page("Not available yet", &card(&body))
 }
 
+/// What the service worker shows in place of any page while the machine does
+/// not answer: the mark, pulsing as a desktop's does while it waits for a
+/// restart, and the machine waited for by name: its hostname, as a desktop
+/// waiting for it says, or what these pages call it. The script tries the
+/// machine every little while and loads the page asked for once it answers.
+pub fn away() -> String {
+    let name = std::fs::read_to_string("/proc/sys/kernel/hostname")
+        .ok()
+        .map(|name| name.trim().to_string())
+        .filter(|name| !name.is_empty())
+        .or_else(|| SAID.get().and_then(|said| said.name.clone()))
+        .unwrap_or_else(|| "this machine".to_string());
+    format!(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
+         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+         <meta name=\"color-scheme\" content=\"dark\">\
+         <title>Waiting for {name}</title><link rel=\"stylesheet\" href=\"/.gxwi/logon.css\"></head>\
+         <body class=\"away\">{BACKDROP}<header class=\"top\">{LOCKUP}</header>\
+         <main>{MARK}<p role=\"status\">Waiting for {name} to come back.</p></main>\
+         <script>{SCRIPT}</script></body></html>",
+        name = escape(&name),
+    )
+}
+
+/// The mark on its own, as a desktop shows it while the machine is away.
+const MARK: &str = "<svg class=\"away-mark\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\">\
+    <rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"5.5\" stroke=\"currentColor\" stroke-width=\"2\"/>\
+    <path d=\"M8.5 8h7.5v5h-4v3.5H8.5z\" fill=\"currentColor\"/></svg>";
+
 /// The lockup, mark and name, as the installer and first-boot setup have it in
 /// their corner, and in the same place, so that a page of theirs can give way
 /// to this one without it moving. The name is a letter a box, as theirs is,
@@ -325,11 +357,26 @@ mod tests {
     #[test]
     fn every_page_stands_on_the_same_ground() {
         let request = CredentialRequest { messages: vec![], prompts: vec![] };
-        for html in [username(None), ask("alice", "tok", &request), granted("alice"), unavailable("No."), overlay_unavailable()] {
+        for html in [username(None), ask("alice", "tok", &request), granted("alice"), unavailable("No."), overlay_unavailable(), away()] {
             assert!(html.contains(&format!("<script>{SCRIPT}</script>")));
             assert_eq!(html.matches("<script").count(), 1);
             assert!(html.contains(BACKDROP) && html.contains(LOCKUP));
         }
+    }
+
+    #[test]
+    fn the_waiting_page_waits_for_the_machine_with_the_mark() {
+        let html = away();
+        assert!(html.contains("<body class=\"away\">") && html.contains(MARK));
+        assert!(html.contains(" to come back.</p>"));
+    }
+
+    #[test]
+    fn the_worker_answers_only_from_what_it_keeps_and_never_a_question_asked_not_to_be() {
+        // What the waiting page asks with is never answered from the cache.
+        assert!(WORKER.contains("if (request.cache === \"no-store\") return;"));
+        // And only pages in the tab are stood in for, not a desktop's frames.
+        assert!(WORKER.contains("request.destination === \"document\""));
     }
 
     #[test]
