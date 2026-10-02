@@ -363,8 +363,11 @@ h2 {
 @keyframes arrive { from { opacity: 0; transform: translateY(18px); } }
 
 /* Signing in: the page's own parts go while the answer is checked, the
-   stars and the lockup staying for the desktop to take up. */
-.leaving main { opacity: 0; transform: translateY(-10px); transition: opacity .4s ease, transform .5s var(--ease-out); }
+   stars and the lockup staying for the desktop to take up. Quickly: a desktop
+   arrives about a fifth of a second after the password is sent, and the
+   browser stops drawing this page as it goes, so a slower fade was cut off
+   with the card still most of the way there. */
+.leaving main { opacity: 0; transform: translateY(-6px); transition: opacity .14s ease-out, transform .2s var(--ease-out); }
 
 @media (max-width: 520px) {
     body { padding-top: 88px; }
