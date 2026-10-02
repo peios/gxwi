@@ -209,10 +209,12 @@ pub fn away() -> String {
     )
 }
 
-/// The mark on its own, as a desktop shows it while the machine is away.
-const MARK: &str = "<svg class=\"away-mark\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\">\
-    <rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"5.5\" stroke=\"currentColor\" stroke-width=\"2\"/>\
-    <path d=\"M8.5 8h7.5v5h-4v3.5H8.5z\" fill=\"currentColor\"/></svg>";
+/// The mark on its own, as a desktop shows it while the machine is away. Its
+/// size and colour are said here as well as in the stylesheet, so that a
+/// stylesheet that is not the one it was made with still draws it right.
+const MARK: &str = "<svg class=\"away-mark\" width=\"96\" height=\"96\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\">\
+    <rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"5.5\" stroke=\"#62d2ff\" stroke-width=\"2\"/>\
+    <path d=\"M8.5 8h7.5v5h-4v3.5H8.5z\" fill=\"#62d2ff\"/></svg>";
 
 /// The lockup, mark and name, as the installer and first-boot setup have it in
 /// their corner, and in the same place, so that a page of theirs can give way

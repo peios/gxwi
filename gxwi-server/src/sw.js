@@ -16,7 +16,7 @@
 // Browsers run service workers only on HTTPS and on the local machine, so
 // over plain HTTP elsewhere this is never installed.
 
-const CACHE = "gxwi-away-1";
+const CACHE = "gxwi-away-2";
 const AWAY = "/.gxwi/away";
 const KEPT = [AWAY, "/.gxwi/logon.css", "/.gxwi/fonts/manrope.woff2", "/.gxwi/fonts/schibsted-grotesk.woff2"];
 // How long a page is waited for before the machine counts as not answering.
@@ -30,7 +30,11 @@ const FRESH = 10 * 60 * 1000;
 let keptAt = 0;
 function keep() {
     keptAt = Date.now();
-    return caches.open(CACHE).then((cache) => cache.addAll(KEPT)).catch(() => {});
+    // From the machine itself, not the browser's own copies: the stylesheet
+    // is kept by the browser for an hour, and a copy from before the waiting
+    // page was styled drew it unstyled.
+    const fresh = KEPT.map((url) => new Request(url, { cache: "reload" }));
+    return caches.open(CACHE).then((cache) => cache.addAll(fresh)).catch(() => {});
 }
 
 self.addEventListener("install", (event) => {
