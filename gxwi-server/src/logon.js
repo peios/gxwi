@@ -23,11 +23,39 @@ for (const button of document.querySelectorAll("button.reveal")) {
 // Answering what was asked, the page's own parts go while the answer is
 // checked, and the stars and the lockup stay for whatever comes next to take
 // up: the desktop, most often. A name alone leads only to another page like
-// this one, which needs nothing to go.
+// this one, which needs nothing to go. Should the answer be slow coming, the
+// page says it is signing in, where the card was; most come before that.
+const SLOW = 600;
 for (const form of document.querySelectorAll("form")) {
     if (!form.querySelector('input[type="password"]')) continue;
-    form.addEventListener("submit", () => document.documentElement.classList.add("leaving"));
+    form.addEventListener("submit", () => {
+        document.documentElement.classList.add("leaving");
+        // Empty until it is said, so that saying it is heard.
+        let note = document.querySelector(".signing-in");
+        if (!note) {
+            note = document.createElement("p");
+            note.className = "signing-in";
+            note.setAttribute("role", "status");
+            const spinner = document.createElement("i");
+            spinner.className = "spinner";
+            spinner.setAttribute("aria-hidden", "true");
+            note.append(spinner, document.createElement("span"));
+            document.body.append(note);
+        }
+        setTimeout(() => {
+            if (!document.documentElement.classList.contains("leaving")) return;
+            note.lastChild.textContent = "Signing in…";
+            document.documentElement.classList.add("checking");
+        }, SLOW);
+    });
 }
+// Come back to by the browser's Back, the page is as it was before it was
+// answered.
+addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    document.documentElement.classList.remove("leaving", "checking");
+    document.querySelector(".signing-in")?.remove();
+});
 
 // The service worker (sw.js), registered from every page so that it is there
 // the next time the machine is not. A browser runs one only on HTTPS and on

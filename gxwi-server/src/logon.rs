@@ -488,7 +488,7 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
 /// It may register the service worker, and ask this address whether the
 /// machine is there, as the waiting page does.
 const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
-    script-src 'sha256-pRtXlHPc+lJ5XSR+n/NblGZYGVhXoEjwc92h/gzyWcA='; \
+    script-src 'sha256-HV3Ol8Z8htrv2p7QsSWnLYz0l8OY1TC6riqm00p5iyo='; \
     connect-src 'self'; worker-src 'self'; \
     form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 

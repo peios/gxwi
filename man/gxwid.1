@@ -56,6 +56,10 @@ that was not a logon page.
 .PP
 Anything malformed is ignored. The numbers are only drawn.
 .PP
+When a password is sent, the page's card fades while the answer is checked,
+leaving the stars for the desktop to take up; if no answer has come within 0.6
+seconds, the page says it is signing in.
+.PP
 The logon pages register a service worker (/.gxwi/sw.js) for the whole
 address, so that a page loaded while the machine does not answer is not the
 browser's own error. Every request goes to the machine as before; only a page
