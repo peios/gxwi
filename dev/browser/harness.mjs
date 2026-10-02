@@ -15,7 +15,8 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** Runs a shell command in the VM, as its console's administrator. */
 export const guest = (command) => execFileSync(new URL("../guest.sh", import.meta.url).pathname, [command], { encoding: "utf8" });
 
-export async function session(port) {
+/** `who` signs in: alice, an ordinary user, unless another is named. */
+export async function session(port, who = { user: "alice", password: "alice-dev-password" }) {
     const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
         "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
         `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
@@ -56,9 +57,9 @@ export async function session(port) {
     const whole = await attach({ webSocketDebuggerUrl: version.webSocketDebuggerUrl, id: "browser" }).catch(() => null);
     const a = await attach(await browser("/json/new?http://127.0.0.1:7780/", "PUT"));
     await sleep(1500);
-    await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
+    await a.js(`document.querySelector("#username").value = ${JSON.stringify(who.user)}; document.forms[0].submit()`);
     await sleep(2000);
-    await a.js(`document.querySelector(".secret input").value = "alice-dev-password"; document.forms[0].submit()`);
+    await a.js(`document.querySelector(".secret input").value = ${JSON.stringify(who.password)}; document.forms[0].submit()`);
     await sleep(4000);
 
     /** Every frame of the desktop's with something matching `has` in it. */

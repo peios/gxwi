@@ -25,6 +25,9 @@ sh /share/devloop.sh &
 # credential, which never exercises a prompt. `alice` is an ordinary user with a
 # password; lps reads it from a pipe when stdin is not a terminal.
 printf '%s\n' 'alice-dev-password' | lps add alice --no-prompt > /share/accounts.txt 2>&1
+# `dana` is an administrator with a password, for what alice may not do: an
+# app is tried as both, since what it offers depends on who is asking.
+printf '%s\n' 'dana-dev-password' | lps add dana --group Administrators --no-prompt >> /share/accounts.txt 2>&1
 
 # Commands from the host (dev/guest.sh), run as this console's administrator.
 # The console itself is drive.py's and nobody can type at it.
