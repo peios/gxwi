@@ -115,9 +115,11 @@ out.picked = await until((s) => s.details?.includes("Process"));
 await desk.picture(`${name}-picked.png`);
 
 // Restart, by its button: under way, then done, and running again.
+const pressedAt = Date.now();
 await desk.press(manager, button("Restart"));
 out.restarting = await shows();
-out.restarted = await until((s) => s.said !== null);
+out.restarted = await until((s) => s.said !== null, 60000);
+out.restartSaidAfterMs = Date.now() - pressedAt;
 await desk.picture(`${name}-restarted.png`);
 
 // Stop, and it says it is stopped and offers Start; then Start.
