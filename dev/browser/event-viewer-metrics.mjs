@@ -8,13 +8,24 @@
 // closed and opened again with the dashboards as they were left; and the
 // new one deleted.
 //
+// Everyone's saved dashboards are deleted first, so that each run starts
+// from eventd's health.
+//
+// As alice (`node event-viewer-metrics.mjs alice`), after dana's run:
+// her dashboards are her own, so she has eventd's health and not dana's.
+//
 // eventd's own health metrics fill the charts, so the dev VM wants eventd
 // with them (PEI-1236 slice 4).
-import { session, sleep } from "./harness.mjs";
+import { guest, session, sleep } from "./harness.mjs";
 
-const desk = await session(9366, { user: "dana", password: "dana-dev-password" });
+const alice = process.argv[2] === "alice";
+if (!alice) out0(guest(`for k in $(reg ls Users); do reg del "Users\\\\\${k%/}\\\\Software\\\\gxwi-event-viewer" Dashboards >/dev/null 2>&1; done; echo reset`));
+function out0(said) {
+    if (!said.includes("reset")) throw new Error(`could not reset the dashboards: ${said}`);
+}
+const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
 const out = {};
-const name = "event-viewer-metrics";
+const name = alice ? "event-viewer-metrics-alice" : "event-viewer-metrics";
 
 const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
 /** The frame of the window whose title starts `title`, once it is there. */
@@ -83,6 +94,13 @@ const drawn = (s) => s.charts.length > 0 && s.charts.every((c) => !c.includes("R
 // The tab, and eventd's health, which is what a person has before saving.
 out.health = await until((s) => drawn(s) && s.catalogue.length > 0);
 await desk.picture(`${name}-health.png`);
+if (alice) await desk.finish(out);
+
+// The first chart's right-click menu: its change in each window instead.
+await viewer.js(`document.querySelector(".chart:nth-child(1)").scrollIntoView({ block: "center" })`);
+out.menu = (await desk.menuOn(viewer, ".chart:nth-child(1) .plot")) && (await desk.menu());
+await desk.choose("Change in each window");
+out.byMenu = (await until((s) => drawn(s) && s.charts[0].includes("Change in each window"))).charts[0];
 
 // The pointer over a window of the store sizes' chart, brought into sight
 // first: every line's value there.
