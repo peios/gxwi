@@ -111,6 +111,11 @@ export async function session(port, who = { user: "alice", password: "alice-dev-
         },
         middle,
         pressAt,
+        /** The pointer moved over a point of the desktop's page, no button down. */
+        hoverAt: async (at) => {
+            await mouse("mouseMoved", at, { button: "none", buttons: 0 });
+            await sleep(400);
+        },
         /** A real press on what `selector` finds in `frame`. */
         press: async (frame, selector) => {
             const at = await middle(frame, selector);
