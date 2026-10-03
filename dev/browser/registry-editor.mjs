@@ -99,6 +99,14 @@ async function go(path) {
     await sleep(800);
 }
 
+/** Sets a field of the form in the pane to `value`, as typing or picking does. */
+async function fill(field, value) {
+    await editor.js(`(() => { const f = document.querySelector("[name=${field}]"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await sleep(500);
+}
+/** The pane's buttons, with whether each may be pressed. */
+const buttons = () => editor.js(`[...document.querySelectorAll(".details button")].map((b) => b.textContent + (b.disabled ? " (disabled: " + b.title + ")" : ""))`);
+
 if (alice) {
     // Closed may not be listed; the key under it is reached by its path.
     await go(`${KEY}\\Closed\\Open`);
@@ -107,6 +115,15 @@ if (alice) {
     await go(`${KEY}\\Closed`);
     out.closed = await shows();
     await desk.picture(`${name}-closed.png`);
+    // She may read RegEditCheck but not change it: what would change it is
+    // there, but may not be pressed, and says why.
+    await go(KEY);
+    await until((s) => s.values.length > 0);
+    out.readOnly = { buttons: await buttons(), details: (await shows()).details };
+    await desk.press(editor, `.entries button[fx-value-name="Text"]`);
+    await sleep(500);
+    out.readOnlyValue = await buttons();
+    await desk.picture(`${name}-read-only.png`);
     await desk.finish(out);
 }
 
@@ -145,6 +162,81 @@ await sleep(600);
 await desk.press(editor, `.tree .twist[fx-value-path="${r(KEY)}\\\\Closed"]`);
 await sleep(600);
 out.twisted = await editor.js(`[...document.querySelectorAll(".tree .name")].map((b) => b.getAttribute("fx-value-path")).filter((path) => path.includes("RegEditCheck"))`);
+
+// Editing, on RegEditCheck again.
+await go(KEY);
+await until((s) => s.values.length >= 5);
+
+// A new value: a number, typed.
+await desk.press(editor, `.details button[fx-click="new-value"]`);
+await sleep(500);
+await fill("value-name", "Fresh");
+await fill("value-type", "4");
+out.newForm = (await shows()).details;
+await fill("value-data", "42");
+await desk.picture(`${name}-new-value.png`);
+await desk.press(editor, `.details button[type="submit"]`);
+out.newValue = await until((s) => s.values.some((v) => v.startsWith("Fresh")));
+
+// A number edited in hexadecimal.
+await desk.press(editor, `.entries button[fx-value-name="Count"]`);
+await sleep(400);
+await desk.press(editor, `.details button[fx-click="edit"]`);
+await sleep(500);
+await fill("value-base", "hex");
+out.inHex = await editor.js(`document.querySelector("[name=value-data]").value`);
+await fill("value-data", "0x2000");
+await desk.picture(`${name}-edit-hex.png`);
+await desk.press(editor, `.details button[type="submit"]`);
+out.edited = await until((s) => s.values.some((v) => v.startsWith("Count | Number | 8192")));
+
+// Changed by someone else while it was being edited: the save is refused.
+await desk.press(editor, `.entries button[fx-value-name="Text"]`);
+await sleep(400);
+await desk.press(editor, `.details button[fx-click="edit"]`);
+await sleep(500);
+guest(`reg set '${KEY}' Text sz:theirs`);
+await fill("value-data", "mine");
+await desk.press(editor, `.details button[type="submit"]`);
+await sleep(800);
+out.clash = (await shows()).said;
+out.clashKept = (await shows()).values.find((v) => v.startsWith("Text"));
+await desk.picture(`${name}-clash.png`);
+// Saved again, knowing, it replaces theirs.
+await desk.press(editor, `.details button[type="submit"]`);
+out.clashSaved = (await until((s) => s.values.some((v) => v.startsWith("Text | Text | mine")))).values.find((v) => v.startsWith("Text"));
+
+// A value's right-click menu, and a value deleted after asking.
+await desk.press(editor, `.entries button[fx-value-name="Added"]`);
+await sleep(400);
+out.valueMenu = (await desk.menuOn(editor, `.entries button[fx-value-name="Added"]`)) && (await desk.menu());
+await desk.choose("Delete…");
+await sleep(500);
+out.askedValue = (await shows()).details;
+await desk.press(editor, `.details button[fx-click="delete-value-yes"]`);
+out.deletedValue = await until((s) => !s.values.some((v) => v.startsWith("Added")));
+
+// A new key, which is then shown.
+await desk.press(editor, `.details button[fx-click="new-key"]`);
+await sleep(500);
+await fill("key-name", "Made");
+await desk.press(editor, `.details button[type="submit"]`);
+out.newKey = await until((s) => s.path === `${KEY}\\Made`);
+
+// A key with keys under it, deleted after asking, all at once.
+// Keys side by side as well as one under another: loregd stalls an open
+// made after a transaction has written (PEI-1241), which this would hit.
+guest(`reg new -p '${KEY}\\Tree\\A\\B' && reg new '${KEY}\\Tree\\C' && reg set '${KEY}\\Tree\\A' Here sz:yes`);
+await go(`${KEY}\\Tree`);
+await until((s) => s.path === `${KEY}\\Tree`);
+out.keyMenu = (await desk.menuOn(editor, `.tree .name[aria-selected="true"]`)) && (await desk.menu());
+await desk.choose("Delete…");
+await sleep(500);
+out.askedKey = (await shows()).details;
+await desk.picture(`${name}-delete-key.png`);
+await desk.press(editor, `.details button[fx-click="delete-key-yes"]`);
+out.deletedKey = await until((s) => s.path === KEY);
+out.treeGone = guest(`reg ls '${KEY}'`);
 
 // The keys under Users are each someone's, and say whose.
 await desk.press(editor, `.tree .twist[fx-value-path="Users"]`);
