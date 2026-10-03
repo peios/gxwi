@@ -16,7 +16,7 @@ while :; do
         && ! [ /gxwi/fenesh -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gexora -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-sd-editor -nt /tmp/gxwi.stamp ] \
-        && ! [ /gxwi/services-manager -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/gxwi-services-manager -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peiterm -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peitor -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/installer-gxwi -nt /tmp/gxwi.stamp ] \
