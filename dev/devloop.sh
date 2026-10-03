@@ -20,6 +20,7 @@ while :; do
         && ! [ /gxwi/gxwi-event-viewer -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-registry-editor -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-file-dialog -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/gxwi-principals-manager -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peiterm -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peitor -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/installer-gxwi -nt /tmp/gxwi.stamp ] \
