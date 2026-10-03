@@ -346,7 +346,9 @@ out.keySd = guest(`reg sd '${KEY}\\Made'`);
 await go("Machine\\System\\eventd");
 const docs = await until((s) => s.path === "Machine\\System\\eventd" && (s.details ?? "").includes("About this key"));
 out.keyDocs = docs.details.slice(0, 600);
-out.unset = await editor.js(`[...document.querySelectorAll(".details .unset li")].map((li) => li.innerText.replaceAll("\\n", " / "))`);
+out.unset = await editor.js(`[...document.querySelectorAll(".entries li.unset")].map((li) => li.innerText.replaceAll("\\n", " | "))`);
+out.unsetLast = await editor.js(`(() => { const rows = [...document.querySelectorAll(".entries li")]; const first = rows.findIndex((li) => li.classList.contains("unset")); return first >= 0 && rows.slice(first).every((li) => li.classList.contains("unset")); })()`);
+out.unsetInPane = await editor.js(`!!document.querySelector(".details .unset")`);
 await desk.picture(`${name}-key-docs.png`);
 const someValue = docs.values[0]?.split(" | ")[0];
 if (someValue) {
@@ -355,16 +357,26 @@ if (someValue) {
     out.valueDocs = { value: someValue, details: (await shows()).details };
     await desk.picture(`${name}-value-docs.png`);
 }
-// Back to the key, whose pane lists what isn't set.
-await editor.js(`document.querySelector(".tree .name[aria-selected='true']").scrollIntoView({ block: "center" })`);
-await desk.press(editor, `.tree .name[aria-selected="true"]`);
-await sleep(600);
-const firstUnset = await editor.js(`document.querySelector(".details .unset button")?.getAttribute("fx-value-name") ?? null`);
+// A documented value that isn't set, at the foot of the list: picked, the
+// pane says so; double-clicked, it is a new value, named, typed and given
+// its default as the manual says.
+const firstUnset = await editor.js(`document.querySelector(".entries li.unset button")?.getAttribute("fx-value-name") ?? null`);
 if (firstUnset) {
-    await editor.js(`document.querySelector(".details .unset button").scrollIntoView({ block: "center" })`);
-    await desk.press(editor, `.details .unset button[fx-value-name="${firstUnset}"]`);
+    const row = `.entries li.unset button[fx-value-name="${firstUnset}"]`;
+    await editor.js(`document.querySelector('${row}').scrollIntoView({ block: "center" })`);
+    await desk.press(editor, row);
     await sleep(500);
-    out.setDocumented = { value: firstUnset, name: await editor.js(`document.querySelector("[name=value-name]")?.value`), type: await editor.js(`document.querySelector("[name=value-type]")?.selectedOptions[0]?.textContent`) };
+    out.unsetPicked = (await shows()).details?.slice(0, 400);
+    await desk.picture(`${name}-unset-picked.png`);
+    await desk.doublePress(editor, row);
+    await sleep(500);
+    out.setDocumented = {
+        value: firstUnset,
+        name: await editor.js(`document.querySelector("[name=value-name]")?.value`),
+        type: await editor.js(`document.querySelector("[name=value-type]")?.selectedOptions[0]?.textContent`),
+        data: await editor.js(`document.querySelector("[name=value-data]")?.value`),
+    };
+    await desk.picture(`${name}-unset-set.png`);
     await desk.press(editor, `.details button[fx-click="cancel"]`);
     await sleep(400);
 }
