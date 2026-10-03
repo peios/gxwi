@@ -347,6 +347,72 @@ if (firstUnset) {
     await sleep(400);
 }
 
+// Layers, in a window of their own: one made, disabled and enabled again,
+// and a precedence above 0 refused, since dana, an administrator, doesn't
+// hold SeTcbPrivilege.
+guest(`/tmp/reg-new layer del -y regcheck >/dev/null 2>&1; reg layer del -y regcheck >/dev/null 2>&1; echo ok`);
+await desk.press(editor, `.bar button[fx-click="layers"]`);
+const layersWindow = await window("Registry Editor: Layers", ".layers-window");
+if (layersWindow) {
+    const table = () => layersWindow.js(`({
+        rows: [...document.querySelectorAll(".layers tbody tr")].map((tr) => [...tr.children].slice(0, 4).map((td) => td.querySelector("input")?.value ?? td.textContent).join(" | ")),
+        said: document.querySelector(".said")?.textContent ?? null,
+        may: document.querySelector(".add .may")?.textContent ?? null,
+    })`);
+    out.layersFirst = await table();
+    await desk.press(layersWindow, `button[fx-click="new"]`);
+    await sleep(500);
+    out.newLayerPrecedence = await layersWindow.js(`document.querySelector("[name=new-precedence]").disabled`);
+    await desk.press(layersWindow, `input[name="new-name"]`);
+    await desk.type("regcheck");
+    await desk.press(layersWindow, `form.new button[type="submit"]`);
+    await sleep(800);
+    out.layerMade = await table();
+    await desk.press(layersWindow, `button[fx-click="toggle"][fx-value-name="regcheck"]`);
+    await sleep(600);
+    out.layerDisabled = (await table()).rows.find((row) => row.startsWith("regcheck"));
+    await desk.press(layersWindow, `button[fx-click="toggle"][fx-value-name="regcheck"]`);
+    await sleep(600);
+    const at = (await table()).rows.findIndex((row) => row.startsWith("regcheck"));
+    await layersWindow.js(`(() => { const f = document.querySelector("[name=precedence-${at}]"); f.value = "5"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await sleep(300);
+    await desk.press(layersWindow, `form.precedence[fx-value-name="regcheck"] button`);
+    await sleep(600);
+    out.precedenceRefused = (await table()).said;
+    await desk.picture(`${name}-layers.png`);
+
+    // Back in the editor: Text written into the layer.
+    await desk.press(editor, `.bar button[fx-click="refresh"]`);
+    await sleep(800);
+    await go(KEY);
+    await until((s) => s.values.length > 0);
+    await fill("layer", "regcheck");
+    await desk.press(editor, `.entries button[fx-value-name="Text"]`);
+    await sleep(400);
+    await desk.press(editor, `.details button[fx-click="edit"]`);
+    await sleep(500);
+    out.layeredForm = (await shows()).details;
+    await fill("value-data", "layered");
+    await desk.press(editor, `.details button[type="submit"]`);
+    await sleep(800);
+    out.layeredSaid = (await shows()).said;
+    out.layered = (await until((s) => s.values.some((v) => v.startsWith("Text | Text | layered")))).details;
+    out.layeredReg = guest(`reg get -L '${KEY}' Text`);
+    await desk.picture(`${name}-layered.png`);
+
+    // The layer deleted, after asking: the base layer's Text shows again.
+    await desk.press(layersWindow, `button[fx-click="delete"][fx-value-name="regcheck"]`);
+    await sleep(500);
+    await desk.press(layersWindow, `button[fx-click="delete-yes"]`);
+    await sleep(800);
+    out.layerGone = await table();
+    out.afterLayer = (await until((s) => s.values.some((v) => v.startsWith("Text | Text | mine")), 8000)).values.find((v) => v.startsWith("Text"));
+    await fill("layer", "");
+    await gone(["Registry Editor: Layers"]);
+} else {
+    out.layersWindow = "no layers window";
+}
+
 // The keys under Users are each someone's, and say whose.
 await editor.js(`document.querySelector('.tree .twist[fx-value-path="Users"]').scrollIntoView({ block: "center" })`);
 await desk.press(editor, `.tree .twist[fx-value-path="Users"]`);
