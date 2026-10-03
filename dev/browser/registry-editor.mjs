@@ -114,9 +114,11 @@ if (alice) {
 out.opened = await until((s) => s.tree.length > 3);
 await desk.picture(`${name}-opened.png`);
 
-// A key typed, with the tree open down to it, and its values.
-await go(KEY);
+// A key typed, with the tree open down to it, and its values. Names are
+// compared without regard to case, and shown as the registry spells them.
+await go(KEY.toLowerCase());
 out.typed = await until((s) => s.values.length >= 5);
+out.spelt = out.typed.path === KEY;
 await desk.picture(`${name}-typed.png`);
 
 // Values picked, shown in full.
