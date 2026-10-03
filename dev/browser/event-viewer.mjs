@@ -1,18 +1,19 @@
-// Event Viewer, in headless Chromium: eventd's logs and events, newest
+// Event Viewer, in headless Chromium: eventd's events and logs, newest
 // first and live, narrowed, and each record in full.
 //
-// As dana, an administrator (`node event-viewer.mjs`): the logs, a record
-// picked, a line logged while the window is open arriving at the top,
-// errors only, one origin, then the events, a type pattern and an event in
-// full; then sshd's logs opened from Services Manager's Logs button.
+// As dana, an administrator (`node event-viewer.mjs`): the events, a type
+// pattern and an event in full, the details pane widened by its edge, and
+// a row's menu; then the logs, a record picked, a line logged while the
+// window is open arriving at the top, errors only and one origin; then
+// sshd's logs opened from Services Manager's Logs button.
 //
 // Paging (`node event-viewer.mjs paging`): eventd's store wants more than
 // the window holds first, which the flood service of the dev VM recipe
 // gives. Older pages to the end of what the window holds, and back to the
 // newest.
 //
-// As alice, an ordinary user (`node event-viewer.mjs alice`): eventd's
-// default policy lets her read logs and no events, which the window says.
+// As alice, an ordinary user (`node event-viewer.mjs alice`): what the
+// window says when eventd keeps things from her (PEI-1239).
 //
 // The dev VM puts Event Viewer in /usr/bin and declares it, so the launcher
 // finds it as "event".
@@ -90,19 +91,23 @@ async function enter(field, text) {
     await desk.key("Enter", { vk: 13 }, "\r");
 }
 
-out.first = first(await until((s) => s.rows.length > 0 || s.trouble !== null || s.more.length > 0));
-await desk.picture(`${name}-logs.png`);
+// It opens on the events.
+out.first = first(await until((s) => s.rows.length > 0 || s.trouble !== null || s.more.length > 0), 3);
+await desk.picture(`${name}-events.png`);
+
+/** Shows the logs. */
+async function logs() {
+    await desk.press(viewer, '.tab[fx-value-kind="logs"]');
+    return until((s) => s.tab === "Logs" && (s.rows.length > 0 || s.more.length > 0 || s.trouble !== null));
+}
 
 if (alice) {
-    await desk.press(viewer, '.tab:not([aria-pressed="true"])');
-    out.events = first(await until((s) => s.tab === "Events" && (s.rows.length > 0 || s.more.length > 0)));
-    await desk.picture(`${name}-events.png`);
+    out.logs = first(await logs());
+    await desk.picture(`${name}-logs.png`);
     await desk.finish(out);
 }
 
 if (paging) {
-    await desk.press(viewer, '.tab:not([aria-pressed="true"])');
-    out.events = first(await until((s) => s.tab === "Events" && s.rows.length > 0), 2);
     // Each page is 200; the window holds 1000, so the fifth goes past it.
     for (let page = 1; page <= 5; page++) {
         const before = (await shows()).rows.at(-1);
@@ -120,6 +125,38 @@ if (paging) {
     out.newest = first(await until((s) => s.note === null && s.live === "Pause"), 2);
     await desk.finish(out);
 }
+
+// A type pattern, and an event in full.
+await enter("type", "job.*");
+out.jobs = first(await until((s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("job."))), 3);
+await desk.press(viewer, ".entries li:nth-child(1) .row");
+out.event = (await until((s) => s.details?.includes("Its fields"))).details;
+await desk.picture(`${name}-event.png`);
+
+// The details pane, widened by dragging its edge, from the pane's side.
+const widths = () => viewer.js(`({ listing: Math.round(document.querySelector(".listing").getBoundingClientRect().width), details: Math.round(document.querySelector(".details").getBoundingClientRect().width) })`);
+out.beforeDrag = await widths();
+const middle = await desk.middle(viewer, ".details");
+const from = { x: middle.x - out.beforeDrag.details / 2 + 2, y: middle.y };
+const release = await desk.drag(from, { x: from.x - 200, y: from.y });
+await release();
+out.afterDrag = await widths();
+await desk.picture(`${name}-widened.png`);
+// And it stays as wide when what is shown changes.
+await enter("type", "");
+await until((s) => s.rows.length > 0 && !s.rows.every((r) => r.split(" | ")[1].startsWith("job.")));
+out.afterRender = await widths();
+
+// A row's menu: shows only that type.
+out.menuSaid = await desk.menuOn(viewer, ".entries li:nth-child(1) .row");
+out.menu = await desk.menu();
+await desk.choose("Show only this type");
+out.only = first(await until((s) => new Set(s.rows.map((r) => r.split(" | ")[1])).size === 1), 2);
+out.onlyField = await viewer.js(`document.querySelector("input[name=type]").value`);
+
+// The logs.
+out.logs = first(await logs(), 3);
+await desk.picture(`${name}-logs.png`);
 
 // A record picked by a real press: all of it.
 await desk.press(viewer, ".entries li:nth-child(2) .row");
@@ -142,25 +179,6 @@ await enter("origin", "timed");
 out.origin = first(await until((s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("timed"))), 3);
 await desk.picture(`${name}-origin.png`);
 await enter("origin", "");
-
-// The events, and a type pattern.
-await desk.press(viewer, '.tab:not([aria-pressed="true"])');
-out.events = first(await until((s) => s.tab === "Events" && s.rows.length > 0), 3);
-await desk.picture(`${name}-events.png`);
-await enter("type", "job.*");
-out.jobs = first(await until((s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("job."))), 3);
-await desk.press(viewer, ".entries li:nth-child(1) .row");
-out.event = (await until((s) => s.details?.includes("Its fields"))).details;
-await desk.picture(`${name}-event.png`);
-
-// A row's menu: shows only that type.
-await enter("type", "");
-await until((s) => s.rows.length > 0 && !s.rows.every((r) => r.split(" | ")[1].startsWith("job.")));
-out.menuSaid = await desk.menuOn(viewer, ".entries li:nth-child(1) .row");
-out.menu = await desk.menu();
-await desk.choose("Show only this type");
-out.only = first(await until((s) => new Set(s.rows.map((r) => r.split(" | ")[1])).size === 1), 2);
-out.onlyField = await viewer.js(`document.querySelector("input[name=type]").value`);
 
 // sshd's logs, from Services Manager.
 await desk.launch("services");
