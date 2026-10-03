@@ -319,7 +319,36 @@ await desk.picture(`${name}-key-permissions.png`);
 if (sd) out.keyApplied = await everyoneReads(sd);
 out.keySd = guest(`reg sd '${KEY}\\Made'`);
 
+// What the registry manual says: eventd's key, a value set there, and a
+// documented value that isn't, set from the manual.
+await go("Machine\\System\\eventd");
+const docs = await until((s) => s.path === "Machine\\System\\eventd" && (s.details ?? "").includes("About this key"));
+out.keyDocs = docs.details.slice(0, 600);
+out.unset = await editor.js(`[...document.querySelectorAll(".details .unset li")].map((li) => li.innerText.replaceAll("\\n", " / "))`);
+await desk.picture(`${name}-key-docs.png`);
+const someValue = docs.values[0]?.split(" | ")[0];
+if (someValue) {
+    await desk.press(editor, `.entries button[fx-value-name="${someValue}"]`);
+    await sleep(500);
+    out.valueDocs = { value: someValue, details: (await shows()).details };
+    await desk.picture(`${name}-value-docs.png`);
+}
+// Back to the key, whose pane lists what isn't set.
+await editor.js(`document.querySelector(".tree .name[aria-selected='true']").scrollIntoView({ block: "center" })`);
+await desk.press(editor, `.tree .name[aria-selected="true"]`);
+await sleep(600);
+const firstUnset = await editor.js(`document.querySelector(".details .unset button")?.getAttribute("fx-value-name") ?? null`);
+if (firstUnset) {
+    await editor.js(`document.querySelector(".details .unset button").scrollIntoView({ block: "center" })`);
+    await desk.press(editor, `.details .unset button[fx-value-name="${firstUnset}"]`);
+    await sleep(500);
+    out.setDocumented = { value: firstUnset, name: await editor.js(`document.querySelector("[name=value-name]")?.value`), type: await editor.js(`document.querySelector("[name=value-type]")?.selectedOptions[0]?.textContent`) };
+    await desk.press(editor, `.details button[fx-click="cancel"]`);
+    await sleep(400);
+}
+
 // The keys under Users are each someone's, and say whose.
+await editor.js(`document.querySelector('.tree .twist[fx-value-path="Users"]').scrollIntoView({ block: "center" })`);
 await desk.press(editor, `.tree .twist[fx-value-path="Users"]`);
 await sleep(800);
 out.users = await editor.js(`[...document.querySelectorAll(".tree .name")].filter((b) => (b.getAttribute("fx-value-path") ?? "").startsWith("Users\\\\")).map((b) => b.textContent)`);
