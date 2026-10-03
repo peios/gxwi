@@ -25,7 +25,7 @@ cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ \
 # The installer goes there too if ../installer-gxwi/dev/push.sh has put one on
 # the share. Nothing here starts it: its dev/overlay.sh names it as the
 # overlay, and takes that away again.
-for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora gxwi-sd-editor services-manager peiterm peitor installer-gxwi; do
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh gexora gxwi-sd-editor gxwi-services-manager peiterm peitor installer-gxwi; do
     [ -e "/gxwi/$beside" ] || continue
     cp "/gxwi/$beside" "/tmp/$beside.$$" \
         && sd allow "/tmp/$beside.$$" Everyone:rx \
@@ -35,7 +35,7 @@ done
 # peitor go where a package would put them, /usr/bin, which is where their
 # declarations say they are, so that the launcher has something to start that
 # can be seen.
-for app in gxwi-hello-app gexora gxwi-sd-editor services-manager peiterm peitor; do
+for app in gxwi-hello-app gexora gxwi-sd-editor gxwi-services-manager peiterm peitor; do
     [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/usr/bin/$app.$$" \
         && sd allow "/usr/bin/$app.$$" Everyone:rx \
         && mv "/usr/bin/$app.$$" "/usr/bin/$app"
