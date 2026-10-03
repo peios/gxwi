@@ -216,6 +216,13 @@ out.askedValue = (await shows()).details;
 await desk.press(editor, `.details button[fx-click="delete-value-yes"]`);
 out.deletedValue = await until((s) => !s.values.some((v) => v.startsWith("Added")));
 
+// A form left with Esc.
+await desk.press(editor, `.details button[fx-click="new-key"]`);
+await sleep(500);
+await desk.key("Escape", { vk: 27 });
+await sleep(500);
+out.escaped = !(await shows()).details.startsWith("New key");
+
 // A new key, which is then shown.
 await desk.press(editor, `.details button[fx-click="new-key"]`);
 await sleep(500);
