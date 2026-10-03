@@ -16,8 +16,8 @@ hyper = { version = "1.11", features = ["client", "http2"] }
 hyper-util = { version = "0.1.20", features = ["tokio"] }
 libc = "0.2"
 # First-party Rust dependencies are pinned to immutable commits.
-libauthd = { git = "https://github.com/peios/authd.git", rev = "3aec2905a4e0bcbe7a4fd07682fb328847d6fc18", package = "libauthd" }
-peios = { git = "https://github.com/peios/peios-rs.git", rev = "3dffee949a457509078ffc2f423613de330b5401", package = "peios" }
+libauthd = { git = "https://github.com/peios/authd.git", rev = "c55729620da3e301c33a8b582f9aa3adab278ee0", package = "libauthd" }
+peios = { git = "https://github.com/peios/peios-rs.git", rev = "fa833541e1837042765072f092140f4af683edc2", package = "peios" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha1 = "0.10"
