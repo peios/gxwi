@@ -14,6 +14,7 @@ import { guest, session, sleep } from "./harness.mjs";
 const alice = process.argv[2] === "alice";
 const KEY = "Machine\\Software\\RegEditCheck";
 const r = (path) => path.replaceAll("\\", "\\\\");
+const GUARD = "0100048014000000240000000000000034000000010200000000000520000000200200000102000000000005200000002002000002003400020000000000140000000010010100000000000512000000000018000000008001020000000000052000000020020000";
 if (!alice) {
     const said = guest([
         `reg del -y -r '${KEY}' >/dev/null 2>&1`,
@@ -26,6 +27,8 @@ if (!alice) {
         `reg sd '${KEY}\\Closed' --set 'O:BAG:BAD:P(A;;GA;;;BA)(A;;GA;;;SY)'`,
         `reg sd '${KEY}\\Closed\\Open' --set 'O:BAG:BAD:P(A;;GR;;;WD)(A;;GA;;;BA)(A;;GA;;;SY)'`,
         `reg set '${KEY}\\Closed\\Open' Visible sz:yes`,
+        // O:BAG:BAD:(A;;GA;;;SY)(A;;GR;;;BA), made with peios' sddl::parse.
+        `reg set '${KEY}' Guard hex:${GUARD}`,
         "echo ready",
     ].join(" && "));
     if (!said.includes("ready")) throw new Error(`could not make ${KEY}: ${said}`);
@@ -106,6 +109,41 @@ async function fill(field, value) {
 }
 /** The pane's buttons, with whether each may be pressed. */
 const buttons = () => editor.js(`[...document.querySelectorAll(".details button")].map((b) => b.textContent + (b.disabled ? " (disabled: " + b.title + ")" : ""))`);
+/** The permissions editor's dialog, once it is on the desktop. */
+async function dialog() {
+    for (let i = 0; i < 30; i++) {
+        const found = await desk.frame(".editor", '.fx-surface[data-role="dialog"]');
+        if (found) return found;
+        await sleep(300);
+    }
+    return null;
+}
+const closed = async () => {
+    for (let i = 0; i < 30; i++) {
+        if (await desk.a.js(`!document.querySelector('.fx-surface[data-role="dialog"]')`)) return true;
+        await sleep(300);
+    }
+    return false;
+};
+/** What the dialog shows. */
+const says = (sd) => sd.js(`({
+    title: document.querySelector("header")?.innerText,
+    fixed: document.querySelector(".fixed")?.textContent ?? null,
+    listed: [...document.querySelectorAll(".who")].map((b) => b.querySelector(".name").textContent),
+    boxes: [...document.querySelectorAll(".rights tbody tr")].map((tr) => tr.querySelector("th").textContent + ": " + [...tr.querySelectorAll("[role=checkbox]")].map((c) => (c.getAttribute("aria-checked") === "true" ? "✓" : "·") + (c.disabled || c.getAttribute("aria-disabled") ? "(fixed)" : "")).join(" ")),
+    footer: [...document.querySelectorAll("footer button")].map((b) => b.textContent + (b.disabled ? " (off)" : "")),
+})`);
+/** Gives Everyone Read in the open dialog, and presses OK. */
+async function everyoneReads(sd) {
+    await desk.press(sd, ".under button:first-child");
+    await sleep(400);
+    await desk.type("Everyone");
+    await desk.press(sd, "form.naming button[type=submit]");
+    await desk.press(sd, "button[fx-value-right='1'][fx-value-way='allow']");
+    const ticked = await says(sd);
+    await desk.press(sd, "footer .primary");
+    return { ticked, closed: await closed() };
+}
 
 if (alice) {
     // Closed may not be listed; the key under it is reached by its path.
@@ -124,6 +162,17 @@ if (alice) {
     await sleep(500);
     out.readOnlyValue = await buttons();
     await desk.picture(`${name}-read-only.png`);
+    // Who a value's descriptor lets in, which she may look at but not change.
+    await desk.press(editor, `.entries button[fx-value-name="Guard"]`);
+    await sleep(500);
+    await desk.press(editor, `.details button[fx-click="permissions"]`);
+    const sd = await dialog();
+    out.guardReadOnly = sd ? await says(sd) : "no dialog";
+    await desk.picture(`${name}-guard.png`);
+    if (sd) {
+        await desk.press(sd, "footer button:last-child");
+        await closed();
+    }
     await desk.finish(out);
 }
 
@@ -244,6 +293,31 @@ await desk.picture(`${name}-delete-key.png`);
 await desk.press(editor, `.details button[fx-click="delete-key-yes"]`);
 out.deletedKey = await until((s) => s.path === KEY);
 out.treeGone = guest(`reg ls '${KEY}'`);
+
+// A value holding a descriptor: shown as SDDL, opened in the permissions
+// editor, and written back with what was changed.
+await go(KEY);
+out.guardListed = (await until((s) => s.values.some((v) => v.startsWith("Guard")))).values.find((v) => v.startsWith("Guard"));
+await desk.press(editor, `.entries button[fx-value-name="Guard"]`);
+await sleep(500);
+out.guardDetails = (await shows()).details;
+await desk.press(editor, `.details button[fx-click="permissions"]`);
+let sd = await dialog();
+out.guardDialog = sd ? await says(sd) : "no dialog";
+await desk.picture(`${name}-guard.png`);
+if (sd) out.guardApplied = await everyoneReads(sd);
+out.guardAfter = (await until((s) => s.values.some((v) => v.startsWith("Guard") && v.includes(";;;WD)")))).values.find((v) => v.startsWith("Guard"));
+
+// The key's own permissions, from its menu: Everyone may read Made.
+await go(`${KEY}\\Made`);
+await until((s) => s.path === `${KEY}\\Made`);
+out.keyMenuNow = (await desk.menuOn(editor, `.tree .name[aria-selected="true"]`)) && (await desk.menu());
+await desk.choose("Permissions…");
+sd = await dialog();
+out.keyDialog = sd ? await says(sd) : "no dialog";
+await desk.picture(`${name}-key-permissions.png`);
+if (sd) out.keyApplied = await everyoneReads(sd);
+out.keySd = guest(`reg sd '${KEY}\\Made'`);
 
 // The keys under Users are each someone's, and say whose.
 await desk.press(editor, `.tree .twist[fx-value-path="Users"]`);
