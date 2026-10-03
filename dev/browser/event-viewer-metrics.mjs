@@ -93,6 +93,8 @@ const drawn = (s) => s.charts.length > 0 && s.charts.every((c) => !c.includes("R
 
 // The tab, and eventd's health, which is what a person has before saving.
 out.health = await until((s) => drawn(s) && s.catalogue.length > 0);
+// A series no longer sampled says when it last was.
+out.stale = await viewer.js(`[...document.querySelectorAll(".catalogue .metric")].filter((b) => b.title.includes("last recorded") || b.classList.contains("stopped")).map((b) => b.querySelector(".name").textContent + ": " + b.title.replaceAll("\\n", "; "))`);
 await desk.picture(`${name}-health.png`);
 if (alice) await desk.finish(out);
 
