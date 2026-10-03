@@ -17,7 +17,7 @@ const r = (path) => path.replaceAll("\\", "\\\\");
 const GUARD = "0100048014000000240000000000000034000000010200000000000520000000200200000102000000000005200000002002000002003400020000000000140000000010010100000000000512000000000018000000008001020000000000052000000020020000";
 if (!alice) {
     const said = guest([
-        `reg del -y -r '${KEY}' >/dev/null 2>&1`,
+        `{ reg del -y -r '${KEY}' >/dev/null 2>&1 || true; }`,
         `reg new -p '${KEY}\\Closed\\Open'`,
         `reg set '${KEY}' Text sz:hello`,
         `reg set '${KEY}' Count dword:4096`,
@@ -162,6 +162,28 @@ if (alice) {
     await sleep(500);
     out.readOnlyValue = await buttons();
     await desk.picture(`${name}-read-only.png`);
+    // Files: she may export, but not back up or restore, holding neither
+    // privilege; and a folder she may not list says so.
+    await desk.press(editor, `.tree .name[aria-selected="true"]`);
+    await sleep(500);
+    out.files = await editor.js(`[...document.querySelectorAll(".details .files button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : ""))`);
+    await editor.js(`document.querySelector('.details button[fx-click="export"]').scrollIntoView({ block: "center" })`);
+    await desk.press(editor, `.details button[fx-click="export"]`);
+    let fd = null;
+    for (let i = 0; i < 30 && !fd; i++) {
+        fd = await desk.frame(".chooser", '.fx-surface[data-role="dialog"]');
+        if (!fd) await sleep(300);
+    }
+    if (fd) {
+        out.aliceHome = await fd.js(`document.querySelector("input[name=path]").value`);
+        await fd.js(`(() => { const f = document.querySelector("[name=path]"); f.value = "/home/dana"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+        await sleep(300);
+        await desk.press(fd, `form.where button[type="submit"]`);
+        await sleep(500);
+        out.unlisted = await fd.js(`({ empty: document.querySelector(".empty")?.textContent, tools: [...document.querySelectorAll(".tools button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : "")) })`);
+        await desk.picture(`${name}-unlisted.png`);
+        await desk.press(fd, `form.choose button[fx-click="cancel"]`);
+    }
     // Who a value's descriptor lets in, which she may look at but not change.
     await desk.press(editor, `.entries button[fx-value-name="Guard"]`);
     await sleep(500);
@@ -412,6 +434,138 @@ if (layersWindow) {
 } else {
     out.layersWindow = "no layers window";
 }
+
+// Files, through the shared file dialog: the key exported to a folder made
+// in the dialog, a value changed, the document imported back; a backup
+// made, a value changed, the backup restored. Then the dialog's own file
+// managing: a folder renamed and deleted, and the dialog cancelled.
+await go(KEY);
+await until((s) => s.values.some((v) => v.startsWith("Count")));
+async function fileDialog() {
+    for (let i = 0; i < 30; i++) {
+        const found = await desk.frame(".chooser", '.fx-surface[data-role="dialog"]');
+        if (found) return found;
+        await sleep(300);
+    }
+    return null;
+}
+const dialogShows = (d) => d.js(`({
+    title: document.querySelector("h1")?.textContent,
+    folder: document.querySelector("input[name=path]")?.value,
+    name: document.querySelector("input[name=name]")?.value ?? null,
+    entries: [...document.querySelectorAll(".entries button")].map((b) => b.querySelector(".name").textContent + (b.getAttribute("aria-selected") === "true" ? " (picked)" : "")),
+    empty: document.querySelector(".empty")?.textContent ?? null,
+    tools: [...document.querySelectorAll(".tools button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : "")),
+    strip: document.querySelector(".strip")?.innerText ?? null,
+    said: document.querySelector(".said")?.textContent ?? null,
+})`);
+async function dfill(d, field, value) {
+    await d.js(`(() => { const f = document.querySelector("[name=${field}]"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await sleep(400);
+}
+const dialogGone = async () => {
+    for (let i = 0; i < 30; i++) {
+        if (!(await desk.frame(".chooser", '.fx-surface[data-role="dialog"]'))) return true;
+        await sleep(300);
+    }
+    return false;
+};
+const press = (selector) => editor.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(editor, selector));
+
+// Export, into a folder made in the dialog.
+await press(`.details button[fx-click="export"]`);
+let fd = await fileDialog();
+out.exportDialog = fd ? await dialogShows(fd) : "no dialog";
+// The dialog opens in dana's home, which is where what an earlier run left
+// is cleared from.
+const home = out.exportDialog.folder ?? "/nowhere";
+guest(`rm -rf '${home}/Exports' '${home}/Kept' 2>/dev/null; echo ok`);
+if (fd) {
+    await desk.press(fd, `button[fx-click="home"]`);
+    await desk.press(fd, `button[fx-click="new-folder"]`);
+    await dfill(fd, "new-name", "Exports");
+    await desk.press(fd, `form.strip button[type="submit"]`);
+    await sleep(500);
+    await desk.doublePress(fd, `.entries button[fx-value-name="Exports"]`);
+    await sleep(500);
+    out.inExports = await dialogShows(fd);
+    await desk.picture(`${name}-export-dialog.png`);
+    await desk.press(fd, `form.choose button[type="submit"]`);
+    out.exportClosed = await dialogGone();
+}
+out.exported = (await until((s) => (s.said ?? "").startsWith("Exported"))).said;
+out.exportFile = guest(`head -c 200 '${home}/Exports/RegEditCheck.json'`);
+
+// A value changed, then the document imported back.
+guest(`reg set '${KEY}' Count dword:1`);
+await until((s) => s.values.some((v) => v.startsWith("Count | Number | 1 ")));
+await press(`.details button[fx-click="import"]`);
+fd = await fileDialog();
+if (fd) {
+    await desk.doublePress(fd, `.entries button[fx-value-name="Exports"]`);
+    await sleep(500);
+    await desk.press(fd, `.entries button[fx-value-name="RegEditCheck.json"]`);
+    await desk.press(fd, `form.choose button[type="submit"]`);
+    await dialogGone();
+}
+out.importAsked = (await until((s) => (s.details ?? "").startsWith("Import"))).details;
+await desk.picture(`${name}-import.png`);
+await press(`.details button[fx-click="import-yes"]`);
+out.imported = await until((s) => s.values.some((v) => v.startsWith("Count | Number | 8192")));
+out.imported = { said: out.imported.said, count: out.imported.values.find((v) => v.startsWith("Count")) };
+
+// A backup made, a value changed, the backup restored.
+await press(`.details button[fx-click="backup"]`);
+fd = await fileDialog();
+if (fd) {
+    await dfill(fd, "path", "Exports");
+    await desk.press(fd, `form.where button[type="submit"]`);
+    await sleep(500);
+    out.backupDialog = await dialogShows(fd);
+    await desk.press(fd, `form.choose button[type="submit"]`);
+    await dialogGone();
+}
+out.backedUp = (await until((s) => (s.said ?? "").startsWith("Backed up"))).said;
+guest(`reg set '${KEY}' Count dword:2`);
+await until((s) => s.values.some((v) => v.startsWith("Count | Number | 2 ")));
+await press(`.details button[fx-click="restore"]`);
+fd = await fileDialog();
+if (fd) {
+    await dfill(fd, "path", "Exports");
+    await desk.press(fd, `form.where button[type="submit"]`);
+    await sleep(500);
+    await desk.press(fd, `.entries button[fx-value-name="RegEditCheck.regbackup"]`);
+    await desk.press(fd, `form.choose button[type="submit"]`);
+    await dialogGone();
+}
+out.restoreAsked = (await until((s) => (s.details ?? "").startsWith("Restore"))).details;
+await press(`.details button[fx-click="restore-yes"]`);
+out.restored = await until((s) => s.values.some((v) => v.startsWith("Count | Number | 8192")));
+out.restored = { said: out.restored.said, count: out.restored.values.find((v) => v.startsWith("Count")) };
+
+// The dialog's own file managing: Exports renamed, then deleted after
+// asking, and the dialog cancelled with nothing chosen.
+await press(`.details button[fx-click="export"]`);
+fd = await fileDialog();
+if (fd) {
+    await desk.press(fd, `.entries button[fx-value-name="Exports"]`);
+    await desk.press(fd, `button[fx-click="rename"]`);
+    await dfill(fd, "new-name", "Kept");
+    await desk.press(fd, `form.strip button[type="submit"]`);
+    await sleep(500);
+    out.renamed = await dialogShows(fd);
+    await desk.press(fd, `button[fx-click="delete"]`);
+    await sleep(400);
+    out.deleteAsked = (await dialogShows(fd)).strip;
+    await desk.picture(`${name}-dialog-delete.png`);
+    await desk.press(fd, `button[fx-click="delete-yes"]`);
+    await sleep(500);
+    out.deleted = await dialogShows(fd);
+    await desk.press(fd, `form.choose button[fx-click="cancel"]`);
+    out.cancelled = await dialogGone();
+}
+out.afterCancel = (await shows()).said;
+out.homeAfter = guest(`ls -a '${home}'`);
 
 // The keys under Users are each someone's, and say whose.
 await editor.js(`document.querySelector('.tree .twist[fx-value-path="Users"]').scrollIntoView({ block: "center" })`);

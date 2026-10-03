@@ -122,6 +122,18 @@ export async function session(port, who = { user: "alice", password: "alice-dev-
             if (at) await pressAt(at);
             return Boolean(at);
         },
+        /** A real double press on what `selector` finds in `frame`: the
+            second press counts two, which is what makes a dblclick. */
+        doublePress: async (frame, selector) => {
+            const at = await middle(frame, selector);
+            if (!at) return false;
+            await mouse("mousePressed", at);
+            await mouse("mouseReleased", at);
+            await mouse("mousePressed", at, { clickCount: 2 });
+            await mouse("mouseReleased", at, { clickCount: 2 });
+            await sleep(400);
+            return true;
+        },
         /** A real drag from one point of the desktop's page to another, in steps. */
         drag: async (from, to, steps = 12) => {
             await mouse("mouseMoved", from, { buttons: 0 });
