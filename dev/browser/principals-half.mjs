@@ -4,9 +4,16 @@
 // A second window tiles the first to half the screen. With Event Viewer
 // beside it, each list and the forms with the most in them are pictured,
 // and the window is checked for anything wider than it: a page that scrolls
-// sideways, or a part of the pane cut off.
-import { session, sleep } from "./harness.mjs";
+// sideways, or a part of the pane cut off. Its user has what is widest in a
+// user's page: a claim of long SIDs, with its two buttons, and an SSH key's
+// fingerprint.
+import { guest, session, sleep } from "./harness.mjs";
 
+const USER = "pmhalf";
+const KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEK7Bpk2tHLFoBxVQIrWCFPsqcTcRFAiPBir7uaFTsCu pm-laptop";
+guest(`lps remove ${USER} >/dev/null 2>&1; lps add ${USER} --no-password --no-prompt >/dev/null; echo '${KEY}' > /tmp/pmhalf.pub; lps key add ${USER} /tmp/pmhalf.pub laptop >/dev/null`);
+const sids = guest(`lps show ${USER}; lps show dana`).match(/^sid +\S+/gm).map((line) => line.split(/ +/)[1]);
+guest(`lps claim set ${USER} Team sid S-1-5-32-544 ${sids.join(" ")} >/dev/null; lps claim set ${USER} Department string Engineering >/dev/null`);
 const desk = await session(9366, { user: "dana", password: "dana-dev-password" });
 const out = {};
 const name = "principals-half";
@@ -66,8 +73,11 @@ const look = async (label) => {
 };
 
 await sleep(1000);
-await pick("dana");
+await pick(USER);
 await look("users");
+await manager.js(`[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "SSH keys")?.scrollIntoView({ block: "start" })`);
+await sleep(300);
+await look("user-keys");
 await manager.js(`document.querySelector(".details").scrollTop = 99999`);
 await sleep(300);
 await look("user-end");
@@ -88,4 +98,5 @@ await sleep(700);
 await look("record-form");
 await press(`.details button[fx-click="cancel"]`);
 await gone(["Event Viewer"]);
+guest(`lps remove ${USER}`);
 await desk.finish(out);
