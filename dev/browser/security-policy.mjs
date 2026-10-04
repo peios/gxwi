@@ -273,6 +273,11 @@ for (const which of ["perm-trust", "perm-service"]) {
     await dialogsGone();
 }
 
+// The kernel's signing keys, or why they aren't listed.
+await section("keys");
+out.keys = { shows: await shows(), listing: guest("cat /sys/kernel/security/kacs/signing_keys 2>&1") };
+await desk.picture(`${name}-keys.png`);
+
 await section("distrusted");
 out.distrustedEnd = await shows();
 if (alice) await desk.picture(`${name}-distrusted.png`);
