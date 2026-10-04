@@ -11,15 +11,23 @@ const out = {};
 await sleep(2000);
 await desk.launch("my");
 await sleep(2500);
-const w = (await desk.frames(".cards")).at(-1);
+const w = (await desk.frames(".st-nav")).at(-1);
 if (!w) {
     out.stopped = "no My Settings window";
     await desk.finish(out, 1);
 }
-out.shown = await w.js(`({
-    cards: [...document.querySelectorAll(".card")].map((c) => c.innerText.replaceAll("\\n", " | ").slice(0, 300)),
+const strips = await desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+w.surface = `.fx-surface[data-id="${strips.filter((s) => s.title.startsWith("My Settings")).at(-1).id}"]`;
+const shows = () => w.js(`({
+    groups: [...document.querySelectorAll(".st-group, .st-banner")].map((c) => c.innerText.replaceAll("\\n", " | ").slice(0, 300)),
     editable: [...document.querySelectorAll("input, select, textarea")].filter((f) => !f.disabled).map((f) => f.name),
 })`);
-await desk.picture("my-settings-kim.png");
+out.account = await shows();
+for (const id of ["password", "keys"]) {
+    await desk.press(w, `#st-nav-${id}`);
+    await sleep(1200);
+    out[id] = await shows();
+    await desk.picture(`my-settings-kim-${id}.png`);
+}
 out.log = w.log;
 await desk.finish(out);
