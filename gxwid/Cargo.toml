@@ -6,7 +6,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-libsession = { git = "https://github.com/peios/authd.git", rev = "ecd0cdd8fb1b0c82376750ab1a248dc82534a03e" }
+libsession = { git = "https://github.com/peios/authd.git", rev = "4c2b7bddb0794731a22e1bad8ffe2f0affaf5d79" }
 gxwi-channel = { workspace = true }
 libauthd = { workspace = true }
 libc = { workspace = true }
