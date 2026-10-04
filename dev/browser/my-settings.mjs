@@ -37,19 +37,24 @@ for (const strip of await strips()) {
 }
 await desk.launch("my");
 await sleep(1500);
-const w = (await desk.frames(".cards")).at(-1);
+const w = (await desk.frames(".st-nav")).at(-1);
 if (!w) {
     out.stopped = "no My Settings window";
     await desk.finish(out, 1);
 }
 w.surface = `.fx-surface[data-id="${(await strips()).filter((s) => s.title.startsWith("My Settings")).at(-1).id}"]`;
 const shows = () => w.js(`({
-    said: document.querySelector(".said")?.textContent ?? null,
-    cards: [...document.querySelectorAll(".card")].map((c) => c.innerText.replaceAll("\\n", " | ").slice(0, 300)),
+    said: document.querySelector(".st-status .said")?.textContent ?? null,
+    nav: [...document.querySelectorAll(".st-nav button")].map((b) => b.innerText.replaceAll("\\n", " — ")),
+    groups: [...document.querySelectorAll(".st-group, .st-banner")].map((g) => g.innerText.replaceAll("\\n", " | ").slice(0, 300)),
     editable: [...document.querySelectorAll("input, select, textarea")].filter((f) => !f.disabled).map((f) => f.name),
-    buttons: [...document.querySelectorAll("button")].filter((b) => !b.disabled).map((b) => b.textContent),
+    buttons: [...document.querySelectorAll(".st-page button")].filter((b) => !b.disabled).map((b) => b.textContent),
     secrets: [...document.querySelectorAll('input[type="password"]')].map((f) => f.value).join(""),
 })`);
+const section = async (id) => {
+    await press(`#st-nav-${id}`);
+    await sleep(1200);
+};
 const put = (field, value) => w.js(`(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`);
 const press = async (selector) => {
     await w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`);
@@ -59,7 +64,7 @@ const press = async (selector) => {
 async function submit(form, fields) {
     for (const [field, value] of Object.entries(fields)) await put(field, value);
     await sleep(500);
-    await press(`form[fx-submit="${form}"] button.primary`);
+    await press(`form[fx-submit="${form}"] button:not([type="button"])`);
     await sleep(2500);
     const shown = await shows();
     return { said: shown.said, secretsLeft: shown.secrets.length };
@@ -76,16 +81,23 @@ out.name.lps = guest(`lps show ${who} | grep -i 'display'`);
 await submit("save-name", { "display-name": nameWas });
 
 // The password: refused, then changed and changed back.
+await section("password");
+await desk.picture(`${name}-password.png`);
 out.wrongPassword = await submit("change-password", { current: "not-it", new: "x-new-1", confirm: "x-new-1" });
 out.mismatch = await submit("change-password", { current: password, new: "x-new-1", confirm: "x-new-2" });
 out.changed = await submit("change-password", { current: password, new: `${password}-2`, confirm: `${password}-2` });
 out.changedBack = await submit("change-password", { current: `${password}-2`, new: password, confirm: password });
 
-// A key: refused, added, taken away.
+// A key: refused, added, taken away. The form stays open while refused.
+await section("keys");
+await press('button[fx-click="open-add"]');
+await sleep(1200);
+await desk.picture(`${name}-adding.png`);
 out.keyWrongPassword = await submit("add-key", { key, "key-password": "not-it" });
 out.notAKey = await submit("add-key", { key: "ssh-ed25519 AAAAnotakey", "key-password": password });
 out.keyAdded = await submit("add-key", { key, "key-password": password });
-out.keyAdded.listed = (await shows()).cards.find((c) => c.startsWith("SSH keys"));
+out.keyAdded.listed = (await shows()).groups.find((c) => c.startsWith("Your keys"));
+out.keyAdded.nav = (await shows()).nav[2];
 out.keyAdded.lps = guest(`lps key list ${who} 2>&1`);
 await desk.picture(`${name}-key.png`);
 await press('button[fx-click="remove-key"]');
@@ -97,13 +109,21 @@ out.removeWrongPassword.stillAsked = await w.js(`!!document.querySelector(".aski
 out.keyRemoved = await submit("confirm-remove", { "remove-password": password });
 out.keyRemoved.lps = guest(`lps key list ${who} 2>&1`);
 
-// Language and formats.
+// Language and formats, each applied as it is chosen.
+await section("language");
 out.languages = await w.js(`[...document.querySelectorAll("[name='lang'] option")].map((o) => o.textContent)`);
-out.language = await submit("save-language", { lang: "en_GB.UTF-8", formats: "en_GB.UTF-8" });
-out.language.registry = guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG; reg get 'Users\\\\${sid}\\\\Locale' LC_TIME`);
+await put("lang", "en_GB.UTF-8");
+await sleep(1500);
+await put("formats", "en_GB.UTF-8");
+await sleep(1500);
+out.language = { said: (await shows()).said, nav: (await shows()).nav[3], registry: guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG; reg get 'Users\\\\${sid}\\\\Locale' LC_TIME`) };
 await desk.picture(`${name}-language.png`);
-out.languageBack = await submit("save-language", { lang: "", formats: "" });
-out.languageBack.registry = guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG 2>&1`);
+await put("lang", "");
+await sleep(1500);
+await put("formats", "");
+await sleep(1500);
+out.languageBack = { said: (await shows()).said, registry: guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG 2>&1`) };
+await section("account");
 
 out.end = await shows();
 out.log = w.log;
