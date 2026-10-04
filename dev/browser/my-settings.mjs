@@ -92,6 +92,8 @@ await press('button[fx-click="remove-key"]');
 await sleep(1500);
 out.asked = await w.js(`document.querySelector(".asking")?.innerText ?? null`);
 await desk.picture(`${name}-remove.png`);
+out.removeWrongPassword = await submit("confirm-remove", { "remove-password": "not-it" });
+out.removeWrongPassword.stillAsked = await w.js(`!!document.querySelector(".asking")`);
 out.keyRemoved = await submit("confirm-remove", { "remove-password": password });
 out.keyRemoved.lps = guest(`lps key list ${who} 2>&1`);
 
