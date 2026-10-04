@@ -89,22 +89,22 @@ pub struct Action {
 
 /// Every action, in the order a settings page lists them.
 pub const ACTIONS: &[Action] = &[
-    Action { id: "Launcher", label: "Show or hide the launcher", default: "Ctrl+Space Alt+P", form: Form::Chords, part: Part::Shell },
-    Action { id: "DockItem", label: "Go to one of the first nine entries on the dock, held with its number", default: "Alt", form: Form::Modifiers, part: Part::Shell },
-    Action { id: "PreviousTile", label: "Move the focus to the previous tile", default: "Alt+J", form: Form::Chords, part: Part::WindowManager },
-    Action { id: "NextTile", label: "Move the focus to the next tile", default: "Alt+K", form: Form::Chords, part: Part::WindowManager },
-    Action { id: "PreviousWorkspace", label: "Go to the previous workspace", default: "Ctrl+Alt+ArrowLeft Ctrl+Alt+J", form: Form::Chords, part: Part::WindowManager },
-    Action { id: "NextWorkspace", label: "Go to the next workspace", default: "Ctrl+Alt+ArrowRight Ctrl+Alt+K", form: Form::Chords, part: Part::WindowManager },
+    Action { id: "Launcher", label: "Toggle Launcher", default: "Ctrl+Space Alt+P", form: Form::Chords, part: Part::Shell },
+    Action { id: "DockItem", label: "Open Dock Item", default: "Alt", form: Form::Modifiers, part: Part::Shell },
+    Action { id: "PreviousTile", label: "Focus Previous Tile", default: "Alt+J", form: Form::Chords, part: Part::WindowManager },
+    Action { id: "NextTile", label: "Focus Next Tile", default: "Alt+K", form: Form::Chords, part: Part::WindowManager },
+    Action { id: "PreviousWorkspace", label: "Previous Workspace", default: "Ctrl+Alt+ArrowLeft Ctrl+Alt+J", form: Form::Chords, part: Part::WindowManager },
+    Action { id: "NextWorkspace", label: "Next Workspace", default: "Ctrl+Alt+ArrowRight Ctrl+Alt+K", form: Form::Chords, part: Part::WindowManager },
     Action {
         id: "MoveToPreviousWorkspace",
-        label: "Take the focused window to the previous workspace",
+        label: "Move Window to Previous Workspace",
         default: "Ctrl+Alt+Shift+ArrowLeft Ctrl+Alt+Shift+J",
         form: Form::Chords,
         part: Part::WindowManager,
     },
     Action {
         id: "MoveToNextWorkspace",
-        label: "Take the focused window to the next workspace",
+        label: "Move Window to Next Workspace",
         default: "Ctrl+Alt+Shift+ArrowRight Ctrl+Alt+Shift+K",
         form: Form::Chords,
         part: Part::WindowManager,
