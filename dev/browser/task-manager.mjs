@@ -1,7 +1,8 @@
 // Task Manager, in headless Chromium, as dana, an administrator
 // (`node task-manager.mjs`).
 //
-// It opens on the processes grouped by service. sshd's main process picked is
+// It opens on every process in one list, and groups them by service when
+// asked. sshd's main process picked is
 // shown in full: what started it, who it runs as, its session, its
 // protection. peinit, which no administrator can look into, is listed as a
 // protected process, and its PSB still says what protects it. Grouped by
@@ -74,8 +75,14 @@ const find = async (text) => {
     await sleep(600);
 };
 
-// Grouped by service; the CPU column fills from the second look.
-const first = await until((s) => s.groups.length > 2 && s.rows.some((row) => /\d%/.test(row)));
+// One list at first; the CPU column fills from the second look.
+const opened = await until((s) => s.rows.some((row) => /\d%/.test(row)));
+out.opened = { tabs: opened.tabs, groups: opened.groups, rows: opened.rows.length };
+await desk.picture(`${name}-opened.png`);
+
+// Grouped by service.
+await press(`.tab[fx-value-by="Service"]`);
+const first = await until((s) => s.groups.length > 2);
 out.groups = first.groups;
 out.said = first.said;
 out.footer = first.footer;
