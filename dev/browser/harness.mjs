@@ -193,6 +193,8 @@ export async function session(port, who = { user: "alice", password: "alice-dev-
             inSight: [...document.querySelectorAll('.fx-surface[data-role="window"]')].filter((s) => !s.hidden).map((s) => Number(s.dataset.id)),
             windows: [...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => Number(s.dataset.id)),
         })`),
+        /** Closes this browser and leaves the script running, for a check that drives two people. */
+        close: () => chrome.kill(),
         finish: async (out, code = 0) => {
             out.desktopLog = a.log;
             await a.js(`fetch("/.fenestra/logoff", { method: "POST" }).then(() => 0, () => 0)`);
