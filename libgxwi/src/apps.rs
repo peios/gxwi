@@ -148,6 +148,68 @@ pub fn is_media_pattern(text: &str) -> bool {
     token(top) && (sub == "*" || token(sub))
 }
 
+/// A media type or pattern as a person reads it: `application/x-shellscript`
+/// is "Shell script", `image/*` is "Every image". The machine has no MIME
+/// database to ask, so the common ones are named here; any other is named
+/// from its parts ("Markdown file" for `text/markdown`), never left as it is.
+pub fn type_name(media_type: &str) -> String {
+    let known = match media_type.to_ascii_lowercase().as_str() {
+        "inode/directory" => "Folder",
+        "text/plain" => "Plain text",
+        "text/markdown" | "text/x-markdown" => "Markdown",
+        "text/html" => "Web page",
+        "text/css" => "Stylesheet",
+        "text/csv" => "CSV table",
+        "text/x-log" => "Log",
+        "text/x-rust" => "Rust source",
+        "text/x-python" | "text/x-script.python" => "Python source",
+        "text/x-c" | "text/x-csrc" => "C source",
+        "text/x-chdr" => "C header",
+        "text/javascript" | "application/javascript" => "JavaScript",
+        "application/json" => "JSON",
+        "application/toml" => "TOML",
+        "application/xml" | "text/xml" => "XML",
+        "application/yaml" | "application/x-yaml" | "text/yaml" => "YAML",
+        "application/x-shellscript" | "text/x-shellscript" => "Shell script",
+        "application/pdf" => "PDF document",
+        "application/zip" => "Zip archive",
+        "application/gzip" | "application/x-gzip" => "Gzip archive",
+        "application/x-tar" => "Tar archive",
+        "application/octet-stream" => "Binary file",
+        "image/png" => "PNG image",
+        "image/jpeg" => "JPEG image",
+        "image/gif" => "GIF image",
+        "image/webp" => "WebP image",
+        "image/avif" => "AVIF image",
+        "image/svg+xml" => "SVG image",
+        "audio/mpeg" => "MP3 audio",
+        "video/mp4" => "MP4 video",
+        _ => "",
+    };
+    if !known.is_empty() {
+        return known.into();
+    }
+    let Some((top, sub)) = media_type.split_once('/') else { return media_type.into() };
+    let family = match top {
+        "text" => "text file",
+        "image" => "image",
+        "audio" => "sound",
+        "video" => "video",
+        "font" => "font",
+        _ => "file",
+    };
+    if sub == "*" {
+        return format!("Every {family}");
+    }
+    // `x-foo+xml` reads as Foo.
+    let name = sub.trim_start_matches("x-").split(['+', '.']).next().unwrap_or(sub);
+    let mut letters = name.chars();
+    match letters.next() {
+        Some(first) => format!("{}{} {family}", first.to_uppercase(), letters.as_str()),
+        None => media_type.into(),
+    }
+}
+
 /// The catalogue: the directory of declarations, read whenever it is asked.
 #[derive(Clone, Debug)]
 pub struct Catalogue {
@@ -320,5 +382,15 @@ mod tests {
         assert_eq!(catalogue.for_program(&program).map(|app| app.id), Some("dev.peios.a".into()));
         assert!(catalogue.for_program(&dir.join("notes.txt")).is_none());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_type_is_named_as_people_read_it() {
+        assert_eq!(type_name("application/x-shellscript"), "Shell script");
+        assert_eq!(type_name("inode/directory"), "Folder");
+        assert_eq!(type_name("text/*"), "Every text file");
+        assert_eq!(type_name("image/*"), "Every image");
+        assert_eq!(type_name("text/x-diff"), "Diff text file");
+        assert_eq!(type_name("application/vnd.oasis+zip"), "Vnd file");
     }
 }
