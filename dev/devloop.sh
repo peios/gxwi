@@ -24,6 +24,7 @@ while :; do
         && ! [ /gxwi/gxwi-task-manager -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-system-settings -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-my-settings -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/gxwi-security-policy -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/fenesh-settings -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/ssh-settings -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peiterm -nt /tmp/gxwi.stamp ] \
