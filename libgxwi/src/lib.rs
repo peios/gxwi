@@ -64,6 +64,7 @@ pub mod apps;
 pub mod display;
 pub mod icons;
 mod live;
+pub mod settings;
 pub mod shortcuts;
 
 pub use live::{Closer, Facts, Fields, Live, MAX_FIELD_BYTES, Surface, escape};
