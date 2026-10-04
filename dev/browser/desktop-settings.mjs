@@ -83,9 +83,19 @@ const ALT = 1, CTRL = 2;
 out.wallpaperPage = await shows();
 await desk.picture(`${name}-wallpaper.png`);
 
+/** The gallery's tiles: each title, and whether it is the one chosen. */
+const tiles = () => w.js(`[...document.querySelectorAll(".gallery .tile")].map((t) => t.innerText + (t.getAttribute("aria-pressed") === "true" ? " ✓" : ""))`);
+out.tiles = await tiles();
+
+// A shipped wallpaper, picked from the gallery.
+const desktopBefore = await wallpaper();
+await press(`.gallery .tile[fx-value-path="/usr/share/wallpapers/peios/diamond-beach-light.webp"]`);
+await sleep(2500);
+out.shipped = { said: (await shows()).said, tiles: await tiles(), desktop: [desktopBefore, await wallpaper()], registry: guest(`reg get 'Users\\\\'$(lps show ${who} | grep -o 'S-1-5-21[-0-9]*' | head -1)'\\\\Software\\\\fenesh' Wallpaper 2>&1`) };
+await desk.picture(`${name}-wallpaper-light.png`);
+
 // A wallpaper of their own, chosen in the file dialog.
 guest(`cp /usr/share/icons/base/dev.peios.fenesh.settings.svg /home/${who}/my-wallpaper.svg 2>/dev/null || cp /usr/share/icons/base/*.svg /home/${who}/my-wallpaper.svg; chown ${who} /home/${who}/my-wallpaper.svg 2>/dev/null; sd allow /home/${who}/my-wallpaper.svg ${who}:r >/dev/null`);
-const previewBefore = await w.js(`document.querySelector(".preview").getAttribute("src")`);
 await press('button[fx-click="choose-wallpaper"]');
 await sleep(2500);
 const dialog = await desk.frame(".chooser", '.fx-surface[data-role="dialog"]');
@@ -94,11 +104,11 @@ if (dialog) {
     await desk.doublePress(dialog, `[fx-value-name="my-wallpaper.svg"]`);
     await sleep(2500);
 }
-out.wallpaperChosen = { said: (await shows()).said, preview: [previewBefore, await w.js(`document.querySelector(".preview").getAttribute("src")`)], desktop: await wallpaper() };
+out.wallpaperChosen = { said: (await shows()).said, tiles: await tiles(), desktop: await wallpaper() };
 await desk.picture(`${name}-wallpaper-chosen.png`);
-await press('button[fx-click="own-wallpaper-off"]');
+await press('.gallery .tile[fx-value-path=""]');
 await sleep(2000);
-out.wallpaperBack = (await shows()).said;
+out.wallpaperBack = { said: (await shows()).said, tiles: await tiles() };
 
 // The clock, 12-hour, and back.
 await section("clock");

@@ -96,7 +96,7 @@ await desk.picture(`${name}-adding.png`);
 out.keyWrongPassword = await submit("add-key", { key, "key-password": "not-it" });
 out.notAKey = await submit("add-key", { key: "ssh-ed25519 AAAAnotakey", "key-password": password });
 out.keyAdded = await submit("add-key", { key, "key-password": password });
-out.keyAdded.listed = (await shows()).groups.find((c) => c.startsWith("Your keys"));
+out.keyAdded.listed = (await shows()).groups.find((c) => c.startsWith("SSH Keys"));
 out.keyAdded.nav = (await shows()).nav[2];
 out.keyAdded.lps = guest(`lps key list ${who} 2>&1`);
 await desk.picture(`${name}-key.png`);
