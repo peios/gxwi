@@ -9,7 +9,9 @@
 //! ([`Catalogue::read`], [`Catalogue::get`]). A dock or taskbar that meets a
 //! running process finds the declaration for it by the program it runs
 //! ([`Catalogue::for_program`]), and so its title and icon. A file explorer
-//! finds what opens a file by [`Application::opens`].
+//! finds what opens a file by [`Application::opens`], and which of those
+//! opens it when it is not asked by [`defaults`]: the application the
+//! person, or else the machine, chose for its type.
 //!
 //! ```toml
 //! # /usr/share/apps/dev.peios.gexora.toml
@@ -24,6 +26,8 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::icons;
+
+pub mod defaults;
 
 /// Where declarations are, one file per application.
 pub const CATALOGUE: &str = "/usr/share/apps";
@@ -138,7 +142,7 @@ impl Application {
 
 /// Whether `text` is `type/subtype` or `type/*`, in the characters a media
 /// type may have.
-fn is_media_pattern(text: &str) -> bool {
+pub fn is_media_pattern(text: &str) -> bool {
     let Some((top, sub)) = text.split_once('/') else { return false };
     let token = |part: &str| !part.is_empty() && part.bytes().all(|c| c.is_ascii_alphanumeric() || b"!#$&-^_.+".contains(&c));
     token(top) && (sub == "*" || token(sub))
