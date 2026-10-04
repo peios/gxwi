@@ -85,6 +85,52 @@ await press('button[fx-click="own-wallpaper-off"]');
 await sleep(2000);
 out.wallpaperBack = { said: (await shows()).said, src: await wallpaper() };
 
+// Shortcuts: a chord another action has is refused; the launcher's taken
+// away reaches the launcher at once; then both are put back.
+/** Every global key the shell's surfaces claim that isn't the dock's digits. */
+const launcherKeys = async () => {
+    const all = [];
+    for (const frame of await desk.frames("[fx-global-key]")) {
+        all.push(...(await frame.js(`[...document.querySelectorAll("[fx-global-key]")].map((e) => e.getAttribute("fx-global-key"))`)));
+    }
+    return all.filter((keys) => !/^(\S+\+)?\S*\d$/.test(keys) || keys.includes("Space"));
+};
+out.launcherBefore = await launcherKeys();
+await put("key:NextTile", "Alt+J");
+await sleep(500);
+await press('form[fx-submit="save-keys"] button.primary');
+await sleep(1500);
+out.conflict = (await shows()).said;
+await put("key:NextTile", "");
+await put("key:Launcher", "Ctrl+Alt+Space");
+await sleep(500);
+await press('form[fx-submit="save-keys"] button.primary');
+await sleep(2500);
+out.launcherChanged = { said: (await shows()).said, keys: await launcherKeys() };
+await put("key:Launcher", "");
+await sleep(500);
+await press('form[fx-submit="save-keys"] button.primary');
+await sleep(2500);
+out.launcherBack = await launcherKeys();
+
+// Which application opens a type: the first type there is a choice for.
+const choice = await w.js(`(() => {
+    const select = [...document.querySelectorAll('select[name^="app:"]')].find((s) => s.options.length > 1);
+    return select ? { name: select.name, value: select.options[1].value } : null;
+})()`);
+if (choice) {
+    await put(choice.name, choice.value);
+    await sleep(500);
+    await press('form[fx-submit="save-apps"] button.primary');
+    await sleep(1500);
+    out.app = { choice, said: (await shows()).said };
+    await put(choice.name, "");
+    await sleep(500);
+    await press('form[fx-submit="save-apps"] button.primary');
+    await sleep(1500);
+}
+await desk.picture(`${name}-keys.png`);
+
 // Get started, again.
 await press('button[fx-click="welcome-again"]');
 await sleep(3000);
