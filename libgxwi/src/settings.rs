@@ -47,6 +47,10 @@ pub enum Glyph {
     Server,
     Certificate,
     Blocked,
+    Package,
+    Download,
+    Refresh,
+    Folder,
 }
 
 impl Glyph {
@@ -70,6 +74,10 @@ impl Glyph {
             Glyph::Server => r#"<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>"#,
             Glyph::Certificate => r#"<path d="M12 20H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M8 8h8M8 12h4"/><circle cx="17" cy="14" r="3"/><path d="m15.4 16.6-.9 4.4 2.5-1.4 2.5 1.4-.9-4.4"/>"#,
             Glyph::Blocked => r#"<circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/>"#,
+            Glyph::Package => r#"<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>"#,
+            Glyph::Download => r#"<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/>"#,
+            Glyph::Refresh => r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>"#,
+            Glyph::Folder => r#"<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>"#,
         }
     }
 
@@ -492,6 +500,16 @@ pub fn recorder(event: &str, values: &[(&str, &str)], idle: &str, enabled: bool)
 /// Chips and a recorder together, at the end of a row.
 pub fn chords(html: &str) -> String {
     format!(r#"<span class="st-chords">{html}</span>"#)
+}
+
+/// How far something long has got: a bar `done` of `of` along, with `text`
+/// over it saying what it is doing now. With `of` 0 the bar moves without
+/// saying how far, for work whose length isn't known.
+pub fn progress(done: usize, of: usize, text: &str) -> String {
+    // A <progress> says how far in attributes: a page's style attributes
+    // are refused (style-src 'self').
+    let bar = if of == 0 { "<progress></progress>".to_string() } else { format!(r#"<progress max="{of}" value="{}"></progress>"#, done.min(of)) };
+    format!(r#"<div class="st-progress" role="status"><span class="text">{}</span>{bar}</div>"#, escape(text))
 }
 
 /// What an empty list says, quietly, where its items would be.

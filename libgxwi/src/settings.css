@@ -335,6 +335,26 @@ textarea.st-input { height: auto; padding: var(--space-2); font: 500 12px/1.4 va
 .st-status .said.bad { color: var(--danger-text); }
 .st-status .said.bad::before { content: "!"; font-weight: 800; }
 
+/* How far something long has got. */
+.st-progress { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+.st-progress .text { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.st-progress progress { appearance: none; display: block; width: 100%; height: 6px; border: 0; border-radius: var(--radius-pill); overflow: hidden; background: var(--surface-2); color: var(--accent-solid); }
+.st-progress progress::-webkit-progress-bar { background: var(--surface-2); }
+.st-progress progress::-webkit-progress-value { background: var(--accent-solid); border-radius: var(--radius-pill); transition: width 200ms ease; }
+.st-progress progress::-moz-progress-bar { background: var(--accent-solid); border-radius: var(--radius-pill); }
+/* Of no known length: a light moving along it. */
+.st-progress progress:indeterminate {
+    background: linear-gradient(90deg, transparent, var(--accent-solid), transparent) no-repeat, var(--surface-2);
+    background-size: 40% 100%, auto;
+    animation: st-progress 1.3s ease-in-out infinite;
+}
+.st-progress progress:indeterminate::-webkit-progress-bar { background: transparent; }
+@keyframes st-progress { from { background-position: -60% 0, 0 0; } to { background-position: 160% 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .st-progress progress::-webkit-progress-value { transition: none; }
+    .st-progress progress:indeterminate { animation: none; background: var(--accent-solid); opacity: 0.4; }
+}
+
 /* Half a screen: the sections keep their icons and lose their words. */
 @media (max-width: 720px) {
     .st-nav { width: 60px; padding: var(--space-2) 6px; }
