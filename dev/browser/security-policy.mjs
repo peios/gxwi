@@ -16,10 +16,13 @@ import { guest as asGuest, session, sleep } from "./harness.mjs";
 const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
 
 const alice = process.argv[2] === "alice";
+// `node security-policy.mjs light`: the list and one certificate in the
+// light theme, as dana, and nothing changed.
+const light = process.argv[2] === "light";
 const who = alice ? "alice" : "dana";
 const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
 const out = {};
-const name = alice ? "security-policy-alice" : "security-policy";
+const name = alice ? "security-policy-alice" : light ? "security-policy-light" : "security-policy";
 
 const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
 async function window(title, has) {
@@ -77,6 +80,21 @@ const section = async (id) => {
     await sleep(900);
 };
 const store = () => guest("trust status | sed -n 3,6p");
+
+if (light) {
+    const scheme = { features: [{ name: "prefers-color-scheme", value: "light" }] };
+    await desk.a.send("Emulation.setEmulatedMedia", scheme);
+    await w.send("Emulation.setEmulatedMedia", scheme);
+    await sleep(800);
+    await desk.picture(`${name}.png`);
+    const first = guest("trust list | head -1").split(/\s+/)[0];
+    await press(`.st-row.link[fx-value-cert^="${first}"]`);
+    await sleep(1200);
+    await w.js(`document.querySelector(".st-page").scrollTop = 0`);
+    await sleep(400);
+    await desk.picture(`${name}-certificate.png`);
+    await desk.finish(out);
+}
 
 out.list = await shows();
 await desk.picture(`${name}.png`);
@@ -210,6 +228,16 @@ if (!alice) {
     await press('button[fx-click="cancel"]');
     await sleep(1000);
     out.compatKept = { switches: (await shows()).switches, registry: guest(`reg get 'Machine\\System\\Trust' GenerateLinuxTrustFiles`) };
+    // Off, confirmed: the files go. On again: they are back.
+    await press('input[name="compat"]');
+    await sleep(1200);
+    await press('.st-more.asking button[fx-click="compat-off"]');
+    await sleep(2500);
+    out.compatOff = { said: (await shows()).said, switches: (await shows()).switches, files: guest("ls /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem 2>&1 | head -2") };
+    await desk.picture(`${name}-compat-off.png`);
+    await press('input[name="compat"]');
+    await sleep(2500);
+    out.compatOn = { said: (await shows()).said, switches: (await shows()).switches, files: guest("ls /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem 2>&1 | head -2") };
 }
 // Who may change trust, and who may control the service, in the editor.
 for (const which of ["perm-trust", "perm-service"]) {
@@ -228,6 +256,20 @@ for (const which of ["perm-trust", "perm-service"]) {
         })`)
         : "no dialog";
     await desk.picture(`${name}-${which}.png`);
+    if (editor && which === "perm-service" && !alice) {
+        // Everyone may reload, applied: the descriptor is written as
+        // ControlSecurity, and trustd keeps working. Then the default again.
+        await desk.press(editor, ".who[fx-value-sid='S-1-1-0']");
+        await desk.press(editor, "button[fx-value-right='2'][fx-value-way='allow']");
+        await desk.press(editor, "footer .primary");
+        await sleep(2000);
+        out.applied = {
+            value: guest(`reg get 'Machine\\System\\Trust' ControlSecurity | head -c 40`),
+            health: guest("trust status | sed -n 2p"),
+            said: (await shows()).said,
+        };
+        guest(`reg del 'Machine\\System\\Trust' ControlSecurity`);
+    }
     await dialogsGone();
 }
 
