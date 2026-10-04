@@ -194,6 +194,17 @@ if (!alice) {
     if (await button("Continue Anyway")) out.installPlan = await settled();
     await desk.picture(`${name}-install-plan.png`);
     await button("Install");
+    // Caught on the way, if it is slow enough to catch.
+    for (let i = 0; i < 40; i++) {
+        const s = await shows();
+        if (s.progress && !s.progress.startsWith("Working")) {
+            out.installProgress = s.progress;
+            await desk.picture(`${name}-install-progress.png`);
+            break;
+        }
+        if (s.buttons.includes("Close")) break;
+        await sleep(50);
+    }
     out.installDone = await until((s) => s.buttons.includes("Close"), 120);
     await desk.picture(`${name}-install-done.png`);
     await button("Close");
@@ -291,22 +302,53 @@ out.roots = await shows();
 await desk.picture(`${name}-roots.png`);
 
 // Half a screen: a second window tiles this one to half.
-await section("installed");
-await press(`.st-row.link[fx-value-name="${one}"]`);
-await sleep(900);
-await desk.launch("event");
-await sleep(3000);
-out.half = await w.js(`(() => {
+const wide = () => w.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".st-page *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
         .map((e) => e.tagName.toLowerCase() + (e.className ? "." + String(e.className).split(" ")[0] : ""));
     return { width: innerWidth, sideways: page.scrollWidth > page.clientWidth, over: [...new Set(over)].slice(0, 6), side: document.querySelector(".st-nav").clientWidth };
 })()`);
+await section("installed");
+await press(`.st-row.link[fx-value-name="${one}"]`);
+await sleep(900);
+await desk.launch("event");
+await sleep(3000);
+out.half = await wide();
 await desk.picture(`${name}-half.png`);
 await press('button[fx-click="back"]');
 await sleep(900);
 await desk.picture(`${name}-half-list.png`);
+
+// A change at half a screen: patch installed, or removed if it is, and the
+// window closed as soon as the plan is approved. It stays, saying it will
+// go when the change is made, and then goes.
+if (!alice) {
+    const had = guest("peipkg info org.gnu.patch > /dev/null 2>&1 && echo had") === "had";
+    await section(had ? "installed" : "available");
+    await until((s) => s.rows > 0);
+    await press('.st-row.link[fx-value-name="org.gnu.patch"]');
+    await sleep(900);
+    await button(had ? "Remove…" : "Install");
+    let now = await settled();
+    if (now.buttons.includes("Continue Anyway")) {
+        await button("Continue Anyway");
+        now = await settled();
+    }
+    out.halfPlan = await wide();
+    await desk.picture(`${name}-half-plan.png`);
+    await button(had ? "Remove" : "Install");
+    const close = await desk.a.js(`(() => { const r = document.querySelector('${w.surface} [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    await desk.pressAt(close);
+    out.closing = await shows().catch(() => ({ gone: true }));
+    await desk.picture(`${name}-closing.png`);
+    let left = false;
+    for (let i = 0; i < 60 && !left; i++) {
+        await sleep(500);
+        left = !(await strips()).some((strip) => strip.title.startsWith("Package Manager"));
+    }
+    out.closedWhenDone = { left, patch: guest("peipkg info org.gnu.patch > /dev/null 2>&1 && echo installed || echo absent"), last: guest("peipkg history -n 1") };
+}
 await gone(["Event Viewer"]);
 
 out.store = guest("peipkg list | wc -l; peipkg history | head -3");
