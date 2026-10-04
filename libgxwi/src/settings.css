@@ -285,6 +285,37 @@ textarea.st-input { height: auto; padding: var(--space-2); font: 500 12px/1.4 va
 .st-item { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: var(--space-3); min-width: 0; }
 .st-item .label small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
+/* A row to press, that opens to more about it. */
+.st-row.link { width: 100%; margin: 0; text-align: left; background: none; border: 0; border-radius: 0; cursor: pointer; }
+.st-row + .st-row.link { border-top: 1px solid var(--border-subtle); }
+.st-row.link:hover { background: var(--surface-2); }
+.st-row.link:focus-visible { outline-offset: -2px; }
+.st-row.link .control { flex-wrap: nowrap; color: var(--text-secondary); font-size: 12px; }
+.st-row .chevron { flex: none; width: 16px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Above a long list: a field to narrow it, and buttons. */
+.st-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-4); }
+.st-search { position: relative; flex: 1 1 220px; min-width: 0; }
+.st-search svg { position: absolute; top: 50%; left: 9px; width: 15px; height: 15px; transform: translateY(-50%); fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.st-search .st-input { height: 32px; padding-left: 30px; }
+
+/* Back to where a page was opened from. */
+.st-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin: 0 0 var(--space-3) calc(-1 * var(--space-1));
+    padding: 2px var(--space-2) 2px 2px;
+    font-weight: 600;
+    color: var(--accent-solid);
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+.st-back:hover { background: var(--surface-2); }
+.st-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
 /* The line along the bottom: what was last done, kept to its height so
    nothing moves when it changes. */
 .st-status {

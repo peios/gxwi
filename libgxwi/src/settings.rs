@@ -45,6 +45,8 @@ pub enum Glyph {
     Terminal,
     Tag,
     Server,
+    Certificate,
+    Blocked,
 }
 
 impl Glyph {
@@ -66,6 +68,8 @@ impl Glyph {
             Glyph::Terminal => r#"<path d="m5 8 4 4-4 4M12 16h7"/>"#,
             Glyph::Tag => r#"<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>"#,
             Glyph::Server => r#"<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>"#,
+            Glyph::Certificate => r#"<path d="M12 20H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M8 8h8M8 12h4"/><circle cx="17" cy="14" r="3"/><path d="m15.4 16.6-.9 4.4 2.5-1.4 2.5 1.4-.9-4.4"/>"#,
+            Glyph::Blocked => r#"<circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/>"#,
         }
     }
 
@@ -243,6 +247,43 @@ pub fn item(icon: &str, name: &str, lines: &[(&str, bool)], control: &str) -> St
     format!(
         r#"<div class="st-row"><span class="st-item">{icon}<span class="label"><b>{}</b>{lines}</span></span><span class="control">{control}</span></div>"#,
         escape(name)
+    )
+}
+
+/// One of a list that opens to more about it, as a row to press: an icon,
+/// its name, lines under it as [`item`] has them, `aside` (HTML) at the
+/// end before an arrow, and `event` with `values` sent when it is pressed.
+pub fn link(icon: &str, name: &str, lines: &[(&str, bool)], aside: &str, event: &str, values: &[(&str, &str)]) -> String {
+    let lines: String = lines
+        .iter()
+        .map(|(text, mono)| format!(r#"<small{}>{}</small>"#, if *mono { r#" class="st-mono""# } else { "" }, escape(text)))
+        .collect();
+    format!(
+        r#"<button type="button" class="st-row link" fx-click="{}"{}><span class="st-item">{icon}<span class="label"><b>{}</b>{lines}</span></span><span class="control">{aside}<svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></button>"#,
+        escape(event),
+        attributes(values),
+        escape(name)
+    )
+}
+
+/// Above a long list: a field named `name` to narrow it as it is typed in
+/// (the app filters in [`Live::input`](crate::Live::input)), saying
+/// `placeholder` while empty, and `buttons` at the end.
+pub fn search(name: &str, label: &str, placeholder: &str, buttons: &str) -> String {
+    format!(
+        r#"<div class="st-bar"><label class="st-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></svg><input class="st-input wide" type="search" name="{}" aria-label="{}" placeholder="{}" autocomplete="off" spellcheck="false"></label>{buttons}</div>"#,
+        escape(name),
+        escape(label),
+        escape(placeholder)
+    )
+}
+
+/// A button back to where a page was opened from: `label` is where.
+pub fn back(label: &str, event: &str) -> String {
+    format!(
+        r#"<button type="button" class="st-back" fx-click="{}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>{}</button>"#,
+        escape(event),
+        escape(label)
     )
 }
 
