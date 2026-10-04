@@ -50,8 +50,9 @@ use crate::Desk;
 /// keyboard is in a field, what would type or edit there (`P`, `Backspace`,
 /// `ArrowLeft`, `Home`, `Ctrl+V`, `Ctrl+Z`) is the field's, and so is
 /// `Enter` in a field of a form with `fx-submit`, which sends the form. Some chords are the desktop's
-/// and never arrive: what they are is the desktop's to say, and they all
-/// have Ctrl, Alt or Meta in them.
+/// and never arrive: what they are is the desktop's to say, and the
+/// person's to change ([`crate::shortcuts`]), and they all have Ctrl, Alt or
+/// Meta in them.
 ///
 /// The keyboard goes to an element marked `fx-autofocus` when a render
 /// brings it where there was none, if the keyboard is in the surface
