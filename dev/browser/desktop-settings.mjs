@@ -69,9 +69,13 @@ const record = async (id, key, code, modifiers) => {
     await press(`button[fx-record="record-chord"][fx-value-id="${id}"]`);
     await sleep(500);
     const waiting = await w.js(`document.querySelector('button[fx-record][fx-value-id="${id}"]').dataset.fxRecording`);
+    // A modifier pressed on its own is waited past, as a person's fingers
+    // land one at a time.
+    await desk.key("Control", { code: "ControlLeft", modifiers: CTRL, vk: 17 });
+    const stillWaiting = await w.js(`document.querySelector('button[fx-record][fx-value-id="${id}"]').dataset.fxRecording`);
     await desk.key(key, { code, modifiers });
     await sleep(1500);
-    return { waiting, said: (await shows()).said };
+    return { waiting, stillWaiting, said: (await shows()).said };
 };
 // Chrome's modifier bits.
 const ALT = 1, CTRL = 2;
