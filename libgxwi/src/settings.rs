@@ -276,6 +276,17 @@ pub fn banner(why: &str) -> String {
     format!(r#"<p class="st-banner">{}<span>{}</span></p>"#, Glyph::Lock.svg(), escape(why))
 }
 
+/// Under a section's heading: a word on everything in it, said once.
+pub fn caution(text: &str) -> String {
+    format!(r#"<p class="st-banner">{}<span>{}</span></p>"#, Glyph::Info.svg(), escape(text))
+}
+
+/// A button the keyboard goes to as it appears (fx-autofocus), which also
+/// brings it into sight: the safe answer to a question that has just opened.
+pub fn focused_button(label: &str, event: &str, kind: Kind) -> String {
+    button(label, event, &[], kind, true).replacen("<button ", "<button fx-autofocus ", 1)
+}
+
 /// Under a group: a word on it.
 pub fn note(text: &str) -> String {
     format!(r#"<p class="st-foot">{}<span>{}</span></p>"#, Glyph::Info.svg(), escape(text))
