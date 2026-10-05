@@ -99,7 +99,7 @@ for (const width of [720, 480]) {
     await press(`.toptabs [fx-value-v="access"]`);
     await press(`.who[fx-value-sid="${D}-1001"]`);
     await editor.js(`document.scrollingElement.scrollTop = 0`);
-    out[`narrow${width}`] = await editor.js(`({ inner: innerWidth, sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth, over: [...document.querySelectorAll(".editor *")].filter((e) => e.getBoundingClientRect().right > innerWidth + 1).slice(0, 6).map((e) => e.tagName + "." + e.className) })`);
+    out[`narrow${width}`] = await editor.js(`({ inner: innerWidth, sideways: (() => { const s = document.scrollingElement; s.scrollLeft = 1000; const moved = s.scrollLeft; s.scrollLeft = 0; return moved; })(), over: [...document.querySelectorAll(".editor *")].filter((e) => e.getBoundingClientRect().right > innerWidth + 1).slice(0, 6).map((e) => e.tagName + "." + e.className) })`);
     await pic(`narrow-${width}`);
     await editor.js(`document.querySelector(".pane")?.scrollIntoView({ block: "start" })`);
     await pic(`narrow-${width}-pane`);
