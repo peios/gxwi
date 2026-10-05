@@ -25,7 +25,7 @@ cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ \
 # The installer goes there too if ../installer-gxwi/dev/push.sh has put one on
 # the share. Nothing here starts it: its dev/overlay.sh names it as the
 # overlay, and takes that away again.
-for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh fenesh-settings gexora gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager ssh-settings peiterm peitor installer-gxwi; do
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh fenesh-settings gexora gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager gxwi-upgrade-peios ssh-settings peiterm peitor installer-gxwi; do
     [ -e "/gxwi/$beside" ] || continue
     cp "/gxwi/$beside" "/tmp/$beside.$$" \
         && sd allow "/tmp/$beside.$$" Everyone:rx \
@@ -36,7 +36,7 @@ done
 # the settings apps, peiterm and peitor go where a package would put them,
 # /usr/bin, which is where their declarations say they are, so that the
 # launcher has something to start that can be seen.
-for app in gxwi-hello-app gexora gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager fenesh-settings ssh-settings peiterm peitor; do
+for app in gxwi-hello-app gexora gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager gxwi-upgrade-peios fenesh-settings ssh-settings peiterm peitor; do
     [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/usr/bin/$app.$$" \
         && sd allow "/usr/bin/$app.$$" Everyone:rx \
         && mv "/usr/bin/$app.$$" "/usr/bin/$app"
@@ -50,14 +50,17 @@ if [ -e /gxwi/peipkg ] && [ /gxwi/peipkg -nt /usr/bin/peipkg ]; then
         && mv "/usr/bin/peipkg.$$" /usr/bin/peipkg
 fi
 # A feat on the share, from ../gxwi-feature-manager/dev/push.sh, likewise,
-# for Feature Manager to drive one with the driven mode. The image's feat is
-# a link to the peiosutils multicall binary: the rename replaces the link,
-# leaving the binary and every other tool in it alone.
-if [ -e /gxwi/feat ] && [ /gxwi/feat -nt /usr/bin/feat ]; then
-    cp /gxwi/feat "/usr/bin/feat.$$" \
-        && sd allow "/usr/bin/feat.$$" Everyone:rx \
-        && mv "/usr/bin/feat.$$" /usr/bin/feat
-fi
+# for Feature Manager to drive one with the driven mode, and an
+# upgrade-peios, from ../gxwi-upgrade-peios/dev/push.sh, for Upgrade Peios.
+# The image's are links to the peiosutils multicall binary: the rename
+# replaces the link, leaving the binary and every other tool in it alone.
+for tool in feat upgrade-peios; do
+    if [ -e "/gxwi/$tool" ] && [ "/gxwi/$tool" -nt "/usr/bin/$tool" ]; then
+        cp "/gxwi/$tool" "/usr/bin/$tool.$$" \
+            && sd allow "/usr/bin/$tool.$$" Everyone:rx \
+            && mv "/usr/bin/$tool.$$" "/usr/bin/$tool"
+    fi
+done
 # An installerd on the share, from ../installer-gxwi/dev/push.sh, takes the
 # place of the one the image ships, for the installer to be tried against one
 # that is still being written. It is a service of its own, so it is replaced
