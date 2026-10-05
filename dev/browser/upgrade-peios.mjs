@@ -143,6 +143,12 @@ await sleep(1000);
 
 if (!alice) {
     // The upgrade: the plan shown is the plan made, so nothing is asked.
+    // With `reboot`, its settings are left for the next restart.
+    if (process.argv.includes("reboot")) {
+        await press('input[name="on-reboot"]');
+        await sleep(400);
+        out.switched = await w.js(`document.querySelector('input[name="on-reboot"]').checked`);
+    }
     await button("Upgrade to 2026.9");
     out.running = await until((s) => s.progress !== null || s.asking !== null, 20);
     await desk.picture(`${name}-running.png`);
@@ -153,11 +159,14 @@ if (!alice) {
     out.after = await settledCheck();
     await desk.picture(`${name}-after.png`);
 
-    // The release's settings, queued by hand for the next boot, then
-    // applied now from the window.
-    guest("reg del -r -y 'Machine/Software/Upgrade Peios Test'; upgrade-peios --seeds-only --on-reboot");
-    await gone(["Upgrade Peios"]);
-    w = await open();
+    // The release's settings waiting for the next boot — left there by the
+    // upgrade itself with `reboot`, or queued by hand — then applied now
+    // from the window.
+    if (!process.argv.includes("reboot")) {
+        guest("reg del -r -y 'Machine/Software/Upgrade Peios Test'; upgrade-peios --seeds-only --on-reboot");
+        await gone(["Upgrade Peios"]);
+        w = await open();
+    }
     out.waiting = await until((s) => s.buttons.includes("Apply Now"), 30);
     await desk.picture(`${name}-waiting.png`);
     await button("Apply Now");
