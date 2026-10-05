@@ -9,8 +9,9 @@ import { guest, session, sleep } from "./harness.mjs";
 const D = "S-1-5-21-1656784432-3555462761-4094152458";
 const KEY = "Machine\\Software\\PushCheck";
 const out = {
-    made: guest(`reg del '${KEY}' >/dev/null 2>&1; reg new -p '${KEY}\\a\\deep' && reg new '${KEY}\\locked' && \
-        reg sd '${KEY}' --dacl --set 'D:P(A;CI;KA;;;BA)(A;CI;KA;;;${D}-1002)' && reg sd '${KEY}\\locked' --dacl --set 'D:P(A;CI;KA;;;BA)(A;CI;KA;;;${D}-1002)' && echo made`).trim(),
+    made: guest(`reg del -r '${KEY}' >/dev/null 2>&1; reg new -p '${KEY}\\a\\deep' && reg new '${KEY}\\locked' && \
+        reg sd '${KEY}' --dacl --set 'D:P(A;CI;KA;;;BA)(A;CI;KA;;;${D}-1002)' && reg sd '${KEY}\\locked' --dacl --set 'D:P(A;CI;KA;;;BA)(A;CI;KA;;;${D}-1002)' && \
+        reg sd '${KEY}\\locked' --sacl --set 'S:P(ML;CI;NW;;;ME)' && reg sd '${KEY}' --sacl --set 'S:(ML;;NW;;;ME)' && echo made`).trim(),
 };
 const sd = (key) => guest(`reg sd '${KEY}${key}'`).trim();
 out.before = { a: sd("\\a"), deep: sd("\\a\\deep") };
@@ -66,6 +67,25 @@ await sleep(2000);
 out.said = await dialog.js(`({ status: document.querySelector("footer .status")?.textContent, banner: document.querySelector(".inherit.warn")?.innerText ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`);
 await desk.picture("permissions-editor-push-registry-done.png");
 out.after = { key: sd(""), a: sd("\\a"), deep: sd("\\a\\deep"), locked: sd("\\locked") };
+
+// The label alone, lowered to Low and passed down: pushed as labels, and
+// the key whose SACL is protected keeps its own.
+await press(`.ownerbtn`);
+await dialog.js(`(() => {
+    const level = document.querySelector('[name="own.level"]'); level.value = "4096"; level.dispatchEvent(new Event("change", { bubbles: true }));
+    const down = document.querySelector('[name="own.linh"]'); if (down && !down.checked) { down.checked = true; down.dispatchEvent(new Event("change", { bubbles: true })); }
+})()`);
+await sleep(600);
+out.ownerPanel = await dialog.js(`({ text: document.querySelector(".owners")?.innerText ?? null, level: document.querySelector('[name="own.level"]')?.value ?? null, down: document.querySelector('[name="own.linh"]')?.checked ?? null, disabled: document.querySelector('[name="own.level"]')?.disabled ?? null })`);
+await press(`.owners button[type="submit"]`);
+out.afterDone = await dialog.js(`({ apply: document.querySelector('footer [fx-click="apply"]')?.disabled, trouble: document.querySelector(".trouble")?.textContent ?? null, wrong: [...document.querySelectorAll(".wrong")].map((w) => w.textContent) })`);
+await press(`footer [fx-click="apply"]`);
+out.labelAsked = await dialog.js(`document.querySelector(".inherit.push p")?.textContent ?? null`);
+await press(`[fx-click="push"][fx-value-v="all"]`);
+await sleep(2000);
+out.labelSaid = await dialog.js(`({ status: document.querySelector("footer .status")?.textContent, banner: document.querySelector(".inherit.warn")?.innerText ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`);
+const sacl = (key) => guest(`reg sd --sacl '${KEY}${key}'`).trim();
+out.labels = { key: sacl(""), a: sacl("\\a"), deep: sacl("\\a\\deep"), locked: sacl("\\locked") };
 await press(`footer [fx-click="cancel"]`);
-out.cleaned = guest(`reg del '${KEY}' >/dev/null 2>&1; echo cleaned`).trim();
+out.cleaned = guest(`reg del -r '${KEY}' >/dev/null 2>&1; echo cleaned`).trim();
 await desk.finish(out);
