@@ -137,6 +137,14 @@ if (!alice) {
     await button("Format…");
     out.formatForm = await shows();
     await desk.picture(`${name}-format.png`);
+    // The new filesystem's top folder, in the permissions editor.
+    await button("Permissions…");
+    await sleep(3000);
+    out.editor = (await strips()).map((s) => s.title);
+    await desk.picture(`${name}-permissions.png`);
+    await gone(["Permissions", "Security", "The new filesystem"]);
+    await sleep(1000);
+    out.afterEditor = (await strips()).map((s) => s.title);
     await button("Cancel");
     await press(".st-back");
     await sleep(800);
