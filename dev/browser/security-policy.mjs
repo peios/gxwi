@@ -19,10 +19,13 @@ const alice = process.argv[2] === "alice";
 // `node security-policy.mjs light`: the list and one certificate in the
 // light theme, as dana, and nothing changed.
 const light = process.argv[2] === "light";
+// `node security-policy.mjs keys`: the kernel's signing keys beside what
+// the kernel lists, at full width and half, as dana, and nothing changed.
+const keys = process.argv[2] === "keys";
 const who = alice ? "alice" : "dana";
 const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
 const out = {};
-const name = alice ? "security-policy-alice" : light ? "security-policy-light" : "security-policy";
+const name = alice ? "security-policy-alice" : light ? "security-policy-light" : keys ? "security-policy-keys" : "security-policy";
 
 const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
 async function window(title, has) {
@@ -93,6 +96,30 @@ if (light) {
     await w.js(`document.querySelector(".st-page").scrollTop = 0`);
     await sleep(400);
     await desk.picture(`${name}-certificate.png`);
+    await desk.finish(out);
+}
+
+if (keys) {
+    await section("keys");
+    out.keys = {
+        shows: await shows(),
+        fingerprints: await w.js(`[...document.querySelectorAll("button[fx-copy]")].map((b) => b.getAttribute("fx-value-text"))`),
+        listing: guest("cat /sys/kernel/security/kacs/signing_keys 2>&1"),
+        kernel: guest("uname -r"),
+    };
+    await desk.picture(`${name}.png`);
+    await desk.launch("event");
+    await sleep(3000);
+    out.half = await w.js(`(() => {
+        const page = document.documentElement;
+        const over = [...document.querySelectorAll(".st-page *")]
+            .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
+            .map((e) => e.tagName.toLowerCase() + (e.className ? "." + String(e.className).split(" ")[0] : ""));
+        return { width: innerWidth, sideways: page.scrollWidth > page.clientWidth, over: [...new Set(over)].slice(0, 6) };
+    })()`);
+    await desk.picture(`${name}-half.png`);
+    await gone(["Event Viewer"]);
+    out.log = w.log;
     await desk.finish(out);
 }
 
