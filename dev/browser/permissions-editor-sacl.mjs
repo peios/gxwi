@@ -13,7 +13,7 @@ const AT = "/srv/pe-check";
 const out = {
     made: guest(`mkdir -p ${AT}/finance && sd set ${AT} 'O:BAG:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;AU)S:P(AU;OICIFA;0x10000;;;WD)' && \
         sd set ${AT}/finance 'O:${D}-1002G:BAD:(D;OICI;0x10156;;;${D}-1001)(A;OICI;0x1301bf;;;${D}-1002)(XA;OICI;0x1200a9;;;AU;(@User.Department == "Finance"))(A;OICIIO;GA;;;CO)(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)S:(ML;OICI;NW;;;ME)(AU;OICISAFA;0x120089;;;${D}-1001)(RA;OICI;;;;WD;("Classification",TS,0x0,"Confidential"))(AU;OICIIDFA;0x10000;;;WD)' >/dev/null && echo made`).trim(),
-    learnedBefore: guest(`reg get 'Machine\\Software\\Peios\\Permissions Editor' Claims 2>&1`).trim(),
+    learnedBefore: guest(`reg get 'Machine\\Common\\SecurityDescriptorBuilder' UsedClaims 2>&1`).trim(),
 };
 const desk = await session(9374, { user: "dana", password: "dana-dev-password" });
 const pic = (name) => desk.picture(`permissions-editor-sacl-${name}.png`);
@@ -134,7 +134,7 @@ await press(`footer [fx-click="cancel"]`);
 await sleep(1000);
 
 out.dacl = guest(`sd show --sddl ${AT}/finance`).trim();
-out.learnedAfter = guest(`reg get 'Machine\\Software\\Peios\\Permissions Editor' Claims 2>&1`).trim();
+out.learnedAfter = guest(`reg get 'Machine\\Common\\SecurityDescriptorBuilder' UsedClaims 2>&1`).trim();
 
 // Opened again, the editor reads the raw SACL back.
 editor = await open();
