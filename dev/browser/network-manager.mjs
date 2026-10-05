@@ -100,6 +100,12 @@ if (light) {
 
 out.overview = await shows();
 await desk.picture(`${name}.png`);
+// The interface's lease: how much of it has gone, and where it renews.
+await w.js(`document.querySelector(".leasebar, .leasesteps")?.scrollIntoView({ block: "center" })`);
+await sleep(600);
+out.lease = await w.js(`document.querySelector(".leasebar")?.parentElement.innerText.replaceAll("\\n", " | ").slice(-200) ?? "no bar"`);
+await desk.picture(`${name}-lease.png`);
+await w.js(`document.querySelector("main.main").scrollTop = 0`);
 
 for (const id of ["networks", "profiles", "assign", "dns", "exposure", "rules", "activity", "ports", "audit", "advanced"]) {
     await section(id);
