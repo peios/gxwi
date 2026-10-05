@@ -31,6 +31,8 @@ while :; do
         && ! [ /gxwi/feat -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/gxwi-upgrade-peios -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/upgrade-peios -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/gxwi-disk-manager -nt /tmp/gxwi.stamp ] \
+        && ! [ /gxwi/lsblk -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/fenesh-settings -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/ssh-settings -nt /tmp/gxwi.stamp ] \
         && ! [ /gxwi/peiterm -nt /tmp/gxwi.stamp ] \
