@@ -52,6 +52,14 @@ pub enum Glyph {
     Refresh,
     Folder,
     Toggle,
+    /// A fixed disk.
+    Disk,
+    /// A disk that is plugged in and taken out: a USB stick, a card.
+    Removable,
+    /// An optical disc.
+    Disc,
+    /// Things stacked over one another: layers, strata.
+    Layers,
 }
 
 impl Glyph {
@@ -80,6 +88,10 @@ impl Glyph {
             Glyph::Refresh => r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>"#,
             Glyph::Folder => r#"<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>"#,
             Glyph::Toggle => r#"<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/>"#,
+            Glyph::Disk => r#"<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 13h18M17 15.5h.01M14 15.5h.01"/>"#,
+            Glyph::Removable => r#"<rect x="7" y="9" width="10" height="13" rx="2"/><path d="M9 9V3h6v6M11 6h.01M13 6h.01"/>"#,
+            Glyph::Disc => r#"<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6a6 6 0 0 0-6 6"/>"#,
+            Glyph::Layers => r#"<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>"#,
         }
     }
 
