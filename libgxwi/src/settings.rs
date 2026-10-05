@@ -51,6 +51,7 @@ pub enum Glyph {
     Download,
     Refresh,
     Folder,
+    Toggle,
 }
 
 impl Glyph {
@@ -78,6 +79,7 @@ impl Glyph {
             Glyph::Download => r#"<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/>"#,
             Glyph::Refresh => r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>"#,
             Glyph::Folder => r#"<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>"#,
+            Glyph::Toggle => r#"<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/>"#,
         }
     }
 
