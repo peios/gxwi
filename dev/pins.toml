@@ -1,0 +1,53 @@
+# The one revision of each sibling repository that every program in the
+# graphical stack builds against (PEI-1400). dev/repin.py writes these into
+# each program's manifests, in place of a path beside the checkout or an older
+# revision, and brings its Cargo.lock along.
+#
+# Only pushed revisions: Cargo fetches them from GitHub. Every one of them
+# must itself pin the peios-rs revision here, because a program can hold only
+# one peios-sys (links = "peios").
+#
+# gxwi is the release commit dev.peios.gxwi-sdk stages libgxwi from (the
+# revision in gxwi's packaging/stage-sdk.py), not gxwi's head: a package build
+# takes libgxwi from the SDK, and checks the two agree.
+
+[url]
+peios-rs = "https://github.com/peios/peios-rs.git"
+gxwi = "https://github.com/peios/gxwi.git"
+gxwi-sd-editor = "https://github.com/peios/gxwi-sd-editor.git"
+gxwi-file-dialog = "https://github.com/peios/gxwi-file-dialog.git"
+authd = "https://github.com/peios/authd.git"
+peinit = "https://github.com/peios/peinit.git"
+peiosutils = "https://github.com/peios/peiosutils.git"
+eventd = "https://github.com/peios/eventd.git"
+timed = "https://github.com/peios/timed.git"
+netd = "https://github.com/peios/netd.git"
+resolvd = "https://github.com/peios/resolvd.git"
+trustd = "https://github.com/peios/trustd.git"
+pkm = "https://github.com/peios/pkm.git"
+
+[rev]
+peios-rs = "f8c84930f2b71763bcf0550df0b1420a0f63b21e"
+gxwi = "25d43045f02fab59e4606eec616cdb1a285ebd91"
+gxwi-sd-editor = "7cec4fcafc82c538f05a71e58f1f75cc94ec778b"
+gxwi-file-dialog = "a9f496695f34630896fd7c76bcb46c4d277bcf68"
+authd = "90471e3d4db127528862fb325b04edb3d4f0fc30"
+peinit = "0ee3ea3c15e0b17e1aed887764bf5e3d6242bde3"
+peiosutils = "c7edc641ac6e561ef15ae16cdc3a510d250912e0"
+eventd = "c3d98afa8816233902717f932a1989a36852ee2d"
+timed = "224ff467bc014af6109f5284f7165beefb0673bd"
+netd = "e18bd847325c10f99f01a341f31ef6fe89ee1d14"
+resolvd = "be89a124fd1e8105db3ddb49adb79201ea06c4b1"
+trustd = "f0860ecc34f1fde15a5cd1594f5bbcc458653932"
+pkm = "1900d58f807d05d670a5832b694f5b6216cb237a"
+
+# A crate whose revision is another's to choose, by its dependency name, in
+# place of its repository's above. pnp-core is the one libnetd's "policy"
+# feature pins: Network Manager hands libnetd its snapshots, so the two must
+# be one crate. It moves with netd.
+[crate]
+pnp-core = "17712f8fbf4889696c1c919f17409bc15f16efa0"
+
+# The dev.peios.gxwi-sdk release that stages the gxwi revision above.
+[sdk]
+version = "0.0.3-1"
