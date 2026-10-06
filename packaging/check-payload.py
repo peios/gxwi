@@ -38,6 +38,11 @@ service = json.loads((root / 'usr/share/regim/gxwid-service.reg').read_text())
 privileges = next(v['data'] for v in service['keys'][0]['values']
                   if v['name'] == 'RequiredPrivileges')
 assert 'SeImpersonatePrivilege' in privileges
+# gxwid records certificate renewals, which KMES takes only from a holder of
+# SeAuditPrivilege, and ships what the record means.
+assert 'SeAuditPrivilege' in privileges
+evman = (pathlib.Path('gxwid.evman')).read_text()
+assert '--- event gxwid.certificate.renewed' in evman and '--- field object.certificate.digest-previous' in evman
 
 # The live account is the medium's alone: every system's notice never names
 # it, and the live seed's, which a medium applies after it, does.
@@ -52,3 +57,6 @@ for seed in ['gxwi-config.reg', 'gxwi-live-notice.reg']:
     text = ' '.join(notice(seed))
     assert 'SHA-256' in text and '/var/state/gxwi/certificate.sha256' in text, seed
     assert 'unencrypted' not in text and 'HTTP;' not in text, seed
+# An installed system's console says nothing of GXWI yet (PEI-1407), so its
+# notice points at the file alone; the live medium's installer page shows it.
+assert 'console' not in ' '.join(notice('gxwi-config.reg'))

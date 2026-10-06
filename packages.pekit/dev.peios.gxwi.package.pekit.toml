@@ -20,6 +20,9 @@ license = "(((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0
 ":usr/bin/**" = "usr/bin"
 ":usr/share/regim/**" = "usr/share/regim"
 ":usr/share/regman/**" = "usr/share/regman"
+# What gxwid.certificate.renewed and its fields mean (PGSS §6.10), for evman
+# and Event Viewer.
+"@source:gxwid.evman" = "usr/share/evman/gxwid.evman"
 ":usr/share/icons/**" = "usr/share/icons"
 ":usr/share/apps/**" = "usr/share/apps"
 
