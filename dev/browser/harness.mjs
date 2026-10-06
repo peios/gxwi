@@ -55,7 +55,8 @@ export async function session(port, who = { user: "alice", password: "alice-dev-
     }
     const version = await browser("/json/version");
     const whole = await attach({ webSocketDebuggerUrl: version.webSocketDebuggerUrl, id: "browser" }).catch(() => null);
-    const a = await attach(await browser("/json/new?http://127.0.0.1:7780/", "PUT"));
+    // GXWI_DESK names another machine's desktop than the dev VM's.
+    const a = await attach(await browser(`/json/new?${process.env.GXWI_DESK ?? "http://127.0.0.1:7780/"}`, "PUT"));
     await sleep(1500);
     await a.js(`document.querySelector("#username").value = ${JSON.stringify(who.user)}; document.forms[0].submit()`);
     await sleep(2000);
