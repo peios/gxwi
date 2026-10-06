@@ -20,7 +20,7 @@ const desk = await session(9358);
 const { a, whole } = desk;
 process.on("uncaughtException", (error) => desk.finish({ ...out, stopped: String(error?.stack ?? error) }, 1));
 process.on("unhandledRejection", (error) => desk.finish({ ...out, stopped: String(error?.stack ?? error) }, 1));
-out.leaveToRead = (await whole?.send("Browser.grantPermissions", { permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"], origin: "http://127.0.0.1:7780" }))?.error?.message ?? "given";
+out.leaveToRead = (await whole?.send("Browser.grantPermissions", { permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"], origin: "https://127.0.0.1:7780" }))?.error?.message ?? "given";
 
 // A check that was stopped part way leaves its windows behind.
 await a.js(`document.querySelectorAll('.fx-surface[data-role="window"] .fx-button[data-part="close"]').forEach((button) => button.click())`);

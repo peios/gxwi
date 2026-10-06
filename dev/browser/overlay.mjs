@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { guest, sleep } from "./harness.mjs";
 
 const port = 9360;
-const site = "http://127.0.0.1:7780";
+const site = "https://127.0.0.1:7780";
 const KEY = "'Machine\\Software\\GXWI'";
 const set = (name, value) => guest(`reg set ${KEY} ${name} 'sz:${value}'`);
 const remove = (name) => guest(`REG_ASSUME_YES=1 reg del --yes ${KEY} ${name}`);
@@ -46,7 +46,7 @@ async function eventually(until, seconds = 20, path = "/") {
     return { ...last, after: null };
 }
 
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1100,720",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 let target;

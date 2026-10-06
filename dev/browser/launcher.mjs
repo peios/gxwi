@@ -9,7 +9,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
 const port = 9341;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,7 +46,7 @@ for (let i = 0; i < 40; i++) {
     await sleep(500);
     try { await browser("/json"); break; } catch {}
 }
-const a = await page("http://127.0.0.1:7780/");
+const a = await page("https://127.0.0.1:7780/");
 await sleep(1500);
 await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
@@ -124,7 +124,7 @@ await press(a, "Alt+P");
 out.sentForFromInsideTheApp = { desk: await a.js(desk), launcher: await launcher.js(shows) };
 
 // Another device, meanwhile, has no launcher in sight.
-const b = await page("http://127.0.0.1:7780/");
+const b = await page("https://127.0.0.1:7780/");
 await sleep(5000);
 out.onAnotherDeviceMeanwhile = (await b.js(desk)).launcher;
 await browser(`/json/close/${b.id}`).catch(() => {});

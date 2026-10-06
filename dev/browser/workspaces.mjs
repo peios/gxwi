@@ -14,7 +14,7 @@ import { writeFileSync } from "node:fs";
 import { launch } from "./launch.mjs";
 
 const port = 9350;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -58,7 +58,7 @@ for (let i = 0; i < 40; i++) {
     await sleep(500);
     try { await browser("/json"); break; } catch {}
 }
-const a = await page("http://127.0.0.1:7780/");
+const a = await page("https://127.0.0.1:7780/");
 await logon(a);
 
 const out = {};
@@ -135,7 +135,7 @@ out.afterTakingItToOne = await state();
 
 // Another device starts on 1 and sees both; it goes to the empty 2 by its
 // pill while this one stays on 1.
-const b = await page("http://127.0.0.1:7780/");
+const b = await page("https://127.0.0.1:7780/");
 await sleep(5000);
 const topB = await frame(b, ".spaces");
 out.anotherDevice = await state(b, topB);

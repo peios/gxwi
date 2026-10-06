@@ -11,7 +11,7 @@ import { writeFileSync } from "node:fs";
 import { launch } from "./launch.mjs";
 
 const port = 9339;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -53,7 +53,7 @@ for (let i = 0; i < 40; i++) {
     await sleep(500);
     try { await browser("/json"); break; } catch {}
 }
-const a = await page("http://127.0.0.1:7780/");
+const a = await page("https://127.0.0.1:7780/");
 await sleep(1500);
 await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
@@ -114,7 +114,7 @@ await press(a, ta, first);
 out.afterPressingTheFirst = { desk: await a.js(desk), bar: await ta.js(bar), sameButton: await ta.js(`window.pressed === document.querySelector('[fx-focus="${first}"]')`) };
 
 // Another device. Its focus is its own, and the one process draws both bars.
-const b = await page("http://127.0.0.1:7780/");
+const b = await page("https://127.0.0.1:7780/");
 await sleep(5000);
 const { bar: tb } = await sorted(b);
 out.onAnotherDevice = { desk: await b.js(desk), bar: tb ? await tb.js(bar) : "no taskbar", andStillOnTheFirst: await ta.js(bar) };

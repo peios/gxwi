@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
 const port = 9335;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -40,7 +40,7 @@ for (let i = 0; i < 40; i++) {
 }
 const tiles = `[...document.querySelectorAll(".fx-surface:not([hidden])")].map(e => e.dataset.id + (e.dataset.focused === "true" ? "*" : "")).join(" ")`;
 
-const a = await page("http://127.0.0.1:7780/");
+const a = await page("https://127.0.0.1:7780/");
 await sleep(1500);
 await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
@@ -55,7 +55,7 @@ out.strip = await a.js(`[...document.querySelector(".fx-strip").children].map(e 
 await a.shot("desktop-wide.png");
 
 // A second page on the same session, phone sized.
-const b = await page("http://127.0.0.1:7780/");
+const b = await page("https://127.0.0.1:7780/");
 await b.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 800, deviceScaleFactor: 1, mobile: true });
 await sleep(2000);
 out.phoneSees = await b.js(`document.querySelectorAll(".fx-surface").length + " surfaces, showing: " + ${tiles}`);
