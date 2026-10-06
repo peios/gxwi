@@ -1,15 +1,56 @@
-.TH GXWID 1 "2026-09-27" "Peios"
+.TH GXWID 1 "2026-10-06" "Peios"
 .SH NAME
 gxwid \- privileged GXWI listener and PGSS session manager
 .SH SYNOPSIS
 .B gxwid
 .SH DESCRIPTION
-Started by peinit. Listens at the registry-configured address and authenticates with PGSS. Sessions use RemoteInteractive tokens and run the configured compositor as the principal.
+Started by peinit. Listens at the registry-configured address, serves HTTPS
+there, and authenticates with PGSS. Sessions use RemoteInteractive tokens and
+run the configured compositor as the principal.
+.PP
+A connection that does not open with a TLS handshake is someone who typed
+http://. It is answered once, with a 301 to the same host and path under
+https://, and closed; nothing else is served over plain HTTP. HTTPS offers
+HTTP/1.1 only. No Strict-Transport-Security header is sent: with a certificate
+of the machine's own making, it would leave a browser no way past its warning.
 .PP
 The compositor's environment has HOME, SHELL, PATH and GXWI_RUNTIME_DIR, and
 GXWI_DISPLAY_NAME: what to call the person, from the authority's profile, or
 the account name they logged on as where the profile has none. It is the
 first logon's; a session joined again keeps it.
+.SH CERTIFICATE
+The machine's key and certificate are in
+.IR /var/state/gxwi .
+gxwid makes them the first time it starts and keeps them: an ECDSA P-256 key,
+and a certificate for it signed by itself, made once, for the name the machine
+had then, localhost and the loopback addresses. It is no certificate authority.
+.TP
+.I key.pem
+The private key, PKCS#8. Only SYSTEM can read it, as the directory's
+descriptor gives everything made in it.
+.TP
+.I certificate.pem
+The certificate, readable by everyone: import it into a browser or a machine
+to trust this one.
+.TP
+.I certificate.sha256
+The certificate's SHA-256 fingerprint on one line, as colon-separated
+uppercase hex: what a browser's certificate viewer shows for it. Readable by
+everyone. Compare the two before accepting the browser's warning.
+.PP
+A key that cannot be read is said aloud and gxwid stops: it is never replaced
+by itself, since a new one changes what everyone has learnt to trust. Move it
+aside to have a new one made. A missing certificate is made again for the same
+key, which changes the fingerprint.
+.PP
+On a live medium
+.I /var/state
+is in memory, so each boot makes a new key. The installer copies the medium's
+key and certificate into the system it installs, so a browser that set the
+machine up goes on trusting it there.
+.PP
+gxwi-server, which speaks TLS, cannot open the key: gxwid reads it and hands
+it over on a descriptor as the server starts.
 .SH CONFIGURATION
 Machine\\Software\\GXWI controls Listen, Compositor, the overlay and Logon text.
 .PP
@@ -68,9 +109,10 @@ the waiting page (/.gxwi/away) kept from when the machine last answered. It
 shows the Peios mark pulsing and the machine's hostname, asks the machine
 every 1.5 seconds, and loads the page asked for once it answers. Nothing else
 is answered from what is kept but the waiting page's stylesheet and fonts, and
-never a request made with cache: "no-store". Browsers run service workers only
-over HTTPS and on the local machine, so over plain HTTP from elsewhere there is
-none.
+never a request made with cache: "no-store". A browser runs a service worker
+only from a certificate it trusts, so a machine whose certificate has only
+been accepted past the browser's warning has none until the certificate is
+imported.
 .PP
 New compositor sessions resolve LANG and individual LC_* preferences from
 Machine\eSystem\eLocale and Users\e<SID>\eLocale using the authenticated
@@ -78,7 +120,9 @@ principal. The fallback is C.UTF-8. Inherited locale overrides are cleared;
 rejoining an existing session does not change its environment. Registry locale
 preferences are administrator-managed; base-layer permissions are unchanged.
 .SH SECURITY
-HTTP has no TLS yet. The Experimental image enables TCP 7780 for trusted development networks only.
+The Experimental image enables TCP 7780. The certificate is the machine's own
+making, so a browser warns before the first sign-in; check the fingerprint
+before going past it.
 The SYSTEM service retains SeImpersonatePrivilege to pass an authenticated principal's token to peinit using KACS_SCM_TOKEN. It does not mint principal tokens.
 
 .SH SEE ALSO
