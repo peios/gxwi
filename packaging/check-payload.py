@@ -57,6 +57,9 @@ for seed in ['gxwi-config.reg', 'gxwi-live-notice.reg']:
     text = ' '.join(notice(seed))
     assert 'SHA-256' in text and '/var/state/gxwi/certificate.sha256' in text, seed
     assert 'unencrypted' not in text and 'HTTP;' not in text, seed
-# An installed system's console says nothing of GXWI yet (PEI-1407), so its
-# notice points at the file alone; the live medium's installer page shows it.
+# Where to read the fingerprint is the machine itself, never a page that came
+# over the connection being checked. An installed system's console says
+# nothing of GXWI yet (PEI-1407), so its notice names the file alone; the
+# live medium's says to sign in at the console, as peios, and read it.
 assert 'console' not in ' '.join(notice('gxwi-config.reg'))
+assert 'cat /var/state/gxwi/certificate.sha256' in ' '.join(notice('gxwi-live-notice.reg'))
