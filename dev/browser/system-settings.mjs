@@ -7,7 +7,8 @@
 // again; a choice that can't be saved, put back with why; the servers'
 // list opened and cancelled; the console's layout, loaded at once; the
 // machine's name, refused while it isn't one and applied when it is, which
-// netd applies; a timeout edited, which brings Apply and Undo, and undone.
+// netd applies; a timeout edited, which brings Apply and Undo, and undone;
+// Always Start in Safe Mode, on into the next boot's command line and off.
 // Everything changed is put back. As alice, who isn't an administrator,
 // every section reads, nothing can be changed, and each group says why. At
 // half a screen, nothing is wider than its place and the side is icons.
@@ -20,6 +21,16 @@ const alice = process.argv[2] === "alice";
 const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
 const out = {};
 const name = alice ? "system-settings-alice" : "system-settings";
+
+// The live image has no next boot's command line and no rebuilder, so the
+// command-line group would only say it can't be changed. For this check the
+// guest gets both for a while, before the window reads them: the line as
+// booted, and an inert stand-in for dynamic-boot's mkuki-watch, taken away
+// again at the end.
+const madeLine = !alice && guest("test -e /lcl/etc/boot/cmdline && echo had || echo none") === "none";
+if (madeLine) {
+    guest("mkdir -p /lcl/etc/boot && cat /proc/cmdline > /lcl/etc/boot/cmdline && svctl definition create mkuki-watch --set ImagePath=/usr/bin/true --set Type=Oneshot");
+}
 
 const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
 async function window(title, has) {
@@ -138,6 +149,23 @@ await section("startup");
 out.startup = await shows();
 await desk.picture(`${name}-startup.png`);
 if (!alice) {
+    // Safe mode: on, applied at the next boot, said to hold until turned
+    // off; then off, and the line as it was.
+    const line = guest("cat /lcl/etc/boot/cmdline");
+    await press('input[name="safemode"]');
+    await sleep(800);
+    out.safeEdited = (await shows()).buttons;
+    await desk.picture(`${name}-safe-mode.png`);
+    await press('form[fx-submit="save-cmdline"] button.primary');
+    await sleep(1500);
+    out.safeOn = { said: (await shows()).said, line: guest("cat /lcl/etc/boot/cmdline"), on: await value("safemode") };
+    await desk.picture(`${name}-safe-mode-saved.png`);
+    await press('input[name="safemode"]');
+    await sleep(800);
+    await press('form[fx-submit="save-cmdline"] button.primary');
+    await sleep(1500);
+    out.safeOff = { said: (await shows()).said, line: guest("cat /lcl/etc/boot/cmdline"), as: line, on: await value("safemode") };
+
     const was = await value("SettleTimeout");
     await put("SettleTimeout", "7");
     await sleep(800);
@@ -181,6 +209,9 @@ out.half = await settings.js(`(() => {
 })()`);
 await desk.picture(`${name}-half.png`);
 await gone(["Event Viewer"]);
+if (madeLine) {
+    guest("rm -f /lcl/etc/boot/cmdline; svctl definition delete mkuki-watch");
+}
 
 out.log = settings.log;
 await desk.finish(out);
