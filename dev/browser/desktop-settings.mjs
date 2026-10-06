@@ -89,7 +89,7 @@ out.tiles = await tiles();
 
 // A shipped wallpaper, picked from the gallery.
 const desktopBefore = await wallpaper();
-await press(`.gallery .tile[fx-value-path="/usr/share/wallpapers/peios/diamond-beach-light.webp"]`);
+await press(`.gallery .tile[fx-value-path="/usr/share/wallpapers/peios/winter-ridge.webp"]`);
 await sleep(2500);
 out.shipped = { said: (await shows()).said, tiles: await tiles(), desktop: [desktopBefore, await wallpaper()], registry: guest(`reg get 'Users\\\\'$(lps show ${who} | grep -o 'S-1-5-21[-0-9]*' | head -1)'\\\\Software\\\\fenesh' Wallpaper 2>&1`) };
 await desk.picture(`${name}-wallpaper-light.png`);
