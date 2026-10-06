@@ -41,7 +41,7 @@ const flow = () => guest("reg get Machine/System/Network/Rules/Flow/dev-gxwi; re
 /** Whether the desktop answers a new connection from the host, through the same network. */
 const answers = async () => {
     try {
-        await fetch("http://127.0.0.1:7780/", { signal: AbortSignal.timeout(4000) });
+        await fetch("https://127.0.0.1:7780/", { signal: AbortSignal.timeout(4000) });
         return true;
     } catch {
         return false;

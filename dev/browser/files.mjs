@@ -24,7 +24,7 @@ process.on("unhandledRejection", (error) => desk.finish({ ...out, stopped: Strin
 // leave for that too, which it is not: what is tried here is the older way
 // the desktop's page falls back on. A person's browser allows the newer as
 // they press something, which this cannot try.
-out.leaveToRead = (await whole?.send("Browser.grantPermissions", { permissions: ["clipboardReadWrite"], origin: "http://127.0.0.1:7780" }))?.error?.message ?? "given";
+out.leaveToRead = (await whole?.send("Browser.grantPermissions", { permissions: ["clipboardReadWrite"], origin: "https://127.0.0.1:7780" }))?.error?.message ?? "given";
 
 await desk.launch(`gexora ${AT}`);
 const gexora = await desk.frame(".listing", '.fx-surface[data-role="window"]');

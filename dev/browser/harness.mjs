@@ -17,7 +17,7 @@ export const guest = (command) => execFileSync(new URL("../guest.sh", import.met
 
 /** `who` signs in: alice, an ordinary user, unless another is named. */
 export async function session(port, who = { user: "alice", password: "alice-dev-password" }) {
-    const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+    const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
         "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
         `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
     const browser = (path, method = "GET") => fetch(`http://127.0.0.1:${port}${path}`, { method }).then((r) => r.json());
@@ -56,7 +56,7 @@ export async function session(port, who = { user: "alice", password: "alice-dev-
     const version = await browser("/json/version");
     const whole = await attach({ webSocketDebuggerUrl: version.webSocketDebuggerUrl, id: "browser" }).catch(() => null);
     // GXWI_DESK names another machine's desktop than the dev VM's.
-    const a = await attach(await browser(`/json/new?${process.env.GXWI_DESK ?? "http://127.0.0.1:7780/"}`, "PUT"));
+    const a = await attach(await browser(`/json/new?${process.env.GXWI_DESK ?? "https://127.0.0.1:7780/"}`, "PUT"));
     await sleep(1500);
     await a.js(`document.querySelector("#username").value = ${JSON.stringify(who.user)}; document.forms[0].submit()`);
     await sleep(2000);

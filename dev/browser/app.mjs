@@ -8,7 +8,7 @@ import { writeFileSync } from "node:fs";
 import { launch } from "./launch.mjs";
 
 const port = 9337;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -41,7 +41,7 @@ const finish = async (out, code) => {
 };
 await send("Runtime.enable");
 await send("Page.enable");
-await send("Page.navigate", { url: "http://127.0.0.1:7780/" });
+await send("Page.navigate", { url: "https://127.0.0.1:7780/" });
 await sleep(1500);
 await js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
@@ -76,7 +76,7 @@ await sleep(600);
 out.afterThreePresses = { theyShow: [await says(0), await says(1)], focused: (await js(surfaces)).map((s) => s.focused) };
 
 // A second page on the same session: two views of the one surface.
-const other = await (await fetch(`http://127.0.0.1:${port}/json/new?http://127.0.0.1:7780/`, { method: "PUT" })).json();
+const other = await (await fetch(`http://127.0.0.1:${port}/json/new?https://127.0.0.1:7780/`, { method: "PUT" })).json();
 await sleep(3500);
 out.withASecondPageOpen = await says(0);
 await fetch(`http://127.0.0.1:${port}/json/close/${other.id}`);

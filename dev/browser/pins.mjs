@@ -14,7 +14,7 @@ import { writeFileSync } from "node:fs";
 import { launch } from "./launch.mjs";
 
 const port = 9353;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -51,7 +51,7 @@ for (let i = 0; i < 40; i++) {
     await sleep(500);
     try { await browser("/json"); break; } catch {}
 }
-const a = await page("http://127.0.0.1:7780/");
+const a = await page("https://127.0.0.1:7780/");
 const logOn = async () => {
     await sleep(1500);
     await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
@@ -161,7 +161,7 @@ out.dockErrors = dock.log;
 // The next session: nothing running, and what was pinned is pinned.
 await a.js(`fetch("/.fenestra/logoff", { method: "POST" }).then(() => 0, () => 0)`);
 await sleep(2500);
-await a.send("Page.navigate", { url: "http://127.0.0.1:7780/" });
+await a.send("Page.navigate", { url: "https://127.0.0.1:7780/" });
 await logOn();
 dock = await frame(a, ".dock");
 out.theNextSession = dock ? await dock.js(entries) : "no dock";

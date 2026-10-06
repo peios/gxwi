@@ -16,10 +16,11 @@ from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 from pathlib import Path
 import re
+import ssl
 import time
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import HTTPCookieProcessor, Request, build_opener
+from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
 
 
 class Inputs(HTMLParser):
@@ -65,7 +66,12 @@ def session_table(share):
 
 
 def login(url, username, password):
-    client = build_opener(HTTPCookieProcessor(CookieJar()))
+    # The dev VM's certificate is its own making, and checking it is not what
+    # this is for.
+    unchecked = ssl.create_default_context()
+    unchecked.check_hostname = False
+    unchecked.verify_mode = ssl.CERT_NONE
+    client = build_opener(HTTPCookieProcessor(CookieJar()), HTTPSHandler(context=unchecked))
     status, page = request(client, url, {"username": username})
     if password is not None:
         assert status == 401, f"expected a credential prompt, got {status}"
@@ -80,7 +86,7 @@ def login(url, username, password):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", default="http://127.0.0.1:7780/")
+    parser.add_argument("--url", default="https://127.0.0.1:7780/")
     parser.add_argument("--share", required=True, type=Path)
     args = parser.parse_args()
 

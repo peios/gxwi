@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs on the host: boot a Peios VM that runs gxwid from this checkout's build
-# output, reachable at http://127.0.0.1:7780/. Stays up until the VM is killed
+# output, reachable at https://127.0.0.1:7780/. Stays up until the VM is killed
 # or the timeout passes. Rebuild into it with dev/push.sh.
 #
 # VM_EXTRA is more for QEMU's command line, for whoever wants the machine to

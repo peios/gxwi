@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
 const port = 9333;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=900,640",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -41,7 +41,7 @@ const left = async () => {
     return JSON.parse(await js(`sessionStorage.getItem("gxwi.field")`) ?? "null");
 };
 
-await send("Page.navigate", { url: "http://127.0.0.1:7780/logon" });
+await send("Page.navigate", { url: "https://127.0.0.1:7780/logon" });
 await sleep(1500);
 const before = await left();
 await js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);

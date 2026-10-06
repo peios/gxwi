@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
 const port = 9336;
-const chrome = spawn("chromium", ["--headless", "--disable-gpu", "--hide-scrollbars",
+const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
     "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
     `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -31,7 +31,7 @@ const space = async () => {
 };
 await send("Runtime.enable");
 await send("Page.enable");
-await send("Page.navigate", { url: "http://127.0.0.1:7780/" });
+await send("Page.navigate", { url: "https://127.0.0.1:7780/" });
 await sleep(1500);
 await js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
