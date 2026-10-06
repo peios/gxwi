@@ -1,8 +1,9 @@
 //! gxwi-server — the network-facing half of GXWI. It opens nothing for itself:
-//! gxwid hands it a listening socket, a channel back to gxwid, and a channel
-//! on which gxwid says where the overlay stands.
+//! gxwid hands it a listening socket, a channel back to gxwid, a channel on
+//! which gxwid says where the overlay stands, and this machine's key and
+//! certificate.
 
-use std::net::SocketAddr;
+use std::io::Read;
 use std::os::fd::{FromRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 
@@ -11,6 +12,7 @@ mod logon;
 mod origin;
 mod overlay;
 mod pages;
+mod serve;
 mod session;
 
 #[tokio::main]
@@ -18,6 +20,7 @@ async fn main() {
     let listener_fd = fd_arg("--listener-fd");
     let channel_fd = fd_arg("--channel-fd");
     let overlay_fd = fd_arg("--overlay-fd");
+    let tls_fd = fd_arg("--tls-fd");
     if !std::env::args().any(|a| a == "--unrestricted") {
         refuse_unless_sandboxed();
     }
@@ -28,13 +31,20 @@ async fn main() {
 
     // SAFETY: gxwid placed these descriptors for us and nothing else in this
     // process owns them.
-    let (listener, channel, overlay) = unsafe {
+    let (listener, channel, overlay, mut keys) = unsafe {
         (
             std::net::TcpListener::from_raw_fd(listener_fd),
             UnixStream::from_raw_fd(channel_fd),
             UnixStream::from_raw_fd(overlay_fd),
+            std::fs::File::from_raw_fd(tls_fd),
         )
     };
+    // Read once and closed: what is kept is the configuration made from it.
+    let mut handed = Vec::new();
+    keys.read_to_end(&mut handed).unwrap_or_else(|e| die(&format!("descriptor {tls_fd}: {e}")));
+    drop(keys);
+    let acceptor = serve::acceptor(&handed).unwrap_or_else(|e| die(&format!("TLS: {e}")));
+    drop(handed);
     listener
         .set_nonblocking(true)
         .unwrap_or_else(|e| die(&format!("descriptor {listener_fd} is not a listening socket: {e}")));
@@ -48,9 +58,8 @@ async fn main() {
         .unwrap_or_else(|e| die(&format!("gxwid did not say where the overlay stands: {e}")));
 
     let app = logon::routes(channel, overlay);
-    eprintln!("gxwi-server: serving on descriptor {listener_fd}");
-    // The peer's address rides along with each request: gxwid throttles on it.
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
+    eprintln!("gxwi-server: serving HTTPS on descriptor {listener_fd}");
+    serve::serve(listener, acceptor, app).await
 }
 
 /// This process parses everything the network sends, so it serves only from
@@ -72,7 +81,7 @@ fn page_args() -> (Option<String>, Vec<String>) {
         match arg.as_str() {
             "--logon-name" => name = args.next(),
             "--logon-notice" => notice.extend(args.next()),
-            "--listener-fd" | "--channel-fd" | "--overlay-fd" => drop(args.next()),
+            "--listener-fd" | "--channel-fd" | "--overlay-fd" | "--tls-fd" => drop(args.next()),
             _ => {}
         }
     }

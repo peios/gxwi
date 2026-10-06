@@ -46,6 +46,8 @@ mkdir -p "$CARGO_HOME"
 cp "$PEKIT_VENDOR_OUT/cargo-config.toml" "$CARGO_HOME/config.toml"
 unset PEIOS_LIB_DIR PEIOS_INCLUDE PKM_UAPI
 export BINDGEN_EXTRA_CLANG_ARGS="-isystem $(gcc -print-file-name=include) ${BINDGEN_EXTRA_CLANG_ARGS:-}"
+export CC_x86_64_unknown_linux_musl=gcc
+export CFLAGS="${CFLAGS:+$CFLAGS }-fcf-protection=full"
 export RUSTC_BOOTSTRAP=1
 export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-Zcf-protection=full"
 cargo test --release --workspace --locked --offline --target-dir "$PEKIT_OUT/tests"

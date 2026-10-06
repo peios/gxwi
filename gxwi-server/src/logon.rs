@@ -187,7 +187,7 @@ fn overlay_unavailable() -> Response<Body> {
 /// Where a request was addressed, as somewhere to send the browser back to
 /// once it has a session. It is only ever the address the browser asked for,
 /// but one that opens `//` would be read as naming another machine.
-fn here(uri: &Uri) -> String {
+pub fn here(uri: &Uri) -> String {
     let asked = uri.path_and_query().map_or("/", |p| p.as_str());
     format!("/{}", asked.trim_start_matches(['/', '\\']))
 }
@@ -322,11 +322,12 @@ async fn begin(logon: &Logon, socket: UnixStream, here: &str) -> io::Result<Resp
     harden(headers);
     headers.insert(header::LOCATION, HeaderValue::from_str(here).map_err(io::Error::other)?);
     // Lax, where logon's own cookie is Strict: a link followed from another
-    // site should land in the session, not on a logon page. No `Secure` on
-    // either until there is TLS to be secure over.
-    let session = format!("{}={id}; Path=/; HttpOnly; SameSite=Lax", session::COOKIE);
+    // site should land in the session, not on a logon page. Both `Secure`:
+    // GXWI is served over TLS alone, and a browser is never to send either
+    // in the clear, not even to be redirected.
+    let session = format!("{}={id}; Path=/; HttpOnly; Secure; SameSite=Lax", session::COOKIE);
     headers.append(header::SET_COOKIE, HeaderValue::from_str(&session).map_err(io::Error::other)?);
-    let spent = format!("{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
+    let spent = format!("{COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
     headers.append(header::SET_COOKIE, HeaderValue::from_str(&spent).map_err(io::Error::other)?);
     Ok(response)
 }
@@ -471,10 +472,10 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
     let headers = response.headers_mut();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
     if let Some(cookie) = cookie {
-        // No `Secure` until there is TLS to be secure over.
+        // `Secure`, as the session's is (`begin`).
         let value = match cookie {
-            Some(id) => format!("{COOKIE}={id}; Path=/; HttpOnly; SameSite=Strict"),
-            None => format!("{COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0"),
+            Some(id) => format!("{COOKIE}={id}; Path=/; HttpOnly; Secure; SameSite=Strict"),
+            None => format!("{COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0"),
         };
         if let Ok(value) = HeaderValue::from_str(&value) {
             headers.insert(header::SET_COOKIE, value);
@@ -505,6 +506,20 @@ fn harden(headers: &mut HeaderMap) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_cookie_gxwi_sets_is_secure() {
+        let page = html(StatusCode::OK, String::new(), Some(Some("abc".into())));
+        let cleared = html(StatusCode::OK, String::new(), Some(None));
+        for response in [page, cleared] {
+            for cookie in response.headers().get_all(header::SET_COOKIE) {
+                assert!(cookie.to_str().unwrap().contains("; Secure;"), "{cookie:?}");
+            }
+            // And no HSTS: with a certificate of the machine's own making, it
+            // would leave a browser no way past its warning.
+            assert!(response.headers().get(header::STRICT_TRANSPORT_SECURITY).is_none());
+        }
+    }
 
     #[test]
     fn the_logon_cookie_is_found_among_others() {

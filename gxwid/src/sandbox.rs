@@ -14,9 +14,9 @@ use peios::token::{RestrictSpec, Token, TokenAccess};
 pub const NET_CAPABILITY: &str = "dev.peios.gxwi.net";
 
 // PCDS derived capability: S-1-15-3 followed by eight little-endian u32
-// sub-authorities from SHA-256 of the UTF-8 name. Held as a constant so the
-// privileged process carries no hash implementation; the test below pins it
-// to the name.
+// sub-authorities from SHA-256 of the UTF-8 name. Held as a constant, which
+// the test below pins to the name, so that a change to the name is a change
+// someone sees here.
 const NET_CAPABILITY_SUB_AUTHORITIES: [u32; 8] = [
     165089264, 3223449312, 1247726440, 2294222582, 3667604814, 1924088670, 4213972040, 4159405878,
 ];
