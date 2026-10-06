@@ -28,9 +28,9 @@ pkm = "https://github.com/peios/pkm.git"
 
 [rev]
 peios-rs = "f8c84930f2b71763bcf0550df0b1420a0f63b21e"
-gxwi = "5629140add3de075511b3379fd690fdabd06dcaf"
-gxwi-sd-editor = "27239eb3411ab82d711262bfd59e537c66c29e9e"
-gxwi-file-dialog = "65b6015e7bc65cdade2e043f31f0b4838106298c"
+gxwi = "e9d86e56e8d79b4240ff5114434b4cdc0c5b1f76"
+gxwi-sd-editor = "43fee424bdfd756996a63347f31abcb6af64eb62"
+gxwi-file-dialog = "a130824c76d60c72a801112322c33257858bc1d8"
 authd = "1a421053deb0cf9703ee1e109db3792f7e1bb95d"
 peinit = "0e20fef16f3c170d8fba0e3a169b617e7b4da3aa"
 peiosutils = "67ffede760dc1c5767fbb3c6c66e5fc5e12b7314"
@@ -50,4 +50,4 @@ pnp-core = "17712f8fbf4889696c1c919f17409bc15f16efa0"
 
 # The dev.peios.gxwi-sdk release that stages the gxwi revision above.
 [sdk]
-version = "0.0.3-1"
+version = "0.0.5-1"
