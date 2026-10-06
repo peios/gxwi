@@ -46,3 +46,9 @@ def notice(name):
     return next(v['data'] for k in data['keys'] if k['path'].endswith('\\Logon') for v in k['values'] if v['name'] == 'Notice')
 assert not any('live image account' in line for line in notice('gxwi-config.reg'))
 assert any('live image account' in line for line in notice('gxwi-live-notice.reg'))
+# Every notice names the certificate's fingerprint, where it is, and says
+# nothing of plain HTTP: GXWI serves HTTPS alone.
+for seed in ['gxwi-config.reg', 'gxwi-live-notice.reg']:
+    text = ' '.join(notice(seed))
+    assert 'SHA-256' in text and '/var/state/gxwi/certificate.sha256' in text, seed
+    assert 'unencrypted' not in text and 'HTTP;' not in text, seed
