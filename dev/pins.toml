@@ -28,7 +28,7 @@ pkm = "https://github.com/peios/pkm.git"
 
 [rev]
 peios-rs = "f8c84930f2b71763bcf0550df0b1420a0f63b21e"
-gxwi = "25d43045f02fab59e4606eec616cdb1a285ebd91"
+gxwi = "5629140add3de075511b3379fd690fdabd06dcaf"
 gxwi-sd-editor = "7cec4fcafc82c538f05a71e58f1f75cc94ec778b"
 gxwi-file-dialog = "a9f496695f34630896fd7c76bcb46c4d277bcf68"
 authd = "90471e3d4db127528862fb325b04edb3d4f0fc30"
