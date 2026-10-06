@@ -6,7 +6,7 @@ description = "Peios web display server and demonstration application"
 license = "(((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0 OR BSD-2-Clause OR MIT) AND (Apache-2.0 OR BSL-1.0) AND (Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND MIT AND (MIT AND BSD-3-Clause) AND (MIT OR Unlicense)) AND OFL-1.1"
 
 [dependencies]
-"dev.peios.libpeios" = ">= 0.5.0-1"
+"dev.peios.libpeios" = ">= 0.5.8-1"
 "org.gnu.glibc" = "*"
 "org.gnu.gcc-libgcc" = "*"
 "dev.peios.authd" = ">= 0.0.22-1"

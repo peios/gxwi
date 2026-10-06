@@ -454,7 +454,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 [[package]]
 name = "libauthd"
 version = "0.0.23"
-source = "git+https://github.com/peios/authd.git?rev=6dcbf2b1f8d9eb5f1b57c438cd97069dcb92fa94#6dcbf2b1f8d9eb5f1b57c438cd97069dcb92fa94"
+source = "git+https://github.com/peios/authd.git?rev=90471e3d4db127528862fb325b04edb3d4f0fc30#90471e3d4db127528862fb325b04edb3d4f0fc30"
 dependencies = [
  "libc",
 ]
@@ -493,7 +493,7 @@ dependencies = [
 [[package]]
 name = "libsession"
 version = "0.0.23"
-source = "git+https://github.com/peios/authd.git?rev=6dcbf2b1f8d9eb5f1b57c438cd97069dcb92fa94#6dcbf2b1f8d9eb5f1b57c438cd97069dcb92fa94"
+source = "git+https://github.com/peios/authd.git?rev=90471e3d4db127528862fb325b04edb3d4f0fc30#90471e3d4db127528862fb325b04edb3d4f0fc30"
 dependencies = [
  "peios",
 ]
@@ -558,7 +558,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "peios"
 version = "0.4.0"
-source = "git+https://github.com/peios/peios-rs.git?rev=02c87cb643c30eef6b74cd1d9d8b0ae067bed69a#02c87cb643c30eef6b74cd1d9d8b0ae067bed69a"
+source = "git+https://github.com/peios/peios-rs.git?rev=f8c84930f2b71763bcf0550df0b1420a0f63b21e#f8c84930f2b71763bcf0550df0b1420a0f63b21e"
 dependencies = [
  "bitflags",
  "libc",
@@ -568,7 +568,7 @@ dependencies = [
 [[package]]
 name = "peios-sys"
 version = "0.3.0"
-source = "git+https://github.com/peios/peios-rs.git?rev=02c87cb643c30eef6b74cd1d9d8b0ae067bed69a#02c87cb643c30eef6b74cd1d9d8b0ae067bed69a"
+source = "git+https://github.com/peios/peios-rs.git?rev=f8c84930f2b71763bcf0550df0b1420a0f63b21e#f8c84930f2b71763bcf0550df0b1420a0f63b21e"
 dependencies = [
  "bindgen",
  "pkg-config",
