@@ -21,9 +21,11 @@ first logon's; a session joined again keeps it.
 .SH CERTIFICATE
 The machine's key and certificate are in
 .IR /var/state/gxwi .
-gxwid makes them the first time it starts and keeps them: an ECDSA P-256 key,
-and a certificate for it signed by itself, made once, for the name the machine
-had then, localhost and the loopback addresses. It is no certificate authority.
+gxwid makes them the first time it starts: an ECDSA P-256 key, which it keeps,
+and a certificate for it signed by itself, for the name the machine has then,
+localhost and the loopback addresses. It is no certificate authority. A
+certificate is valid from a day before it is made, so that a clock a little
+behind does not find it not valid yet, until 365 days after.
 .TP
 .I key.pem
 The private key, PKCS#8. Only SYSTEM can read it, as the directory's
@@ -39,9 +41,27 @@ uppercase hex: what a browser's certificate viewer shows for it. Readable by
 everyone. Compare the two before accepting the browser's warning.
 .PP
 A key that cannot be read is said aloud and gxwid stops: it is never replaced
-by itself, since a new one changes what everyone has learnt to trust. Move it
-aside to have a new one made. A missing certificate is made again for the same
-key, which changes the fingerprint.
+by itself. Move it aside to have a new one made. A missing certificate is made
+again for the same key.
+.SS Renewal
+gxwid renews the certificate once fewer than 30 days of it remain: a new one,
+for the same key and for the machine's name then. It looks as it starts, once
+a day while it runs, and when it is sent SIGHUP, which is what
+.B svctl reload gxwid
+does. A certificate not valid yet, or valid for more than a year, which an
+older gxwid made, is renewed at the first look.
+.PP
+A renewal writes
+.I certificate.pem
+and then
+.IR certificate.sha256 ,
+records
+.B gxwid.certificate.renewed
+with the old and new fingerprints, and hands the new certificate to the
+running gxwi-server, which serves it to every connection made from then on.
+Nothing restarts and nobody is signed out; connections already open carry on
+with the old certificate. The fingerprint changes, so a browser warns once
+more, and anyone who imported the old certificate imports the new one.
 .PP
 On a live medium
 .I /var/state
@@ -50,7 +70,7 @@ key and certificate into the system it installs, so a browser that set the
 machine up goes on trusting it there.
 .PP
 gxwi-server, which speaks TLS, cannot open the key: gxwid reads it and hands
-it over on a descriptor as the server starts.
+it over on a socket as the server starts, and each renewal after it.
 .SH CONFIGURATION
 Machine\\Software\\GXWI controls Listen, Compositor, the overlay and Logon text.
 .PP
@@ -119,6 +139,10 @@ Machine\eSystem\eLocale and Users\e<SID>\eLocale using the authenticated
 principal. The fallback is C.UTF-8. Inherited locale overrides are cleared;
 rejoining an existing session does not change its environment. Registry locale
 preferences are administrator-managed; base-layer permissions are unchanged.
+.SH SIGNALS
+.TP
+.B SIGHUP
+Look at the certificate now, and renew it if it is due.
 .SH SECURITY
 The Experimental image enables TCP 7780. The certificate is the machine's own
 making, so a browser warns before the first sign-in; check the fingerprint
