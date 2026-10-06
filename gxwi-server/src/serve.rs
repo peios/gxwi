@@ -13,7 +13,7 @@
 
 use std::io;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use axum::{Extension, Router};
@@ -25,6 +25,8 @@ use axum::http::{Request, Response, StatusCode};
 use hyper_util::rt::{TokioIo, TokioTimer};
 use hyper_util::service::TowerToHyperService;
 use rustls::ServerConfig;
+use rustls::server::{ClientHello, ResolvesServerCert};
+use rustls::sign::CertifiedKey;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::TlsAcceptor;
@@ -36,10 +38,34 @@ const HANDSHAKE: Duration = Duration::from_secs(10);
 const HEADERS: Duration = Duration::from_secs(30);
 /// What a TLS connection's first byte always is: a handshake record.
 const TLS_HANDSHAKE: u8 = 0x16;
+/// More than any key and certificate gxwid makes.
+const MOST_HANDED: usize = 64 * 1024;
+
+/// The certificate every handshake is answered with, which gxwid can change
+/// while the server runs: a renewed certificate is taken by every connection
+/// made after it arrives, and those already made carry on as they are.
+#[derive(Debug)]
+pub struct Certificate(RwLock<Arc<CertifiedKey>>);
+
+impl ResolvesServerCert for Certificate {
+    fn resolve(&self, _: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+        Some(self.0.read().unwrap_or_else(|e| e.into_inner()).clone())
+    }
+}
+
+impl Certificate {
+    /// Takes the credentials in one of gxwid's messages from now on.
+    pub fn renewed(&self, message: &[u8]) -> io::Result<()> {
+        let key = certified(message)?;
+        *self.0.write().unwrap_or_else(|e| e.into_inner()) = Arc::new(key);
+        Ok(())
+    }
+}
 
 /// What gxwid hands over: the certificate, then the key, each a little-endian
-/// u32 length and then its bytes.
-pub fn acceptor(handed: &[u8]) -> io::Result<TlsAcceptor> {
+/// u32 length and then its bytes. They must go together, or no handshake
+/// could be finished with them.
+fn certified(handed: &[u8]) -> io::Result<CertifiedKey> {
     let mut rest = handed;
     let mut take = || -> io::Result<Vec<u8>> {
         let bad = || io::Error::other("gxwid's key and certificate could not be read");
@@ -50,18 +76,40 @@ pub fn acceptor(handed: &[u8]) -> io::Result<TlsAcceptor> {
         Ok(part.to_vec())
     };
     let (certificate, key) = (take()?, take()?);
+    CertifiedKey::from_der(
+        vec![CertificateDer::from(certificate)],
+        PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
+        &rustls::crypto::ring::default_provider(),
+    )
+    .map_err(io::Error::other)
+}
+
+/// The acceptor, and the certificate it answers with, from gxwid's first
+/// message.
+pub fn acceptor(handed: &[u8]) -> io::Result<(TlsAcceptor, Arc<Certificate>)> {
+    let certificate = Arc::new(Certificate(RwLock::new(Arc::new(certified(handed)?))));
     let provider = Arc::new(rustls::crypto::ring::default_provider());
     let mut config = ServerConfig::builder_with_provider(provider)
         .with_safe_default_protocol_versions()
         .map_err(io::Error::other)?
         .with_no_client_auth()
-        .with_single_cert(
-            vec![CertificateDer::from(certificate)],
-            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
-        )
-        .map_err(io::Error::other)?;
+        .with_cert_resolver(certificate.clone());
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
-    Ok(TlsAcceptor::from(Arc::new(config)))
+    Ok((TlsAcceptor::from(Arc::new(config)), certificate))
+}
+
+/// One of gxwid's messages from `from`: a little-endian u32 length, and then
+/// that many bytes.
+pub fn message(from: &mut impl io::Read) -> io::Result<Vec<u8>> {
+    let mut length = [0u8; 4];
+    from.read_exact(&mut length)?;
+    let length = u32::from_le_bytes(length) as usize;
+    if length > MOST_HANDED {
+        return Err(io::Error::other("gxwid sent more than a key and certificate"));
+    }
+    let mut message = vec![0u8; length];
+    from.read_exact(&mut message)?;
+    Ok(message)
 }
 
 /// Serves `app` on every connection `listener` accepts, for as long as there
@@ -172,9 +220,50 @@ mod tests {
         assert_eq!(asked(None, "/").0, StatusCode::BAD_REQUEST);
     }
 
+    /// gxwid's message for a key and a certificate made for it.
+    fn handed(key: &rcgen::KeyPair) -> (Vec<u8>, Vec<u8>) {
+        let certificate = rcgen::CertificateParams::new(vec!["bedrock".to_string()]).unwrap().self_signed(key).unwrap();
+        let mut message = Vec::new();
+        for part in [certificate.der().to_vec(), key.serialize_der()] {
+            message.extend_from_slice(&(part.len() as u32).to_le_bytes());
+            message.extend(part);
+        }
+        (message, certificate.der().to_vec())
+    }
+
+    fn served(certificate: &Certificate) -> Vec<u8> {
+        certificate.0.read().unwrap().cert[0].to_vec()
+    }
+
+    #[test]
+    fn a_renewed_certificate_is_served_from_then_on() {
+        let key = rcgen::KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
+        let (first, first_der) = handed(&key);
+        let (_, certificate) = acceptor(&first).unwrap();
+        assert_eq!(served(&certificate), first_der);
+        let (second, second_der) = handed(&key);
+        certificate.renewed(&second).unwrap();
+        assert_eq!(served(&certificate), second_der);
+        // One whose key is not the certificate's is refused, and the one in
+        // force stays.
+        let other = rcgen::KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
+        let (mismatched, _) = handed(&other);
+        let mut mixed = Vec::new();
+        let cert_len = u32::from_le_bytes(second[..4].try_into().unwrap()) as usize;
+        mixed.extend_from_slice(&second[..4 + cert_len]);
+        let other_cert_len = u32::from_le_bytes(mismatched[..4].try_into().unwrap()) as usize;
+        mixed.extend_from_slice(&mismatched[4 + other_cert_len..]);
+        assert!(certificate.renewed(&mixed).is_err());
+        assert_eq!(served(&certificate), second_der);
+    }
+
     #[test]
     fn a_handover_that_is_cut_short_is_refused() {
         assert!(acceptor(&[]).is_err());
         assert!(acceptor(&[10, 0, 0, 0, 1, 2]).is_err());
+        let mut short: &[u8] = &[200, 0, 0, 0, 1];
+        assert!(message(&mut short).is_err());
+        let mut huge: &[u8] = &[0, 0, 0, 1];
+        assert!(message(&mut huge).is_err());
     }
 }

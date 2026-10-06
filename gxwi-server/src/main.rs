@@ -3,7 +3,6 @@
 //! which gxwid says where the overlay stands, and this machine's key and
 //! certificate.
 
-use std::io::Read;
 use std::os::fd::{FromRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 
@@ -36,15 +35,26 @@ async fn main() {
             std::net::TcpListener::from_raw_fd(listener_fd),
             UnixStream::from_raw_fd(channel_fd),
             UnixStream::from_raw_fd(overlay_fd),
-            std::fs::File::from_raw_fd(tls_fd),
+            UnixStream::from_raw_fd(tls_fd),
         )
     };
-    // Read once and closed: what is kept is the configuration made from it.
-    let mut handed = Vec::new();
-    keys.read_to_end(&mut handed).unwrap_or_else(|e| die(&format!("descriptor {tls_fd}: {e}")));
-    drop(keys);
-    let acceptor = serve::acceptor(&handed).unwrap_or_else(|e| die(&format!("TLS: {e}")));
+    // The key and certificate in force, before anything is served; then each
+    // renewal, for as long as gxwid has one to give.
+    let handed = serve::message(&mut keys).unwrap_or_else(|e| die(&format!("descriptor {tls_fd}: {e}")));
+    let (acceptor, certificate) = serve::acceptor(&handed).unwrap_or_else(|e| die(&format!("TLS: {e}")));
     drop(handed);
+    std::thread::Builder::new()
+        .name("certificate".into())
+        .spawn(move || {
+            // Ends when gxwid does, which ends this process too.
+            while let Ok(renewed) = serve::message(&mut keys) {
+                match certificate.renewed(&renewed) {
+                    Ok(()) => eprintln!("gxwi-server: serving the renewed certificate"),
+                    Err(e) => eprintln!("gxwi-server: gxwid's renewed certificate cannot be used ({e}); keeping the one in force"),
+                }
+            }
+        })
+        .unwrap_or_else(|e| die(&format!("certificate thread: {e}")));
     listener
         .set_nonblocking(true)
         .unwrap_or_else(|e| die(&format!("descriptor {listener_fd} is not a listening socket: {e}")));
