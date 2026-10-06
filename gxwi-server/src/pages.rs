@@ -22,6 +22,9 @@ pub const WORKER: &str = include_str!("sw.js");
 /// logon page may fetch from nowhere else, and a server may have no route out.
 pub const FONT_TEXT: &[u8] = include_bytes!("fonts/manrope.woff2");
 pub const FONT_DISPLAY: &[u8] = include_bytes!("fonts/schibsted-grotesk.woff2");
+/// The monospace face, with more than Latin: what a terminal draws its lines
+/// and boxes with, and arrows, is in it too.
+pub const FONT_MONO: &[u8] = include_bytes!("fonts/jetbrains-mono.woff2");
 
 /// Field names in the forms these pages post.
 pub const FIELD_USERNAME: &str = "username";

@@ -88,6 +88,7 @@ pub fn routes(control: UnixStream, overlay: Arc<Overlay>) -> Router {
         .route("/.gxwi/logon.css", get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }))
         .route("/.gxwi/fonts/manrope.woff2", get(|| async { font(pages::FONT_TEXT) }))
         .route("/.gxwi/fonts/schibsted-grotesk.woff2", get(|| async { font(pages::FONT_DISPLAY) }))
+        .route("/.gxwi/fonts/jetbrains-mono.woff2", get(|| async { font(pages::FONT_MONO) }))
         .route("/.gxwi/sw.js", get(|| async { worker() }))
         .route("/.gxwi/away", get(|| async { html(StatusCode::OK, pages::away(), None) }))
         .fallback(anywhere)
