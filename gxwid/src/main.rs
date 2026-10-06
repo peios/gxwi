@@ -1,7 +1,8 @@
-//! gxwid — the privileged half of GXWI. It owns the listening socket and the
-//! lifetime of gxwi-server, the network-facing half, and parses no HTTP itself.
+//! gxwid — the privileged half of GXWI. It owns the listening socket, this
+//! machine's key, and the lifetime of gxwi-server, the network-facing half,
+//! and parses no HTTP itself.
 
-use std::io;
+use std::io::{self, Write};
 use std::net::TcpListener;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
@@ -19,6 +20,9 @@ mod sandbox;
 mod session;
 mod settings;
 mod throttle;
+mod tls;
+
+use tls::KeySource;
 
 // Not 8080/8081: on the dev host those are QEMU's forwards into a booted VM.
 const DEFAULT_LISTEN: &str = "127.0.0.1:7780";
@@ -27,6 +31,7 @@ const DEFAULT_LISTEN: &str = "127.0.0.1:7780";
 const SERVER_LISTENER_FD: RawFd = 3;
 const SERVER_CHANNEL_FD: RawFd = 4;
 const SERVER_OVERLAY_FD: RawFd = 5;
+const SERVER_TLS_FD: RawFd = 6;
 
 const RESTART_DELAY_MIN: Duration = Duration::from_secs(1);
 const RESTART_DELAY_MAX: Duration = Duration::from_secs(30);
@@ -56,11 +61,27 @@ fn main() {
     };
     let server = beside("gxwi-server", Some("GXWI_SERVER"));
 
+    // Made the first time, then kept wherever the directory keeps it (`tls`).
+    // A host without KACS keeps it where it is told to, and sets no
+    // descriptors on it.
+    let keys = if unrestricted {
+        let path = std::env::var_os("GXWI_STATE").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("gxwi-state"));
+        tls::StateDirectory { path, protect: false }
+    } else {
+        tls::StateDirectory { path: PathBuf::from(tls::DIRECTORY), protect: true }
+    };
+    let credentials = keys.credentials().unwrap_or_else(|e| die(&format!("this machine's key: {e}")));
+
     // Bound once and kept across restarts, so connections made while the
     // server is down queue in the kernel instead of being refused.
     let listener = TcpListener::bind(&listen).unwrap_or_else(|e| die(&format!("bind {listen}: {e}")));
     let listener = dup_high(listener.as_raw_fd()).unwrap_or_else(|e| die(&format!("dup listener: {e}")));
-    eprintln!("gxwid: listening on http://{listen}, server is {}", server.display());
+    eprintln!("gxwid: listening on https://{listen}, server is {}", server.display());
+    eprintln!(
+        "gxwid: the certificate's SHA-256 is {} ({})",
+        credentials.fingerprint,
+        keys.path.join(tls::FINGERPRINT).display()
+    );
 
     // Which program a session runs is the registry's to say (`settings`), and
     // nothing in gxwid's environment can: whoever chooses it chooses what runs
@@ -90,7 +111,7 @@ fn main() {
     let mut delay = RESTART_DELAY_MIN;
     loop {
         let started = Instant::now();
-        match run_server(&server, &listener, unrestricted, &logons, &overlay) {
+        match run_server(&server, &listener, unrestricted, &logons, &overlay, &credentials) {
             Ok(status) => eprintln!("gxwid: gxwi-server exited: {status}"),
             Err(e) => eprintln!("gxwid: gxwi-server did not start: {e}"),
         }
@@ -110,6 +131,7 @@ fn run_server(
     unrestricted: bool,
     logons: &Arc<logon::Logons>,
     overlay: &overlay::Overlay,
+    credentials: &tls::Credentials,
 ) -> io::Result<std::process::ExitStatus> {
     // A fresh pair per server: the old one died with the old server.
     let (ours, theirs_low) = UnixStream::pair()?;
@@ -121,6 +143,8 @@ fn run_server(
     let overlay_theirs = dup_high(overlay_theirs_low.as_raw_fd())?;
     drop(overlay_theirs_low);
     overlay.serve(overlay_ours);
+    // And the key and certificate, which the server cannot open for itself.
+    let keys = handover(credentials)?;
     let token = if unrestricted {
         None
     } else {
@@ -129,11 +153,12 @@ fn run_server(
     // The server can open nothing, the registry included, so what its pages
     // are to say is read here and told to it as it starts.
     let page = if unrestricted { settings::LogonPage::default() } else { settings::logon_page() };
-    let mut child = spawn_server(server, listener, &theirs, &overlay_theirs, token, &page)?;
+    let mut child = spawn_server(server, listener, &theirs, &overlay_theirs, &keys, token, &page)?;
     // Only the server holds its ends now, so its death reads as EOF on ours,
     // which is what ends the control thread.
     drop(theirs);
     drop(overlay_theirs);
+    drop(keys);
     let logons = Arc::clone(logons);
     std::thread::Builder::new()
         .name("control".into())
@@ -146,16 +171,19 @@ fn spawn_server(
     listener: &OwnedFd,
     channel: &OwnedFd,
     overlay: &OwnedFd,
+    keys: &OwnedFd,
     token: Option<peios::token::Token>,
     page: &settings::LogonPage,
 ) -> io::Result<Child> {
-    let (listener, channel, overlay) = (listener.as_raw_fd(), channel.as_raw_fd(), overlay.as_raw_fd());
+    let (listener, channel, overlay, keys) =
+        (listener.as_raw_fd(), channel.as_raw_fd(), overlay.as_raw_fd(), keys.as_raw_fd());
     let parent = std::process::id() as libc::pid_t;
 
     let mut cmd = Command::new(server);
     cmd.arg("--listener-fd").arg(SERVER_LISTENER_FD.to_string());
     cmd.arg("--channel-fd").arg(SERVER_CHANNEL_FD.to_string());
     cmd.arg("--overlay-fd").arg(SERVER_OVERLAY_FD.to_string());
+    cmd.arg("--tls-fd").arg(SERVER_TLS_FD.to_string());
     if token.is_none() {
         // Without this the server refuses to run outside the restricted token.
         cmd.arg("--unrestricted");
@@ -177,6 +205,7 @@ fn spawn_server(
             if libc::dup2(listener, SERVER_LISTENER_FD) == -1
                 || libc::dup2(channel, SERVER_CHANNEL_FD) == -1
                 || libc::dup2(overlay, SERVER_OVERLAY_FD) == -1
+                || libc::dup2(keys, SERVER_TLS_FD) == -1
             {
                 return Err(io::Error::last_os_error());
             }
@@ -200,6 +229,26 @@ fn spawn_server(
         });
     }
     cmd.spawn()
+}
+
+/// A pipe holding the certificate and the key, each a little-endian u32 length
+/// and then the bytes, for the server to read once and close. Both together
+/// are a few hundred bytes, well inside what a pipe holds unread.
+fn handover(credentials: &tls::Credentials) -> io::Result<OwnedFd> {
+    let mut fds = [0; 2];
+    // SAFETY: `fds` is ours, two descriptors long.
+    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } == -1 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: pipe2 just made both, and nothing else owns them.
+    let (read, write) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
+    let mut write = std::fs::File::from(write);
+    for part in [&credentials.certificate, &credentials.key] {
+        write.write_all(&(part.len() as u32).to_le_bytes())?;
+        write.write_all(part)?;
+    }
+    drop(write);
+    dup_high(read.as_raw_fd())
 }
 
 /// Duplicates `fd` to a close-on-exec descriptor numbered 10 or above, clear of

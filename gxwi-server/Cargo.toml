@@ -8,8 +8,11 @@ publish.workspace = true
 [dependencies]
 axum = { workspace = true }
 gxwi-channel = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
+hyper = { workspace = true, features = ["server", "http1"] }
+hyper-util = { workspace = true, features = ["server", "http1", "service"] }
+rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
+tokio-rustls = { workspace = true }
 libauthd = { workspace = true }
 libc = { workspace = true }
 sha1 = { workspace = true }

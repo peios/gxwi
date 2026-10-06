@@ -11,6 +11,9 @@ gxwi-channel = { workspace = true }
 libauthd = { workspace = true }
 libc = { workspace = true }
 peios = { workspace = true }
+rcgen = { workspace = true }
+ring = { workspace = true }
+rustls-pki-types = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

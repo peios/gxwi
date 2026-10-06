@@ -7,6 +7,12 @@ cp "$PEKIT_VENDOR_OUT/cargo-config.toml" "$CARGO_HOME/config.toml"
 unset PEIOS_LIB_DIR PEIOS_INCLUDE PKM_UAPI
 pkg-config --atleast-version=0.5.8 peios
 export BINDGEN_EXTRA_CLANG_ARGS="-isystem $(gcc -print-file-name=include) ${BINDGEN_EXTRA_CLANG_ARGS:-}"
+# ring, under rustls and rcgen, is C and assembly. The musl target has no
+# compiler of its own name here, and what ring needs of libc is in the
+# static musl it links; and its objects carry IBT and SHSTK like the rest, or
+# the linker takes them off the whole program.
+export CC_x86_64_unknown_linux_musl=gcc
+export CFLAGS="${CFLAGS:+$CFLAGS }-fcf-protection=full"
 export RUSTC_BOOTSTRAP=1
 export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-Zcf-protection=full --remap-path-prefix=$PEKIT_WORKSPACE_ROOT=/usr/src/debug/dev.peios.$COMPONENT/.workspace --remap-path-prefix=$PEKIT_OUT_BASE=/usr/src/debug/dev.peios.$COMPONENT/.build --remap-path-prefix=$SRC=/usr/src/debug/dev.peios.$COMPONENT --remap-path-prefix=$PEKIT_VENDOR_OUT/vendor=/usr/src/debug/dev.peios.$COMPONENT/vendor"
 cargo build --release --workspace --exclude gxwi-server --bins --locked --offline --target-dir "$PEKIT_OUT/target"
