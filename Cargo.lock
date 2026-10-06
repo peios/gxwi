@@ -395,14 +395,14 @@ checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "gxwi-channel"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "libauthd",
 ]
 
 [[package]]
 name = "gxwi-hello"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "axum",
  "peios",
@@ -411,7 +411,7 @@ dependencies = [
 
 [[package]]
 name = "gxwi-server"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "axum",
  "gxwi-channel",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "gxwid"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "gxwi-channel",
  "libauthd",
@@ -599,7 +599,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "libgxwi"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "axum",
  "hyper",

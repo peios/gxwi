@@ -4,7 +4,7 @@ members = ["gxwid", "gxwi-server", "gxwi-channel", "gxwi-hello", "libgxwi"]
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.0.6"
+version = "0.0.7"
 edition = "2024"
 license = "MIT"
 publish = false
