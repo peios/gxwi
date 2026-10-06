@@ -38,3 +38,11 @@ service = json.loads((root / 'usr/share/regim/gxwid-service.reg').read_text())
 privileges = next(v['data'] for v in service['keys'][0]['values']
                   if v['name'] == 'RequiredPrivileges')
 assert 'SeImpersonatePrivilege' in privileges
+
+# The live account is the medium's alone: every system's notice never names
+# it, and the live seed's, which a medium applies after it, does.
+def notice(name):
+    data = json.loads((root / 'usr/share/regim' / name).read_text())
+    return next(v['data'] for k in data['keys'] if k['path'].endswith('\\Logon') for v in k['values'] if v['name'] == 'Notice')
+assert not any('live image account' in line for line in notice('gxwi-config.reg'))
+assert any('live image account' in line for line in notice('gxwi-live-notice.reg'))

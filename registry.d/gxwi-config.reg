@@ -26,8 +26,7 @@
           "name": "Notice",
           "type": "multi",
           "data": [
-            "Development image. GXWI currently uses unencrypted HTTP; use only on a trusted development network.",
-            "The live image account is peios, with no password."
+            "Development image. GXWI currently uses unencrypted HTTP; use only on a trusted development network."
           ]
         }
       ]
