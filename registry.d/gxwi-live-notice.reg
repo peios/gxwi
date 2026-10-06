@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "The sign-in page's notice on a live medium: gxwi-config's line, and how",
+    "to sign in there, as the medium's peios account, which has no password.",
+    "",
+    "For a live medium only. An image lists it in [registry] live_autoapply,",
+    "which applies after the base queue, so this Notice is the one a medium",
+    "shows, and which installerd never copies to the disk it installs: an",
+    "installed machine shows gxwi-config's alone, and has no peios account.",
+    "",
+    "Shipped by dev.peios.gxwi as a regim master."
+  ],
+  "keys": [
+    {
+      "path": "Machine\\Software",
+      "values": []
+    },
+    {
+      "path": "Machine\\Software\\GXWI",
+      "values": []
+    },
+    {
+      "path": "Machine\\Software\\GXWI\\Logon",
+      "values": [
+        {
+          "name": "Notice",
+          "type": "multi",
+          "data": [
+            "Development image. GXWI currently uses unencrypted HTTP; use only on a trusted development network.",
+            "The live image account is peios, with no password."
+          ]
+        }
+      ]
+    }
+  ]
+}
