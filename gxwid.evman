@@ -1,0 +1,38 @@
+--- field object.certificate.digest-previous
+type: bin
+
+The SHA-256 digest of the DER encoding of the certificate this one
+replaced: its fingerprint, as 32 bytes, in the form of
+`object.certificate.digest`. With it, the record answers "what was this
+machine's certificate before?" without going back to an older record.
+
+--- event gxwid.certificate.renewed
+tier: essential
+gating: none — every renewal of the machine's GXWI certificate is recorded
+cardinality: once per renewal, which is about once a year
+
+gxwid made the machine a new certificate for its GXWI key and serves it
+from now on, in place of the one before. A certificate lasts a year and is
+renewed once fewer than 30 days of it remain, which gxwid looks for as it
+starts, once a day, and when it is reloaded; one made by an older gxwid
+that lasts longer, or one not valid yet, is renewed at the first look.
+
+The key is the same, so the machine's identity is: what changes is the
+certificate's fingerprint, which a browser that trusted the old
+certificate does not know. Everyone who reaches the desktop is shown the
+browser's warning once more, and anyone who imported the old certificate
+imports the new one, `/var/state/gxwi/certificate.pem`. This record says
+which fingerprint they should now see.
+
+Essential because it changes what everyone who connects is shown, and is
+rare. The new certificate is served to every connection made after it;
+those already made, and everyone signed in, carry on.
+
+No subject: gxwid renews the certificate of its own accord, on time.
+
+field: object.certificate.digest            required
+  The new certificate's SHA-256 digest.
+field: object.certificate.digest-previous   required
+field: object.certificate.name              required
+  The new certificate's subject, `CN=` the machine's name when it was made
+  and `O=Peios`.

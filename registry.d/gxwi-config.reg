@@ -26,7 +26,7 @@
           "name": "Notice",
           "type": "multi",
           "data": [
-            "Development image. GXWI is served over HTTPS with a certificate this machine made for itself, so your browser warns before you first sign in. Before you go on, check that the SHA-256 fingerprint your browser shows for it matches the one this machine shows on its console, which is also in /var/state/gxwi/certificate.sha256."
+            "Development image. GXWI is served over HTTPS with a certificate this machine made for itself, so your browser warns before you first sign in. Before you go on, check that the SHA-256 fingerprint your browser shows for it matches the one in /var/state/gxwi/certificate.sha256 on this machine. The certificate is renewed every year, and the browser warns once more each time."
           ]
         }
       ]

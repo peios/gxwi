@@ -1,4 +1,11 @@
 {
+  "_comment": [
+    "SeAuditPrivilege is what KMES requires of an emitter: gxwid records each",
+    "renewal of the machine's certificate as gxwid.certificate.renewed",
+    "(gxwid.evman). It lets gxwid write events, not read them, and not change",
+    "audit policy. gxwi-server, under gxwid's restricted token, holds none of",
+    "gxwid's privileges but SeChangeNotifyPrivilege."
+  ],
   "keys": [
     {
       "path": "Machine\\System\\Services\\gxwid",
@@ -34,7 +41,8 @@
             "SeChangeNotifyPrivilege",
             "SeAssignPrimaryTokenPrivilege",
             "SeTcbPrivilege",
-            "SeImpersonatePrivilege"
+            "SeImpersonatePrivilege",
+            "SeAuditPrivilege"
           ]
         },
         {
