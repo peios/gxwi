@@ -2,7 +2,7 @@
 //
 // As dana, an administrator (`node event-viewer-settings.mjs`): eventd's
 // settings in their groups; one changed, which eventd takes and records as
-// a synthetic.config_change, and put back to its default; a value out of
+// an eventd.config.changed, and put back to its default; a value out of
 // its range refused; then who may read what, a pattern added for sshd's
 // logs, opened in gxwi-sd-editor, and Authenticated Users' read taken
 // away there.
@@ -109,7 +109,7 @@ await enter("v-HealthMetricIntervalSeconds", "30");
 out.changed = (await until((s) => s.health?.said?.startsWith("Saved"))).health;
 out.registry = guest(`reg get "Machine\\System\\eventd" HealthMetricIntervalSeconds`).trim();
 await sleep(1500);
-out.recorded = guest(`evctl "EVENTS synthetic.config_change TAKE 1" | cut -c1-400`).trim();
+out.recorded = guest(`evctl "EVENTS eventd.config.changed TAKE 1" | cut -c1-400`).trim();
 await desk.picture(`${name}-changed.png`);
 await desk.press(viewer, '#s-HealthMetricIntervalSeconds button[fx-click="setting-default"]');
 out.defaulted = (await until((s) => s.health?.said?.startsWith("Back"))).health;
