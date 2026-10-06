@@ -1,10 +1,12 @@
 //! This machine's key and certificate, for the TLS gxwi-server speaks.
 //!
-//! The certificate is self-signed and made once for its key: what an
-//! administrator compares, the certificate's SHA-256 fingerprint, stays the
-//! same for as long as the key does. Where the key comes from is behind
-//! [`KeySource`], so something that keeps keys for the whole machine can take
-//! over from [`StateDirectory`] without anything else here changing.
+//! The key is made once and kept. The certificate is self-signed for it, and
+//! lasts a year: [`due`] says when it is to be made again, which is a month
+//! before it runs out, and a new one is for the same key, so the machine's
+//! identity stays put though the certificate's fingerprint changes. Where the
+//! key comes from is behind [`KeySource`], so something that keeps keys for
+//! the whole machine can take over from [`StateDirectory`] without anything
+//! else here changing.
 //!
 //! Whether the key lasts is the directory's to say, not this module's. On a
 //! live medium `/var/state` is in memory, so each boot makes a new key; on an
@@ -40,13 +42,18 @@ const DIRECTORY_SD: &str = "O:SYG:SYD:P(A;OICI;GA;;;SY)";
 const PUBLIC_SD: &str = "O:SYG:SYD:P(A;;GA;;;SY)(A;;GR;;;WD)";
 const PRIVATE_SD: &str = "O:SYG:SYD:P(A;;GA;;;SY)";
 
-/// A certificate made now is valid from this date, whatever the clock says: a
-/// machine whose clock is wrong when it first starts must not make one that
-/// is not valid yet. And for as long as anything will read it.
-const VALID_FROM: (i32, u8, u8) = (2025, 1, 1);
-const VALID_UNTIL: (i32, u8, u8) = (4096, 1, 1);
+const DAY: i64 = 24 * 60 * 60;
+/// How long a certificate is made for.
+const LIFETIME: i64 = 365 * DAY;
+/// How long before it runs out a certificate is made again.
+const RENEW_BEFORE: i64 = 30 * DAY;
+/// How far back a certificate's validity starts: a day, so that a machine
+/// whose clock is a little behind another's, as a live medium's can be when
+/// it starts, does not serve that one a certificate that is not valid yet.
+const BACKDATE: i64 = DAY;
 
 /// What gxwi-server is handed to speak TLS with.
+#[derive(Clone)]
 pub struct Credentials {
     /// The certificate, DER.
     pub certificate: Vec<u8>,
@@ -56,9 +63,54 @@ pub struct Credentials {
     pub fingerprint: String,
 }
 
+impl Credentials {
+    /// When the certificate is valid from and until, in seconds since the
+    /// epoch.
+    pub fn validity(&self) -> Option<(i64, i64)> {
+        validity(&self.certificate)
+    }
+}
+
+/// What a renewal made, and what it replaced.
+pub struct Renewed {
+    pub credentials: Credentials,
+    pub previous: Credentials,
+    /// The new certificate's subject, as `CN=<name>,O=Peios`.
+    pub subject: String,
+    /// Why it was made again.
+    pub because: &'static str,
+}
+
 /// Where this machine's key and certificate come from.
 pub trait KeySource {
+    /// The key and certificate, made if there are none.
     fn credentials(&self) -> io::Result<Credentials>;
+    /// A new certificate for the same key, if [`due`] says `current` is to be
+    /// made again at `now`.
+    fn renew(&self, current: &Credentials, now: i64) -> io::Result<Option<Renewed>>;
+}
+
+/// Whether a certificate valid from `not_before` until `not_after` is to be
+/// made again at `now`, and why.
+pub fn due(not_before: i64, not_after: i64, now: i64) -> Option<&'static str> {
+    if not_after - now < RENEW_BEFORE {
+        Some("it runs out within 30 days")
+    } else if not_before > now {
+        // The clock was ahead when it was made: no browser takes it yet.
+        Some("it is not valid yet")
+    } else if not_after - not_before > LIFETIME + BACKDATE {
+        // Made by a gxwid before certificates lasted a year.
+        Some("it lasts longer than a year")
+    } else {
+        None
+    }
+}
+
+/// Seconds since the epoch, now.
+pub fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs() as i64)
 }
 
 /// A directory gxwid keeps them in, making them the first time.
@@ -100,25 +152,47 @@ impl KeySource for StateDirectory {
                 .map_err(|e| unreadable(&certificate_path, &e.to_string()))?
                 .to_vec()
         } else {
-            let made = certify(&key, &host_name())?;
+            let (made, _) = certify(&key, &host_name(), now())?;
             self.publish(CERTIFICATE, made.pem().as_bytes(), PUBLIC_SD)?;
             eprintln!("gxwid: made a certificate for this machine's key in {}", certificate_path.display());
             made.der().to_vec()
         };
-
-        let fingerprint = fingerprint(&certificate);
-        // Written every time, from the certificate: it is only ever what the
-        // certificate says.
-        let fingerprint_path = self.path.join(FINGERPRINT);
-        refuse_links(&fingerprint_path)?;
-        if fs::read_to_string(&fingerprint_path).ok().as_deref() != Some(&format!("{fingerprint}\n")) {
-            self.publish(FINGERPRINT, format!("{fingerprint}\n").as_bytes(), PUBLIC_SD)?;
+        if validity(&certificate).is_none() {
+            return Err(unreadable(&certificate_path, "its validity cannot be read"));
         }
-        Ok(Credentials { certificate, key: key.serialize_der(), fingerprint })
+        self.fingerprint_file(&certificate)?;
+        Ok(Credentials { fingerprint: fingerprint(&certificate), certificate, key: key.serialize_der() })
+    }
+
+    fn renew(&self, current: &Credentials, now: i64) -> io::Result<Option<Renewed>> {
+        let (not_before, not_after) =
+            current.validity().ok_or_else(|| io::Error::other("the certificate's validity cannot be read"))?;
+        let Some(because) = due(not_before, not_after, now) else { return Ok(None) };
+        let key = KeyPair::try_from(current.key.as_slice()).map_err(io::Error::other)?;
+        let (made, subject) = certify(&key, &host_name(), now)?;
+        // The certificate first: the fingerprint file only ever says what
+        // the certificate in place is.
+        self.publish(CERTIFICATE, made.pem().as_bytes(), PUBLIC_SD)?;
+        let certificate = made.der().to_vec();
+        self.fingerprint_file(&certificate)?;
+        let credentials = Credentials { fingerprint: fingerprint(&certificate), certificate, key: current.key.clone() };
+        Ok(Some(Renewed { credentials, previous: current.clone(), subject, because }))
     }
 }
 
 impl StateDirectory {
+    /// The fingerprint file, written from the certificate whenever it does
+    /// not already say the same.
+    fn fingerprint_file(&self, certificate: &[u8]) -> io::Result<()> {
+        let line = format!("{}\n", fingerprint(certificate));
+        let path = self.path.join(FINGERPRINT);
+        refuse_links(&path)?;
+        if fs::read_to_string(&path).ok().as_deref() != Some(line.as_str()) {
+            self.publish(FINGERPRINT, line.as_bytes(), PUBLIC_SD)?;
+        }
+        Ok(())
+    }
+
     /// Writes `name` beside a staged copy and renames it into place, so that
     /// nothing ever finds half of one.
     fn publish(&self, name: &str, bytes: &[u8], sd: &str) -> io::Result<()> {
@@ -148,9 +222,11 @@ impl StateDirectory {
     }
 }
 
-/// A certificate for `key`, for a server called `name`. Not an authority:
+/// A certificate for `key`, for a server called `name`, valid for a year from
+/// `now` (less a day: [`BACKDATE`]), and its subject. Not an authority:
 /// trusting it trusts this machine and nothing it might sign.
-fn certify(key: &KeyPair, name: &str) -> io::Result<rcgen::Certificate> {
+fn certify(key: &KeyPair, name: &str, now: i64) -> io::Result<(rcgen::Certificate, String)> {
+    let time = |at: i64| time::OffsetDateTime::from_unix_timestamp(at).map_err(io::Error::other);
     let mut params = CertificateParams::default();
     params.distinguished_name.push(DnType::CommonName, name);
     params.distinguished_name.push(DnType::OrganizationName, "Peios");
@@ -169,16 +245,94 @@ fn certify(key: &KeyPair, name: &str) -> io::Result<rcgen::Certificate> {
     params.is_ca = IsCa::ExplicitNoCa;
     params.key_usages = vec![KeyUsagePurpose::DigitalSignature];
     params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
-    params.not_before = rcgen::date_time_ymd(VALID_FROM.0, VALID_FROM.1, VALID_FROM.2);
-    params.not_after = rcgen::date_time_ymd(VALID_UNTIL.0, VALID_UNTIL.1, VALID_UNTIL.2);
-    params.self_signed(key).map_err(io::Error::other)
+    params.not_before = time(now - BACKDATE)?;
+    params.not_after = time(now + LIFETIME)?;
+    let made = params.self_signed(key).map_err(io::Error::other)?;
+    Ok((made, format!("CN={name},O=Peios")))
+}
+
+/// When a certificate is valid from and until, in seconds since the epoch:
+/// its `validity`, the fifth field of its `tbsCertificate` (RFC 5280 4.1).
+pub fn validity(certificate: &[u8]) -> Option<(i64, i64)> {
+    let (_, certificate, _) = der(certificate)?;
+    let (tag, tbs, _) = der(certificate)?;
+    if tag != 0x30 {
+        return None;
+    }
+    let mut rest = tbs;
+    // An explicit version first, in all but the oldest certificates.
+    if rest.first() == Some(&0xa0) {
+        rest = der(rest)?.2;
+    }
+    // The serial number, the signature algorithm and the issuer.
+    for _ in 0..3 {
+        rest = der(rest)?.2;
+    }
+    let (tag, validity, _) = der(rest)?;
+    if tag != 0x30 {
+        return None;
+    }
+    let (from_tag, from, rest) = der(validity)?;
+    let (until_tag, until, _) = der(rest)?;
+    Some((asn1_time(from_tag, from)?, asn1_time(until_tag, until)?))
+}
+
+/// One DER element at the start of `bytes`: its tag, its contents, and what
+/// follows it.
+fn der(bytes: &[u8]) -> Option<(u8, &[u8], &[u8])> {
+    let (&tag, rest) = bytes.split_first()?;
+    let (&first, rest) = rest.split_first()?;
+    let (length, rest) = if first & 0x80 == 0 {
+        (first as usize, rest)
+    } else {
+        let count = (first & 0x7f) as usize;
+        if count == 0 || count > 4 || rest.len() < count {
+            return None;
+        }
+        let length = rest[..count].iter().fold(0usize, |n, &b| n << 8 | b as usize);
+        (length, &rest[count..])
+    };
+    let (contents, after) = rest.split_at_checked(length)?;
+    Some((tag, contents, after))
+}
+
+/// A UTCTime (`YYMMDDHHMMSSZ`, 0x17) or GeneralizedTime (`YYYYMMDDHHMMSSZ`,
+/// 0x18), in seconds since the epoch.
+fn asn1_time(tag: u8, text: &[u8]) -> Option<i64> {
+    let text = std::str::from_utf8(text).ok()?.strip_suffix('Z')?;
+    let (year, rest) = match (tag, text.len()) {
+        (0x17, 12) => {
+            let yy: i64 = text[..2].parse().ok()?;
+            (if yy < 50 { 2000 + yy } else { 1900 + yy }, &text[2..])
+        }
+        (0x18, 14) => (text[..4].parse().ok()?, &text[4..]),
+        _ => return None,
+    };
+    let field = |at: usize| rest.get(at..at + 2)?.parse::<i64>().ok();
+    let (month, day, hour, minute, second) = (field(0)?, field(2)?, field(4)?, field(6)?, field(8)?);
+    Some(days_from_civil(year, month, day) * DAY + hour * 3600 + minute * 60 + second)
+}
+
+/// Days from 1970-01-01 to a date of the proleptic Gregorian calendar
+/// (Howard Hinnant's `days_from_civil`).
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let of_era = year - era * 400;
+    let of_year = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let of_era_days = of_era * 365 + of_era / 4 - of_era / 100 + of_year;
+    era * 146097 + of_era_days - 719468
 }
 
 /// SHA-256 of the certificate as a browser shows it: uppercase hex, a colon
 /// between each byte.
 pub fn fingerprint(certificate: &[u8]) -> String {
-    let digest = ring::digest::digest(&ring::digest::SHA256, certificate);
-    digest.as_ref().iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(":")
+    digest(certificate).iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(":")
+}
+
+/// SHA-256 of the certificate, as bytes: `object.certificate.digest`.
+pub fn digest(certificate: &[u8]) -> Vec<u8> {
+    ring::digest::digest(&ring::digest::SHA256, certificate).as_ref().to_vec()
 }
 
 /// This machine's name, for its certificate, or `localhost` if it has none
@@ -264,13 +418,65 @@ mod tests {
     #[test]
     fn the_certificate_is_for_a_server_and_is_no_authority() {
         let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
-        let certificate = certify(&key, "bedrock").unwrap();
+        let (certificate, _) = certify(&key, "bedrock", now()).unwrap();
         let der = certificate.der().to_vec();
         // serverAuth, and the name, in the DER.
         assert!(der.windows(8).any(|w| w == [0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07]));
         assert!(der.windows(7).any(|w| w == b"bedrock"));
         assert!(der.windows(9).any(|w| w == b"localhost"));
         assert_eq!(fingerprint(&der).len(), 32 * 3 - 1);
+    }
+
+    #[test]
+    fn a_certificate_lasts_a_year_from_a_day_ago() {
+        let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
+        let now = 1_791_331_200; // 2026-10-07 00:00:00Z
+        let (made, subject) = certify(&key, "bedrock", now).unwrap();
+        assert_eq!(validity(made.der()), Some((now - DAY, now + LIFETIME)));
+        assert_eq!(subject, "CN=bedrock,O=Peios");
+        // And past 2049, where a certificate's time is written another way.
+        let later = 2_556_144_000; // 2051-01-01
+        let (made, _) = certify(&key, "bedrock", later).unwrap();
+        assert_eq!(validity(made.der()), Some((later - DAY, later + LIFETIME)));
+    }
+
+    #[test]
+    fn a_certificate_is_made_again_a_month_before_it_runs_out() {
+        let made = 1_791_331_200;
+        let (from, until) = (made - DAY, made + LIFETIME);
+        assert_eq!(due(from, until, made), None);
+        assert_eq!(due(from, until, until - RENEW_BEFORE - 1), None);
+        assert!(due(from, until, until - RENEW_BEFORE + 1).is_some());
+        assert!(due(from, until, until + DAY).is_some(), "and one already run out");
+        assert!(due(made + DAY, made + LIFETIME, made).is_some(), "one not valid yet");
+        // gxwid 0.0.6's, valid from 2025 until 4096.
+        assert!(due(1_735_689_600, 66_334_809_600, made).is_some());
+    }
+
+    #[test]
+    fn a_renewal_keeps_the_key_and_changes_the_certificate() {
+        let dir = scratch("renew");
+        let first = dir.credentials().unwrap();
+        let (_, until) = first.validity().unwrap();
+        assert!(dir.renew(&first, now()).unwrap().is_none(), "a new certificate is not due");
+        let renewed = dir.renew(&first, until - DAY).unwrap().expect("due a month before");
+        assert_eq!(renewed.credentials.key, first.key);
+        assert_ne!(renewed.credentials.fingerprint, first.fingerprint);
+        assert_eq!(renewed.previous.fingerprint, first.fingerprint);
+        // What is on disk is the new one, and is what gxwid starts with next.
+        let again = dir.credentials().unwrap();
+        assert_eq!(again.fingerprint, renewed.credentials.fingerprint);
+        assert_eq!(fs::read_to_string(dir.path.join(FINGERPRINT)).unwrap(), format!("{}\n", again.fingerprint));
+        fs::remove_dir_all(&dir.path).unwrap();
+    }
+
+    #[test]
+    fn dates_are_counted_from_1970() {
+        assert_eq!(days_from_civil(1970, 1, 1), 0);
+        assert_eq!(days_from_civil(2000, 3, 1), 11017);
+        assert_eq!(asn1_time(0x17, b"261007000000Z"), Some(1_791_331_200));
+        assert_eq!(asn1_time(0x18, b"20261007000000Z"), Some(1_791_331_200));
+        assert_eq!(asn1_time(0x17, b"2610070000Z"), None);
     }
 
     #[test]

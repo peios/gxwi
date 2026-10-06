@@ -19,6 +19,7 @@ sha1 = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
+rcgen = { workspace = true }
 # The far end of an overlay's socket, for the tests to stand in as.
 hyper = { workspace = true, features = ["server"] }
 sha2 = { workspace = true }

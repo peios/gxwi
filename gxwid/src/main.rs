@@ -2,7 +2,7 @@
 //! machine's key, and the lifetime of gxwi-server, the network-facing half,
 //! and parses no HTTP itself.
 
-use std::io::{self, Write};
+use std::io;
 use std::net::TcpListener;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
@@ -12,6 +12,8 @@ use std::process::{Child, Command};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+mod certificate;
+mod hangup;
 mod jobs;
 mod logon;
 mod overlay;
@@ -71,6 +73,18 @@ fn main() {
         tls::StateDirectory { path: PathBuf::from(tls::DIRECTORY), protect: true }
     };
     let credentials = keys.credentials().unwrap_or_else(|e| die(&format!("this machine's key: {e}")));
+    // Caught before anything else can be asked for: SIGHUP would otherwise
+    // end gxwid.
+    let hangups = hangup::Hangups::catch().unwrap_or_else(|e| die(&format!("SIGHUP: {e}")));
+    // A certificate due for renewal is renewed before any server is handed
+    // it, and after that once a day, or when gxwid is reloaded (`certificate`).
+    let fingerprint_file = keys.path.join(tls::FINGERPRINT);
+    let handover = certificate::Handover::new(certificate::renew_now(&keys, credentials));
+    let keeper = Arc::clone(&handover);
+    std::thread::Builder::new()
+        .name("certificate".into())
+        .spawn(move || certificate::keep(Box::new(keys), keeper, hangups))
+        .unwrap_or_else(|e| die(&format!("certificate thread: {e}")));
 
     // Bound once and kept across restarts, so connections made while the
     // server is down queue in the kernel instead of being refused.
@@ -79,8 +93,8 @@ fn main() {
     eprintln!("gxwid: listening on https://{listen}, server is {}", server.display());
     eprintln!(
         "gxwid: the certificate's SHA-256 is {} ({})",
-        credentials.fingerprint,
-        keys.path.join(tls::FINGERPRINT).display()
+        handover.fingerprint(),
+        fingerprint_file.display()
     );
 
     // Which program a session runs is the registry's to say (`settings`), and
@@ -111,7 +125,7 @@ fn main() {
     let mut delay = RESTART_DELAY_MIN;
     loop {
         let started = Instant::now();
-        match run_server(&server, &listener, unrestricted, &logons, &overlay, &credentials) {
+        match run_server(&server, &listener, unrestricted, &logons, &overlay, &handover) {
             Ok(status) => eprintln!("gxwid: gxwi-server exited: {status}"),
             Err(e) => eprintln!("gxwid: gxwi-server did not start: {e}"),
         }
@@ -131,7 +145,7 @@ fn run_server(
     unrestricted: bool,
     logons: &Arc<logon::Logons>,
     overlay: &overlay::Overlay,
-    credentials: &tls::Credentials,
+    handover: &certificate::Handover,
 ) -> io::Result<std::process::ExitStatus> {
     // A fresh pair per server: the old one died with the old server.
     let (ours, theirs_low) = UnixStream::pair()?;
@@ -143,8 +157,9 @@ fn run_server(
     let overlay_theirs = dup_high(overlay_theirs_low.as_raw_fd())?;
     drop(overlay_theirs_low);
     overlay.serve(overlay_ours);
-    // And the key and certificate, which the server cannot open for itself.
-    let keys = handover(credentials)?;
+    // And the key and certificate, which the server cannot open for itself,
+    // on a socket gxwid keeps for renewals.
+    let keys = dup_high(handover.for_server()?.as_raw_fd())?;
     let token = if unrestricted {
         None
     } else {
@@ -229,26 +244,6 @@ fn spawn_server(
         });
     }
     cmd.spawn()
-}
-
-/// A pipe holding the certificate and the key, each a little-endian u32 length
-/// and then the bytes, for the server to read once and close. Both together
-/// are a few hundred bytes, well inside what a pipe holds unread.
-fn handover(credentials: &tls::Credentials) -> io::Result<OwnedFd> {
-    let mut fds = [0; 2];
-    // SAFETY: `fds` is ours, two descriptors long.
-    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } == -1 {
-        return Err(io::Error::last_os_error());
-    }
-    // SAFETY: pipe2 just made both, and nothing else owns them.
-    let (read, write) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
-    let mut write = std::fs::File::from(write);
-    for part in [&credentials.certificate, &credentials.key] {
-        write.write_all(&(part.len() as u32).to_le_bytes())?;
-        write.write_all(part)?;
-    }
-    drop(write);
-    dup_high(read.as_raw_fd())
 }
 
 /// Duplicates `fd` to a close-on-exec descriptor numbered 10 or above, clear of

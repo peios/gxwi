@@ -419,6 +419,7 @@ dependencies = [
  "hyper-util",
  "libauthd",
  "libc",
+ "rcgen",
  "rustls",
  "rustls-pki-types",
  "sha1",
@@ -441,6 +442,7 @@ dependencies = [
  "rustls-pki-types",
  "serde_json",
  "sha2",
+ "time",
 ]
 
 [[package]]
