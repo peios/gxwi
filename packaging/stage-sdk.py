@@ -32,4 +32,4 @@ files = {str(p.relative_to(crate)): hashlib.sha256(p.read_bytes()).hexdigest() f
 (crate / '.cargo-checksum.json').write_text(json.dumps({'files': files, 'package': None})+'\n')
 # The commit consumers pin libgxwi at, whose libgxwi is what is staged here:
 # the one before this file last changed.
-(out / 'revision').write_text('698c230945a85c2e816dc41ba4fb11949b9fbe26\n')
+(out / 'revision').write_text('83a63cd8bef1f12a6abc2082eeab4b0ccd38a6c2\n')
