@@ -26,7 +26,7 @@
           "name": "Notice",
           "type": "multi",
           "data": [
-            "Development image. GXWI is served over HTTPS with a certificate this machine made for itself, so your browser warns before you first sign in. Before you go on, check that the SHA-256 fingerprint your browser shows for it matches this machine's: sign in at its console as peios, which needs no password, and run cat /var/state/gxwi/certificate.sha256.",
+            "Development image. GXWI is served over HTTPS with a certificate this machine made for itself, so your browser warns before you first sign in. Before you go on, check that the SHA-256 fingerprint your browser shows for it matches this machine's: sign in at its console as peios and run cat /var/state/gxwi/certificate.sha256.",
             "The live image account is peios, with no password."
           ]
         }
