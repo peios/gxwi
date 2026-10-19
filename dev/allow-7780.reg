@@ -2,7 +2,7 @@
   "_comment": [
     "DEV-ONLY: let inbound TCP reach a gxwi started by hand on port 7780.",
     "The shipped network policy drops every inbound flow no rule names, and",
-    "names only 8080 and 8081 (pkm/regim/pnp-rules.reg, Flow\\dev-viewer-ports).",
+    "names only 8080 and 8081 (the image network policy, Flow\\dev-viewer-ports).",
     "",
     "Apply in a booted guest with: reg apply --yes allow-7780.reg",
     "The kernel re-walks the rules on change; no restart is needed."

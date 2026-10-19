@@ -21,14 +21,22 @@ const USER = "pmpriv";
 const POLICY = "Machine\\Generic\\Authn\\Policy";
 let sid = null;
 if (!alice) {
-    guest(`lps remove ${USER} >/dev/null 2>&1; lps add ${USER} --no-password --no-prompt >/dev/null`);
+    guest(
+        `lps remove ${USER} >/dev/null 2>&1; lps add ${USER} --no-password --no-prompt >/dev/null`,
+    );
     sid = guest(`lps show ${USER}`).match(/^sid +(\S+)/m)?.[1] ?? null;
 }
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "principals-privileges-alice" : "principals-privileges";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of the window whose title starts `title`, once it is there. */
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
@@ -47,7 +55,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -62,7 +72,8 @@ if (!manager) {
 }
 
 /** What the window shows. */
-const shows = () => manager.js(`({
+const shows = () =>
+    manager.js(`({
     bar: [...document.querySelectorAll(".bar button")].map((b) => b.textContent),
     notes: [...document.querySelectorAll(".list > .said")].map((p) => p.textContent),
     rows: [...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).filter(Boolean).join(" | ")),
@@ -78,28 +89,53 @@ async function until(ready, ms = 15000) {
     }
     return shows();
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 async function fill(field, value) {
-    await manager.js(`(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await manager.js(
+        `(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+    );
     await sleep(150);
 }
 /** Ticks or clears the box for a privilege, by its name. */
 async function tick(privilege, on = true) {
-    const field = await manager.js(`[...document.querySelectorAll("label.privilege")].find((l) => l.querySelector("code").textContent === ${JSON.stringify(privilege)})?.querySelector("input").name ?? null`);
+    const field = await manager.js(
+        `[...document.querySelectorAll("label.privilege")].find((l) => l.querySelector("code").textContent === ${JSON.stringify(privilege)})?.querySelector("input").name ?? null`,
+    );
     const now = await manager.js(`document.querySelector("[name='${field}']").checked`);
     if (now !== on) await press(`.details input[name="${field}"]`);
 }
 const said = async (what) => (await until((s) => (s.said ?? "").includes(what))).said;
 const pickRow = async (label) => {
     await until((s) => s.rows.some((row) => row.startsWith(`${label} |`) || row === label));
-    const at = await manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)})?.getAttribute("fx-value-record") ?? [...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)})?.getAttribute("fx-value-sid")`);
-    const attribute = (await manager.js(`!!document.querySelector('.entries button[fx-value-record]')`)) ? "fx-value-record" : "fx-value-sid";
+    const at = await manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)})?.getAttribute("fx-value-record") ?? [...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)})?.getAttribute("fx-value-sid")`,
+    );
+    const attribute = (await manager.js(
+        `!!document.querySelector('.entries button[fx-value-record]')`,
+    ))
+        ? "fx-value-record"
+        : "fx-value-sid";
     await press(`.entries button[${attribute}="${at}"]`);
     await sleep(400);
 };
 /** A part of the details, from a heading to the next. */
-const part = (details, heading) => details.match(new RegExp(`${heading} / (.*?)(?: / (?:Claims|Groups|May sign in|Members|Signs in with|SSH keys)(?: / |$)|$)`))?.[1] ?? null;
-const regGet = (path) => guest(`reg get '${path}' 2>&1`).trim().split("\n").filter((line) => !line.startsWith("rc=")).join(" / ");
+const part = (details, heading) =>
+    details.match(
+        new RegExp(
+            `${heading} / (.*?)(?: / (?:Claims|Groups|May sign in|Members|Signs in with|SSH keys)(?: / |$)|$)`,
+        ),
+    )?.[1] ?? null;
+const regGet = (path) =>
+    guest(`reg get '${path}' 2>&1`)
+        .trim()
+        .split("\n")
+        .filter((line) => !line.startsWith("rc="))
+        .join(" / ");
 
 await until((s) => s.rows.some((row) => row.startsWith("dana")));
 await press(`.tab[fx-click="privileges"]`);
@@ -109,7 +145,9 @@ out.rows = (await shows()).rows;
 await pickRow("Administrators");
 const administrators = await until((s) => (s.details ?? "").includes("SeBackupPrivilege"));
 out.administrators = administrators.details.slice(0, 220);
-out.administratorsChanges = administrators.buttons.filter((event) => ["edit-record", "delete-record"].includes(event));
+out.administratorsChanges = administrators.buttons.filter((event) =>
+    ["edit-record", "delete-record"].includes(event),
+);
 await desk.picture(`${name}-administrators.png`);
 
 if (alice) {
@@ -118,7 +156,9 @@ if (alice) {
     await until((s) => s.rows.some((row) => row.startsWith("dana")));
     await pickRow("dana");
     const dana = await until((s) => (s.details ?? "").includes("Signed in"));
-    await manager.js(`[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Privileges")?.scrollIntoView({ block: "start" })`);
+    await manager.js(
+        `[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Privileges")?.scrollIntoView({ block: "start" })`,
+    );
     await sleep(500);
     out.danaGets = part(dana.details, "Privileges")?.slice(0, 260) ?? null;
     out.danaChanges = dana.buttons.filter((event) => event === "own-record");
@@ -143,11 +183,16 @@ await press(`.tab[fx-click="users"]`);
 await pickRow(USER);
 const theirs = await until((s) => (s.details ?? "").includes("Signed in"));
 out.gets = part(theirs.details, "Privileges")?.slice(0, 400) ?? null;
-await manager.js(`[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Privileges")?.scrollIntoView({ block: "start" })`);
+await manager.js(
+    `[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Privileges")?.scrollIntoView({ block: "start" })`,
+);
 await sleep(500);
 await desk.picture(`${name}-user.png`);
 await fill("as", "network");
-out.integrityOverNetwork = (await manager.js(`document.querySelector("[name=as]").value`)) === "network" ? (await shows()).details.match(/Integrity \/ ([^/]+)/)?.[1]?.trim() ?? null : "not chosen";
+out.integrityOverNetwork =
+    (await manager.js(`document.querySelector("[name=as]").value`)) === "network"
+        ? ((await shows()).details.match(/Integrity \/ ([^/]+)/)?.[1]?.trim() ?? null)
+        : "not chosen";
 
 // Changed from the user's page: an owner and a default DACL; one that
 // doesn't parse is refused.
@@ -166,10 +211,17 @@ out.changedOnGuest = regGet(`${POLICY}\\${sid}`);
 await pickRow("Everyone");
 await until((s) => (s.details ?? "").includes("SeChangeNotifyPrivilege"));
 await press(`.details button[fx-click="edit-record"]`);
-await until((s) => (s.details ?? "").includes("Change the record") || (s.details ?? "").includes("Record Everyone"));
+await until(
+    (s) =>
+        (s.details ?? "").includes("Change the record") ||
+        (s.details ?? "").includes("Record Everyone"),
+);
 await tick("SeChangeNotifyPrivilege", false);
 await press(`.details button[type="submit"]`);
-out.asked = (await until((s) => (s.details ?? "").includes("Save anyway"))).details.match(/Without SeChangeNotifyPrivilege[^/]*/)?.[0] ?? null;
+out.asked =
+    (await until((s) => (s.details ?? "").includes("Save anyway"))).details.match(
+        /Without SeChangeNotifyPrivilege[^/]*/,
+    )?.[0] ?? null;
 await desk.picture(`${name}-asked.png`);
 await press(`.details button[fx-click="unask"]`);
 await press(`.details button[fx-click="cancel"]`);
@@ -177,7 +229,10 @@ out.everyoneOnGuest = regGet(`${POLICY}\\Everyone`);
 
 // A record authd ignores, made on the guest, is said to be ignored.
 guest(`reg new -p '${POLICY}\\developerz' >/dev/null`);
-out.ignored = (await until((s) => s.notes.some((note) => note.includes("developerz")))).notes.find((note) => note.includes("developerz")) ?? null;
+out.ignored =
+    (await until((s) => s.notes.some((note) => note.includes("developerz")))).notes.find((note) =>
+        note.includes("developerz"),
+    ) ?? null;
 await desk.picture(`${name}-ignored.png`);
 guest(`reg del -r -y '${POLICY}\\developerz' >/dev/null`);
 

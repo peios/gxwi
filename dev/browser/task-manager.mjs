@@ -14,11 +14,17 @@
 import { session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "task-manager-alice" : "task-manager";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -36,7 +42,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -51,7 +59,8 @@ if (!manager) {
 }
 
 /** What the window shows. */
-const shows = () => manager.js(`({
+const shows = () =>
+    manager.js(`({
     tabs: [...document.querySelectorAll(".tab")].map((b) => b.textContent + (b.getAttribute("aria-pressed") === "true" ? " (shown)" : "")),
     groups: [...document.querySelectorAll(".entries .group")].map((g) => [...g.querySelectorAll("span")].map((s) => s.textContent).join(" | ")),
     rows: [...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | ") + (b.getAttribute("aria-selected") === "true" ? " (picked)" : "")),
@@ -67,11 +76,21 @@ async function until(ready, ms = 15000) {
     }
     return shows();
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 /** The PID of the first row whose name is `who`. */
-const pidOf = (who) => manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-pid") ?? null`);
+const pidOf = (who) =>
+    manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-pid") ?? null`,
+    );
 const find = async (text) => {
-    await manager.js(`(() => { const f = document.querySelector("[name=filter]"); f.value = ${JSON.stringify(text)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await manager.js(
+        `(() => { const f = document.querySelector("[name=filter]"); f.value = ${JSON.stringify(text)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+    );
     await sleep(600);
 };
 

@@ -18,17 +18,24 @@ const alice = process.argv[2] === "alice";
 const USER = "pmkeys";
 // Made for this check with `ssh-keygen -t ed25519 -C pm-laptop`; its
 // private half was never kept.
-const KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEK7Bpk2tHLFoBxVQIrWCFPsqcTcRFAiPBir7uaFTsCu pm-laptop";
+const KEY =
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEK7Bpk2tHLFoBxVQIrWCFPsqcTcRFAiPBir7uaFTsCu pm-laptop";
 if (alice) {
     guest(`lps claim set dana Department string Security`);
 } else {
     guest(`lps remove ${USER} >/dev/null 2>&1; lps add ${USER} --no-password --no-prompt`);
 }
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "principals-credentials-alice" : "principals-credentials";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of the window whose title starts `title`, once it is there. */
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
@@ -47,7 +54,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -62,7 +71,8 @@ if (!manager) {
 }
 
 /** What the window shows. */
-const shows = () => manager.js(`({
+const shows = () =>
+    manager.js(`({
     rows: [...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | ")),
     details: document.querySelector(".details")?.innerText.replaceAll("\\n", " / ") ?? null,
     buttons: [...document.querySelectorAll(".details button")].map((b) => b.getAttribute("fx-click")).filter(Boolean),
@@ -76,22 +86,47 @@ async function until(ready, ms = 15000) {
     }
     return shows();
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 async function fill(field, value) {
-    await manager.js(`(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await manager.js(
+        `(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+    );
     await sleep(150);
 }
 const said = async (what) => (await until((s) => (s.said ?? "").includes(what))).said;
-const sidOf = (who) => manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-sid") ?? null`);
+const sidOf = (who) =>
+    manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-sid") ?? null`,
+    );
 const pick = async (who) => {
     await until((s) => s.rows.some((row) => row.startsWith(`${who} |`)));
     await press(`.entries button[fx-value-sid="${await sidOf(who)}"]`);
     await until((s) => (s.details ?? "").includes("SID"));
 };
 /** A part of the details, from one heading to the next. */
-const part = (details, heading) => details.match(new RegExp(`${heading} / (.*?)(?: / (?:SSH keys|Claims|Groups|May sign in|Signs in with)(?: / |$)|$)`))?.[1] ?? null;
-const lpsShow = (field) => guest(`lps show ${USER} 2>&1`).split("\n").filter((line) => line.startsWith(field) || (field === "claims" && /^ {15}\S/.test(line))).join(" / ").replace(/ +/g, " ");
-const lpsKeys = () => guest(`lps key list ${USER} 2>&1`).trim().split("\n").map((line) => line.replace(/^[0-9a-f]{32} +/, "<id> ").replace(/ +/g, " ")).join(" / ");
+const part = (details, heading) =>
+    details.match(
+        new RegExp(
+            `${heading} / (.*?)(?: / (?:SSH keys|Claims|Groups|May sign in|Signs in with)(?: / |$)|$)`,
+        ),
+    )?.[1] ?? null;
+const lpsShow = (field) =>
+    guest(`lps show ${USER} 2>&1`)
+        .split("\n")
+        .filter((line) => line.startsWith(field) || (field === "claims" && /^ {15}\S/.test(line)))
+        .join(" / ")
+        .replace(/ +/g, " ");
+const lpsKeys = () =>
+    guest(`lps key list ${USER} 2>&1`)
+        .trim()
+        .split("\n")
+        .map((line) => line.replace(/^[0-9a-f]{32} +/, "<id> ").replace(/ +/g, " "))
+        .join(" / ");
 
 if (alice) {
     await pick("dana");
@@ -99,7 +134,9 @@ if (alice) {
     out.claims = part(now.details, "Claims");
     out.signsInWith = now.details.includes("Signs in with");
     out.changes = now.buttons.filter((event) => event !== "show");
-    await manager.js(`[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Claims")?.scrollIntoView({ block: "start" })`);
+    await manager.js(
+        `[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Claims")?.scrollIntoView({ block: "start" })`,
+    );
     await sleep(500);
     await desk.picture(`${name}.png`);
     guest(`lps claim remove dana Department`);
@@ -116,7 +153,10 @@ await fill("key", KEY);
 await desk.picture(`${name}-key.png`);
 await press(`.details button[type="submit"]`);
 out.keyAdded = await said("key is added");
-out.keyShown = part((await until((s) => (s.details ?? "").includes("pm-laptop"))).details, "SSH keys");
+out.keyShown = part(
+    (await until((s) => (s.details ?? "").includes("pm-laptop"))).details,
+    "SSH keys",
+);
 out.keyOnGuest = lpsKeys();
 await press(`.details button[fx-click="add-key"]`);
 await until((s) => (s.details ?? "").includes("Public key"));
@@ -130,12 +170,23 @@ await press(`.details button[fx-click="cancel"]`);
 await press(`.details button[fx-click="sign-in"]`);
 await until((s) => (s.details ?? "").includes("Signs in with"));
 await press(`.details input[name="credential"][value="key"]`);
-out.keyOnlyNote = (await until((s) => (s.details ?? "").includes("SSH key yet") || (s.details ?? "").includes("Nothing is accepted"), 2000)).details.match(/They have no SSH key yet[^/]*/)?.[0] ?? "(no warning: they have a key)";
+out.keyOnlyNote =
+    (
+        await until(
+            (s) =>
+                (s.details ?? "").includes("SSH key yet") ||
+                (s.details ?? "").includes("Nothing is accepted"),
+            2000,
+        )
+    ).details.match(/They have no SSH key yet[^/]*/)?.[0] ?? "(no warning: they have a key)";
 await press(`.details input[name="credential"][value="either"]`);
 await desk.picture(`${name}-sign-in.png`);
 await press(`.details button[type="submit"]`);
 out.policy = await said("is changed");
-out.policyShown = part((await until((s) => (s.details ?? "").includes("A password or an SSH key"))).details, "Signs in with");
+out.policyShown = part(
+    (await until((s) => (s.details ?? "").includes("A password or an SSH key"))).details,
+    "Signs in with",
+);
 out.policyOnGuest = lpsShow("credential");
 
 // Claims: one added, one refused and corrected, a group by name, one
@@ -164,23 +215,34 @@ out.editFilled = await manager.js(`document.querySelector("[name='claim-values']
 await fill("claim-values", "Engineering");
 await press(`.details button[type="submit"]`);
 out.claimChanged = await said("is changed");
-out.claimsShown = part((await until((s) => (s.details ?? "").includes("S-1-5-32-544"))).details, "Claims");
+out.claimsShown = part(
+    (await until((s) => (s.details ?? "").includes("S-1-5-32-544"))).details,
+    "Claims",
+);
 out.claimsOnGuest = lpsShow("claims");
 // The pane scrolled to what this checks, below the buttons.
-await manager.js(`[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Signs in with")?.scrollIntoView({ block: "start" })`);
+await manager.js(
+    `[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "Signs in with")?.scrollIntoView({ block: "start" })`,
+);
 await desk.picture(`${name}-user.png`);
 await press(`.details button[fx-click="remove-claim"][fx-value-claim="Level"]`);
 out.claimRemoved = await said("is removed");
 
 // The key, removed.
-const id = await manager.js(`document.querySelector('.details button[fx-click="remove-key"]')?.getAttribute("fx-value-key") ?? null`);
+const id = await manager.js(
+    `document.querySelector('.details button[fx-click="remove-key"]')?.getAttribute("fx-value-key") ?? null`,
+);
 await press(`.details button[fx-click="remove-key"][fx-value-key="${id}"]`);
 out.keyRemoved = await said("is removed");
 out.keyGoneOnGuest = lpsKeys();
 
 // Changed with lps on the guest, and seen without a refresh.
-guest(`lps claim set ${USER} Shift string night >/dev/null; echo '${KEY}' > /tmp/pm.pub; lps key add ${USER} /tmp/pm.pub terminal >/dev/null`);
-const heard = await until((s) => (s.details ?? "").includes("night") && (s.details ?? "").includes("terminal"));
+guest(
+    `lps claim set ${USER} Shift string night >/dev/null; echo '${KEY}' > /tmp/pm.pub; lps key add ${USER} /tmp/pm.pub terminal >/dev/null`,
+);
+const heard = await until(
+    (s) => (s.details ?? "").includes("night") && (s.details ?? "").includes("terminal"),
+);
 out.fromTerminalClaims = part(heard.details, "Claims");
 out.fromTerminalKeys = part(heard.details, "SSH keys");
 

@@ -14,10 +14,15 @@ share="$PWD/target/vmshare"
 cp dev/allow-7780.reg dev/gxwid-dev-service.reg dev/devloop.sh dev/run-gxwid.sh dev/guest-start.sh "$share/"
 rm -f "$share"/*.log "$share"/*.txt
 # drive.py types this into the guest console, so it stays tiny.
-printf 'sh /share/guest-start.sh\nsleep 14000\n' > "$share/run.sh"
-cd ../dist/release
+printf 'sh /share/guest-start.sh\nsleep 14000\n' >"$share/run.sh"
+runner=${GXWI_VM_RUNNER:?set GXWI_VM_RUNNER to the absolute path of the image drive.py runner}
+case "$runner" in /*) ;; *)
+    echo "GXWI_VM_RUNNER must be absolute" >&2
+    exit 1
+    ;;
+esac
 # shellcheck disable=SC2086 # DRIVE_ARGS is words, as VM_EXTRA is.
-exec ./drive.py --no-disk ${DRIVE_ARGS:-} --share "$share" \
+exec "$runner" --no-disk ${DRIVE_ARGS:-} --share "$share" \
     --hostfwd tcp:127.0.0.1:7780-:7780 \
     --qemu-extra "-fsdev local,id=gxwi,path=$share,security_model=none -device virtio-9p-pci,fsdev=gxwi,mount_tag=gxwishare ${VM_EXTRA:-}" \
     --console-log "$share/console.log" --timeout 14400 "$share/run.sh"

@@ -15,10 +15,16 @@
 import { guest as asGuest, session, sleep } from "./harness.mjs";
 
 /** A guest command's output, without the exit status the channel adds. */
-const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
+const guest = (command) =>
+    asGuest(command)
+        .replace(/\n?rc=\d+\s*$/, "")
+        .trim();
 
 const alice = process.argv[2] === "alice";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "system-settings-alice" : "system-settings";
 
@@ -27,12 +33,18 @@ const name = alice ? "system-settings-alice" : "system-settings";
 // guest gets both for a while, before the window reads them: the line as
 // booted, and an inert stand-in for dynamic-boot's mkuki-watch, taken away
 // again at the end.
-const madeLine = !alice && guest("test -e /lcl/etc/boot/cmdline && echo had || echo none") === "none";
+const madeLine =
+    !alice && guest("test -e /lcl/etc/boot/cmdline && echo had || echo none") === "none";
 if (madeLine) {
-    guest("mkdir -p /lcl/etc/boot && cat /proc/cmdline > /lcl/etc/boot/cmdline && svctl definition create mkuki-watch --set ImagePath=/usr/bin/true --set Type=Oneshot");
+    guest(
+        "mkdir -p /lcl/etc/boot && cat /proc/cmdline > /lcl/etc/boot/cmdline && svctl definition create mkuki-watch --set ImagePath=/usr/bin/true --set Type=Oneshot",
+    );
 }
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -51,7 +63,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -64,17 +78,27 @@ if (!settings) {
     out.stopped = "no System Settings window to attach to";
     await desk.finish(out, 1);
 }
-const press = (selector) => settings.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(settings, selector));
+const press = (selector) =>
+    settings
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(settings, selector));
 /** Puts a value in a field as typing or choosing would. */
-const put = (field, value) => settings.js(`(() => {
+const put = (field, value) =>
+    settings.js(`(() => {
     const f = document.querySelector("[name='${field}']");
     f.value = ${JSON.stringify(value)};
     f.dispatchEvent(new Event("input", { bubbles: true }));
     f.dispatchEvent(new Event("change", { bubbles: true }));
 })()`);
-const value = (field) => settings.js(`(() => { const f = document.querySelector("[name='${field}']"); return f ? (f.type === "checkbox" ? f.checked : f.value) : null; })()`);
+const value = (field) =>
+    settings.js(
+        `(() => { const f = document.querySelector("[name='${field}']"); return f ? (f.type === "checkbox" ? f.checked : f.value) : null; })()`,
+    );
 /** What the section shows: its groups, what can be changed, and what was said. */
-const shows = () => settings.js(`({
+const shows = () =>
+    settings.js(`({
     section: document.querySelector('.st-nav [aria-current="page"] b')?.textContent ?? null,
     nav: [...document.querySelectorAll(".st-nav button")].map((b) => b.innerText.replaceAll("\\n", " — ")),
     said: document.querySelector(".st-status .said")?.textContent ?? null,
@@ -95,13 +119,20 @@ if (!alice) {
     // A time zone: chosen, applied at once, and in /etc/localtime.
     await put("zone", "Europe/London");
     await sleep(3000);
-    out.zone = { said: (await shows()).said, hero: await settings.js(`document.querySelector(".st-hero").innerText`), guest: guest("date; clock status | head -2") };
+    out.zone = {
+        said: (await shows()).said,
+        hero: await settings.js(`document.querySelector(".st-hero").innerText`),
+        guest: guest("date; clock status | head -2"),
+    };
     await desk.picture(`${name}-zone.png`);
 
     // By hand: the switch off, the clock set to what it already is, on again.
     await press('input[name="automatic"]');
     await sleep(2500);
-    out.byHand = { said: (await shows()).said, form: await settings.js(`!!document.querySelector('form[fx-submit="set-time"]')`) };
+    out.byHand = {
+        said: (await shows()).said,
+        form: await settings.js(`!!document.querySelector('form[fx-submit="set-time"]')`),
+    };
     await desk.picture(`${name}-by-hand.png`);
     const local = guest("date +%Y-%m-%dT%H:%M:%S");
     await put("date", local.slice(0, 10));
@@ -139,7 +170,10 @@ await desk.picture(`${name}-language.png`);
 if (!alice) {
     await put("keymap", "uk");
     await sleep(3000);
-    out.keymap = { said: (await shows()).said, guest: guest('dumpkeys -C /dev/tty1 | grep "^keycode  43"') };
+    out.keymap = {
+        said: (await shows()).said,
+        guest: guest('dumpkeys -C /dev/tty1 | grep "^keycode  43"'),
+    };
     await put("keymap", "");
     await sleep(3000);
     out.keymapBack = guest('dumpkeys -C /dev/tty1 | grep "^keycode  43"');
@@ -158,13 +192,22 @@ if (!alice) {
     await desk.picture(`${name}-safe-mode.png`);
     await press('form[fx-submit="save-cmdline"] button.primary');
     await sleep(1500);
-    out.safeOn = { said: (await shows()).said, line: guest("cat /lcl/etc/boot/cmdline"), on: await value("safemode") };
+    out.safeOn = {
+        said: (await shows()).said,
+        line: guest("cat /lcl/etc/boot/cmdline"),
+        on: await value("safemode"),
+    };
     await desk.picture(`${name}-safe-mode-saved.png`);
     await press('input[name="safemode"]');
     await sleep(800);
     await press('form[fx-submit="save-cmdline"] button.primary');
     await sleep(1500);
-    out.safeOff = { said: (await shows()).said, line: guest("cat /lcl/etc/boot/cmdline"), as: line, on: await value("safemode") };
+    out.safeOff = {
+        said: (await shows()).said,
+        line: guest("cat /lcl/etc/boot/cmdline"),
+        as: line,
+        on: await value("safemode"),
+    };
 
     const was = await value("SettleTimeout");
     await put("SettleTimeout", "7");
@@ -172,7 +215,11 @@ if (!alice) {
     out.timeoutEdited = (await shows()).buttons;
     await press('button[fx-click="undo-timeouts"]');
     await sleep(1000);
-    out.timeoutUndone = { value: await value("SettleTimeout"), was, buttons: (await shows()).buttons };
+    out.timeoutUndone = {
+        value: await value("SettleTimeout"),
+        was,
+        buttons: (await shows()).buttons,
+    };
 }
 
 await section("about");
@@ -182,13 +229,22 @@ if (!alice) {
     const was = guest("hostname");
     await put("hostname", "my machine");
     await sleep(800);
-    out.badName = { locked: (await shows()).locked, apply: await settings.js(`document.querySelector('form[fx-submit="save-name"] button')?.disabled ?? null`) };
+    out.badName = {
+        locked: (await shows()).locked,
+        apply: await settings.js(
+            `document.querySelector('form[fx-submit="save-name"] button')?.disabled ?? null`,
+        ),
+    };
     // A name it hasn't got, so that there is something to apply.
     await put("hostname", was === "settings-check" ? "settings-check-2" : "settings-check");
     await sleep(800);
     await press('form[fx-submit="save-name"] button');
     await sleep(2500);
-    out.name = { said: (await shows()).said, guest: guest("hostname"), nav: (await shows()).nav.at(-1) };
+    out.name = {
+        said: (await shows()).said,
+        guest: guest("hostname"),
+        nav: (await shows()).nav.at(-1),
+    };
     // Back as it was: on a dev image nothing names the machine, so it was the
     // kernel's "(none)", which no field would take. The value goes, and the
     // kernel is told the old name.

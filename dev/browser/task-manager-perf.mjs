@@ -12,11 +12,17 @@
 import { guest, session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "task-manager-perf-alice" : "task-manager-perf";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -34,7 +40,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -47,9 +55,15 @@ if (!manager) {
     out.stopped = "no Task Manager window to attach to";
     await desk.finish(out, 1);
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 /** What the view shows: the side, the pane's heading, its figures and its graphs. */
-const shows = () => manager.js(`({
+const shows = () =>
+    manager.js(`({
     side: [...document.querySelectorAll(".resources .item")].map((b) => b.innerText.replaceAll("\\n", " | ") + (b.getAttribute("aria-pressed") === "true" ? " (shown)" : "")),
     heading: document.querySelector(".resource header")?.innerText.replaceAll("\\n", " | ") ?? null,
     facts: [...document.querySelectorAll(".resource .facts dt")].map((dt) => dt.textContent + ": " + dt.nextElementSibling?.textContent),
@@ -61,7 +75,9 @@ const shows = () => manager.js(`({
 // Keep the guest busy for a while: one processor looping, and, once the view
 // is open, the disk read in full. Only the first run after a boot reaches the
 // disk: the page cache answers any later one, and only SYSTEM may drop it.
-guest(`(sh -c 'end=$(($(date +%s)+40)); while [ $(date +%s) -lt $end ]; do :; done' >/dev/null 2>&1 &); echo busy`);
+guest(
+    `(sh -c 'end=$(($(date +%s)+40)); while [ $(date +%s) -lt $end ]; do :; done' >/dev/null 2>&1 &); echo busy`,
+);
 
 await press('.tab[fx-value-by="Performance"]');
 await sleep(10000);
@@ -82,14 +98,18 @@ await sleep(2500);
 out.memory = await shows();
 await desk.picture(`${name}-memory.png`);
 
-const disk = await manager.js(`document.querySelector('.item[fx-value-id^="disk:"]')?.getAttribute("fx-value-id") ?? null`);
+const disk = await manager.js(
+    `document.querySelector('.item[fx-value-id^="disk:"]')?.getAttribute("fx-value-id") ?? null`,
+);
 if (disk) {
     await press(`.item[fx-value-id="${disk}"]`);
     await sleep(2500);
     out.disk = await shows();
     await desk.picture(`${name}-disk.png`);
 }
-const net = await manager.js(`document.querySelector('.item[fx-value-id^="net:"]')?.getAttribute("fx-value-id") ?? null`);
+const net = await manager.js(
+    `document.querySelector('.item[fx-value-id^="net:"]')?.getAttribute("fx-value-id") ?? null`,
+);
 if (net) {
     await press(`.item[fx-value-id="${net}"]`);
     await sleep(2500);

@@ -19,15 +19,27 @@
 import { guest, session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
-if (!alice) out0(guest(`for k in $(reg ls Users); do reg del "Users\\\\\${k%/}\\\\Software\\\\gxwi-event-viewer" Dashboards >/dev/null 2>&1; done; echo reset`));
+if (!alice) {
+    out0(
+        guest(
+            `for k in $(reg ls Users); do reg del "Users\\\\\${k%/}\\\\Software\\\\gxwi-event-viewer" Dashboards >/dev/null 2>&1; done; echo reset`,
+        ),
+    );
+}
 function out0(said) {
     if (!said.includes("reset")) throw new Error(`could not reset the dashboards: ${said}`);
 }
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "event-viewer-metrics-alice" : "event-viewer-metrics";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of the window whose title starts `title`, once it is there. */
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
@@ -46,7 +58,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -66,7 +80,8 @@ async function open() {
 }
 let viewer = await open();
 /** What the tab shows. */
-const shows = () => viewer.js(`({
+const shows = () =>
+    viewer.js(`({
     tabs: [...document.querySelectorAll(".tab")].map((t) => t.textContent + (t.getAttribute("aria-pressed") === "true" ? " (shown)" : "")),
     title: document.title,
     dashboards: [...document.querySelectorAll("select[name=board] option")].map((o) => o.textContent + (o.selected ? " (shown)" : "")),
@@ -86,7 +101,9 @@ async function until(ready, ms = 20000) {
 }
 /** Sets a list in the window to `value`, as picking from it does. */
 async function choose(field, value) {
-    await viewer.js(`(() => { const s = document.querySelector("select[name=${field}]"); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event("input", { bubbles: true })); s.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await viewer.js(
+        `(() => { const s = document.querySelector("select[name=${field}]"); s.value = ${JSON.stringify(value)}; s.dispatchEvent(new Event("input", { bubbles: true })); s.dispatchEvent(new Event("change", { bubbles: true })); })()`,
+    );
     await sleep(1200);
 }
 const drawn = (s) => s.charts.length > 0 && s.charts.every((c) => !c.includes("Reading"));
@@ -94,36 +111,52 @@ const drawn = (s) => s.charts.length > 0 && s.charts.every((c) => !c.includes("R
 // The tab, and eventd's health, which is what a person has before saving.
 out.health = await until((s) => drawn(s) && s.catalogue.length > 0);
 // A series no longer sampled says when it last was.
-out.stale = await viewer.js(`[...document.querySelectorAll(".catalogue .metric")].filter((b) => b.title.includes("last recorded") || b.classList.contains("stopped")).map((b) => b.querySelector(".name").textContent + ": " + b.title.replaceAll("\\n", "; "))`);
+out.stale = await viewer.js(
+    `[...document.querySelectorAll(".catalogue .metric")].filter((b) => b.title.includes("last recorded") || b.classList.contains("stopped")).map((b) => b.querySelector(".name").textContent + ": " + b.title.replaceAll("\\n", "; "))`,
+);
 await desk.picture(`${name}-health.png`);
 if (alice) await desk.finish(out);
 
 // The first chart's right-click menu: its change in each window instead.
-await viewer.js(`document.querySelector(".chart:nth-child(1)").scrollIntoView({ block: "center" })`);
+await viewer.js(
+    `document.querySelector(".chart:nth-child(1)").scrollIntoView({ block: "center" })`,
+);
 out.menu = (await desk.menuOn(viewer, ".chart:nth-child(1) .plot")) && (await desk.menu());
 await desk.choose("Change in each window");
-out.byMenu = (await until((s) => drawn(s) && s.charts[0].includes("Change in each window"))).charts[0];
+out.byMenu = (
+    await until((s) => drawn(s) && s.charts[0].includes("Change in each window"))
+).charts[0];
 
 // The pointer over a window of the store sizes' chart, brought into sight
 // first: every line's value there.
-await viewer.js(`document.querySelector(".chart:nth-child(5)").scrollIntoView({ block: "center" })`);
+await viewer.js(
+    `document.querySelector(".chart:nth-child(5)").scrollIntoView({ block: "center" })`,
+);
 await sleep(400);
 const at = await desk.middle(viewer, ".chart:nth-child(5) .col:nth-child(40)");
 await desk.hoverAt(at);
-out.readout = await viewer.js(`[...document.querySelectorAll(".chart:nth-child(5) .col:nth-child(40) .tip span")].map((s) => s.textContent)`);
-out.readoutShown = await viewer.js(`getComputedStyle(document.querySelector(".chart:nth-child(5) .col:nth-child(40) .tip")).display`);
+out.readout = await viewer.js(
+    `[...document.querySelectorAll(".chart:nth-child(5) .col:nth-child(40) .tip span")].map((s) => s.textContent)`,
+);
+out.readoutShown = await viewer.js(
+    `getComputedStyle(document.querySelector(".chart:nth-child(5) .col:nth-child(40) .tip")).display`,
+);
 await desk.picture(`${name}-readout.png`);
 await desk.hoverAt({ x: 5, y: 5 });
 
 // A chart's settings: store sizes, one line for all of them.
 await desk.press(viewer, ".chart:nth-child(5) .more-button");
 await sleep(600);
-out.settings = await viewer.js(`[...document.querySelectorAll(".chart:nth-child(5) .settings select")].map((s) => s.name + "=" + s.value + " of " + [...s.options].map((o) => o.textContent).join("/"))`);
+out.settings = await viewer.js(
+    `[...document.querySelectorAll(".chart:nth-child(5) .settings select")].map((s) => s.name + "=" + s.value + " of " + [...s.options].map((o) => o.textContent).join("/"))`,
+);
 await desk.picture(`${name}-settings.png`);
 await choose("edit-lines", "each");
 await choose("edit-function", "max");
 await choose("edit-lines", "one");
-out.changed = (await until((s) => drawn(s) && s.charts[4].includes("all series together"))).charts[4];
+out.changed = (
+    await until((s) => drawn(s) && s.charts[4].includes("all series together"))
+).charts[4];
 await desk.press(viewer, ".chart:nth-child(5) .settings .actions button:last-child");
 await sleep(600);
 
@@ -136,7 +169,9 @@ await viewer.js(`document.querySelector("input[name=boardname]").select()`);
 await desk.type("Stores");
 await desk.key("Enter", { vk: 13 }, "\r");
 await sleep(800);
-await viewer.js(`(() => { const f = document.querySelector("input[name=find]"); f.value = "store.bytes"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await viewer.js(
+    `(() => { const f = document.querySelector("input[name=find]"); f.value = "store.bytes"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+);
 await sleep(800);
 out.found = (await shows()).catalogue;
 await desk.press(viewer, '.catalogue .metric[fx-value-metric="eventd.store.bytes"]');

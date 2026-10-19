@@ -17,9 +17,14 @@ const sd = (key) => guest(`reg sd '${KEY}${key}'`).trim();
 out.before = { a: sd("\\a"), deep: sd("\\a\\deep") };
 
 const desk = await session(9379, { user: "dana", password: "dana-dev-password" });
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 for (const strip of await strips()) {
-    const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     if (close) await desk.pressAt(close);
     await sleep(800);
 }
@@ -45,18 +50,24 @@ for (let i = 0; i < 40 && !dialog; i++) {
 }
 if (!dialog) await desk.finish({ ...out, stopped: "no dialog" }, 1);
 const press = async (selector) => {
-    await dialog.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`);
+    await dialog.js(
+        `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+    );
     await sleep(200);
     if (!(await desk.press(dialog, selector))) out.missed = [...(out.missed ?? []), selector];
     await sleep(500);
 };
 // Authenticated Users may read the key and the keys under it.
 await press(`[fx-click="add"]`);
-await dialog.js(`(() => { const f = document.querySelector('[name="who"]'); f.value = "Authenticated Users"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await dialog.js(
+    `(() => { const f = document.querySelector('[name="who"]'); f.value = "Authenticated Users"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+);
 await sleep(400);
 await press(`.naming button[type="submit"]`);
 await press(`.tabs [fx-value-v="access"]`);
-out.rights = await dialog.js(`[...document.querySelectorAll(".rights tbody th")].map((t) => t.textContent)`);
+out.rights = await dialog.js(
+    `[...document.querySelectorAll(".rights tbody th")].map((t) => t.textContent)`,
+);
 await press(`.rights [fx-value-right="1"][fx-value-way="allow"]`);
 await press(`footer [fx-click="apply"]`);
 out.asked = await dialog.js(`document.querySelector(".inherit.push p")?.textContent ?? null`);
@@ -64,7 +75,9 @@ await dialog.js(`document.querySelector(".inherit.push")?.scrollIntoView({ block
 await desk.picture("permissions-editor-push-registry-asking.png");
 await press(`[fx-click="push"][fx-value-v="all"]`);
 await sleep(2000);
-out.said = await dialog.js(`({ status: document.querySelector("footer .status")?.textContent, banner: document.querySelector(".inherit.warn")?.innerText ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`);
+out.said = await dialog.js(
+    `({ status: document.querySelector("footer .status")?.textContent, banner: document.querySelector(".inherit.warn")?.innerText ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`,
+);
 await desk.picture("permissions-editor-push-registry-done.png");
 out.after = { key: sd(""), a: sd("\\a"), deep: sd("\\a\\deep"), locked: sd("\\locked") };
 
@@ -76,14 +89,20 @@ await dialog.js(`(() => {
     const down = document.querySelector('[name="own.linh"]'); if (down && !down.checked) { down.checked = true; down.dispatchEvent(new Event("change", { bubbles: true })); }
 })()`);
 await sleep(600);
-out.ownerPanel = await dialog.js(`({ text: document.querySelector(".owners")?.innerText ?? null, level: document.querySelector('[name="own.level"]')?.value ?? null, down: document.querySelector('[name="own.linh"]')?.checked ?? null, disabled: document.querySelector('[name="own.level"]')?.disabled ?? null })`);
+out.ownerPanel = await dialog.js(
+    `({ text: document.querySelector(".owners")?.innerText ?? null, level: document.querySelector('[name="own.level"]')?.value ?? null, down: document.querySelector('[name="own.linh"]')?.checked ?? null, disabled: document.querySelector('[name="own.level"]')?.disabled ?? null })`,
+);
 await press(`.owners button[type="submit"]`);
-out.afterDone = await dialog.js(`({ apply: document.querySelector('footer [fx-click="apply"]')?.disabled, trouble: document.querySelector(".trouble")?.textContent ?? null, wrong: [...document.querySelectorAll(".wrong")].map((w) => w.textContent) })`);
+out.afterDone = await dialog.js(
+    `({ apply: document.querySelector('footer [fx-click="apply"]')?.disabled, trouble: document.querySelector(".trouble")?.textContent ?? null, wrong: [...document.querySelectorAll(".wrong")].map((w) => w.textContent) })`,
+);
 await press(`footer [fx-click="apply"]`);
 out.labelAsked = await dialog.js(`document.querySelector(".inherit.push p")?.textContent ?? null`);
 await press(`[fx-click="push"][fx-value-v="all"]`);
 await sleep(2000);
-out.labelSaid = await dialog.js(`({ status: document.querySelector("footer .status")?.textContent, banner: document.querySelector(".inherit.warn")?.innerText ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`);
+out.labelSaid = await dialog.js(
+    `({ status: document.querySelector("footer .status")?.textContent, banner: document.querySelector(".inherit.warn")?.innerText ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`,
+);
 const sacl = (key) => guest(`reg sd --sacl '${KEY}${key}'`).trim();
 out.labels = { key: sacl(""), a: sacl("\\a"), deep: sacl("\\a\\deep"), locked: sacl("\\locked") };
 await press(`footer [fx-click="cancel"]`);

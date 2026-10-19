@@ -13,9 +13,17 @@
 import { guest, session, sleep } from "./harness.mjs";
 
 /** Deletes every person's own list of pins. Only alice logs on here. */
-const forget = () => guest(`reg ls Users | tr -d / | while read sid; do reg del -y "Users/$sid/Software/fenesh" Pinned 2>&1; done; true`);
+const forget = () =>
+    guest(
+        `reg ls Users | tr -d / | while read sid; do reg del -y "Users/$sid/Software/fenesh" Pinned 2>&1; done; true`,
+    );
 /** What the registry holds as the pins of whoever has any. */
-const kept = () => guest(`reg ls Users | tr -d / | while read sid; do reg get "Users/$sid/Software/fenesh" Pinned 2>/dev/null; done; true`).split("\n").filter((line) => /^[a-z0-9.-]+\.[a-z0-9.-]+$/.test(line.trim()));
+const kept = () =>
+    guest(
+        `reg ls Users | tr -d / | while read sid; do reg get "Users/$sid/Software/fenesh" Pinned 2>/dev/null; done; true`,
+    )
+        .split("\n")
+        .filter((line) => /^[a-z0-9.-]+\.[a-z0-9.-]+$/.test(line.trim()));
 
 const out = { forgotten: forget().trim().split("\n").at(-1) };
 const desk = await session(9354);
@@ -24,7 +32,8 @@ const dock = await desk.frame(".dock", '.fx-surface[data-role="panel"][data-edge
 if (!dock) await desk.finish({ ...out, stopped: "no dock: is fenesh the shell?" }, 1);
 
 /** The dock's entries in order: which, how many windows, what its icon goes to, and where the page has moved it. */
-const entries = () => dock.js(`[...document.querySelectorAll(".dock > ul > li")].map((li) => ({
+const entries = () =>
+    dock.js(`[...document.querySelectorAll(".dock > ul > li")].map((li) => ({
     id: li.id,
     windows: li.querySelectorAll(".windows i").length,
     goesTo: li.querySelector("button").getAttribute("fx-focus"),
@@ -36,14 +45,18 @@ const ids = async () => (await entries()).map((entry) => entry.id);
 const css = (id) => "#" + id.replaceAll(".", "\\.");
 
 // Whatever goes wrong, what was seen up to then is said and the session ended.
-process.on("uncaughtException", (error) => desk.finish({ ...out, stopped: String(error?.stack ?? error) }, 1));
-process.on("unhandledRejection", (error) => desk.finish({ ...out, stopped: String(error?.stack ?? error) }, 1));
+process.on("uncaughtException", (error) =>
+    desk.finish({ ...out, stopped: String(error?.stack ?? error) }, 1),
+);
+process.on("unhandledRejection", (error) =>
+    desk.finish({ ...out, stopped: String(error?.stack ?? error) }, 1),
+);
 
 out.atFirst = await entries();
 
 // ---- the menu of each kind of entry
 
-await desk.menuOn(dock, css("pinned-dev.peios.gexora"));
+await desk.menuOn(dock, css("pinned-dev.peios.gxwi-file-explorer"));
 out.menuOfAnIdlePin = await desk.menu();
 await desk.key("Escape");
 
@@ -57,7 +70,10 @@ out.keptAfterPinning = kept();
 
 // ---- a pin dragged to another place
 
-const [from, to] = [await desk.middle(dock, css("pinned-dev.peios.gxwi.hello") + " button"), await desk.middle(dock, css("pinned-dev.peios.gexora") + " button")];
+const [from, to] = [
+    await desk.middle(dock, css("pinned-dev.peios.gxwi.hello") + " button"),
+    await desk.middle(dock, css("pinned-dev.peios.gxwi-file-explorer") + " button"),
+];
 const before = await desk.desk();
 out.draggedFromTo = [from, to];
 const letGo = await desk.drag(from, { x: to.x, y: to.y - 6 });
@@ -71,7 +87,9 @@ await sleep(2000);
 out.nothingStartedByTheDrag = (await desk.desk()).windows.length === before.windows.length;
 // A press that goes nowhere is still a press.
 await desk.press(dock, css("pinned-dev.peios.gxwi.hello") + " button");
-out.aPressStillFocuses = (await desk.desk()).focused === Number((await entries()).find((entry) => entry.id === "pinned-dev.peios.gxwi.hello").goesTo);
+out.aPressStillFocuses =
+    (await desk.desk()).focused ===
+    Number((await entries()).find((entry) => entry.id === "pinned-dev.peios.gxwi.hello").goesTo);
 
 // ---- a change made by something else
 
@@ -99,8 +117,15 @@ out.afterClosingTheOther = await entries();
 
 // ---- a program with several windows: the desktop's own
 
-const onTheDesktop = async () => { await a.js(`document.activeElement?.blur?.(); window.focus()`); await sleep(200); };
-const another = async () => { await onTheDesktop(); await desk.key(" ", { code: "Space", vk: 32 }); await sleep(800); };
+const onTheDesktop = async () => {
+    await a.js(`document.activeElement?.blur?.(); window.focus()`);
+    await sleep(200);
+};
+const another = async () => {
+    await onTheDesktop();
+    await desk.key(" ", { code: "Space", vk: 32 });
+    await sleep(800);
+};
 await another();
 await another();
 await another();
@@ -120,7 +145,14 @@ out.afterClosingAll = { entries: await entries(), desk: await desk.desk() };
 
 // ---- a workspace left empty between two in use
 
-const chord = async (key) => { await desk.key(key, { code: `Key${key.toUpperCase()}`, vk: key.toUpperCase().charCodeAt(0), modifiers: 3 }); await sleep(500); };
+const chord = async (key) => {
+    await desk.key(key, {
+        code: `Key${key.toUpperCase()}`,
+        vk: key.toUpperCase().charCodeAt(0),
+        modifiers: 3,
+    });
+    await sleep(500);
+};
 const shown = async () => (await desk.desk()).inSight;
 await another();
 const first = (await shown())[0];
@@ -130,10 +162,17 @@ const second = (await shown())[0];
 await chord("k");
 await another();
 const third = (await shown())[0];
-out.oneOnEachOfThree = { first, second, third, distinct: new Set([first, second, third]).size === 3 };
+out.oneOnEachOfThree = {
+    first,
+    second,
+    third,
+    distinct: new Set([first, second, third]).size === 3,
+};
 await chord("j");
 out.backOnTheSecond = await shown();
-await a.js(`document.querySelector('.fx-surface[data-id="${second}"] .fx-button[data-part="close"]').click()`);
+await a.js(
+    `document.querySelector('.fx-surface[data-id="${second}"] .fx-button[data-part="close"]').click()`,
+);
 await sleep(800);
 // Empty, and still where the person is.
 out.emptiedAndStillThere = await shown();
@@ -147,7 +186,11 @@ await chord("k");
 out.nextToTheFirstNow = await shown();
 await chord("k");
 out.andNothingAfterIt = await shown();
-for (const id of [first, third]) await a.js(`document.querySelector('.fx-surface[data-id="${id}"] .fx-button[data-part="close"]')?.click()`);
+for (const id of [first, third]) {
+    await a.js(
+        `document.querySelector('.fx-surface[data-id="${id}"] .fx-button[data-part="close"]')?.click()`,
+    );
+}
 await sleep(500);
 
 out.dockLog = dock.log;

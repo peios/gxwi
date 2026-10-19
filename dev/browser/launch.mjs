@@ -10,14 +10,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** `send` is a debugger connection's, to the desktop's page. */
 export async function launch(send, typed = "hello") {
     const key = async (params, text) => {
-        await send("Input.dispatchKeyEvent", { type: text ? "keyDown" : "rawKeyDown", ...params, ...(text ? { text } : {}) });
+        await send("Input.dispatchKeyEvent", {
+            type: text ? "keyDown" : "rawKeyDown",
+            ...params,
+            ...(text ? { text } : {}),
+        });
         await send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
     };
     await key({ key: " ", code: "Space", windowsVirtualKeyCode: 32, modifiers: 2 });
     await sleep(600);
     for (const letter of typed) {
-        const code = /[a-z]/i.test(letter) ? `Key${letter.toUpperCase()}` : { " ": "Space", "-": "Minus" }[letter] ?? "";
-        await key({ key: letter, code, windowsVirtualKeyCode: letter === "-" ? 189 : letter.toUpperCase().charCodeAt(0) }, letter);
+        const code = /[a-z]/i.test(letter)
+            ? `Key${letter.toUpperCase()}`
+            : ({ " ": "Space", "-": "Minus" }[letter] ?? "");
+        await key(
+            {
+                key: letter,
+                code,
+                windowsVirtualKeyCode: letter === "-" ? 189 : letter.toUpperCase().charCodeAt(0),
+            },
+            letter,
+        );
     }
     // What is typed is held back a moment before the process is told.
     await sleep(600);

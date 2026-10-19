@@ -27,14 +27,18 @@ const shown = (path) => guest(`sd show --sddl ${path} 2>&1 | tail -1`).trim();
 
 const desk = await session(9378, { user: "dana", password: "dana-dev-password" });
 const pic = (name) => desk.picture(`permissions-editor-push-${name}.png`);
-for (const id of await desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => s.dataset.id)`)) {
-    const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+for (const id of await desk.a.js(
+    `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => s.dataset.id)`,
+)) {
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('.fx-surface[data-id="${id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     if (close) await desk.pressAt(close);
     await sleep(800);
 }
-await desk.launch(`gexora ${AT}`);
+await desk.launch(`gxwi-file-explorer ${AT}`);
 const gexora = await desk.frame(".listing", '.fx-surface[data-role="window"]');
-if (!gexora) await desk.finish({ ...out, stopped: "no Gexora" }, 1);
+if (!gexora) await desk.finish({ ...out, stopped: "no File Explorer" }, 1);
 desk.surface = '.fx-surface[data-role="window"]';
 await desk.menuOn(gexora, `.entries [fx-value-name="push"]`);
 await desk.choose("Permissions…");
@@ -46,13 +50,16 @@ for (let i = 0; i < 40 && !editor; i++) {
 if (!editor) await desk.finish({ ...out, stopped: "no dialog" }, 1);
 desk.surface = '.fx-surface[data-role="dialog"]';
 const press = async (selector) => {
-    const there = await editor.js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e?.scrollIntoView({ block: "center" }); return !!e; })()`);
+    const there = await editor.js(
+        `(() => { const e = document.querySelector(${JSON.stringify(selector)}); e?.scrollIntoView({ block: "center" }); return !!e; })()`,
+    );
     if (!there) out.missed = [...(out.missed ?? []), selector];
     await sleep(200);
     await desk.press(editor, selector);
     await sleep(500);
 };
-const state = () => editor.js(`({
+const state = () =>
+    editor.js(`({
     push: [...document.querySelectorAll(".inherit.push p, .inherit.warn p, .inherit.warn li")].map((p) => p.textContent).filter(Boolean),
     status: document.querySelector("footer .status")?.textContent ?? null,
     trouble: document.querySelector(".trouble")?.textContent ?? null,
@@ -67,7 +74,9 @@ const settled = async (limit = 120) => {
 
 // Authenticated Users may read the folder and everything in it.
 await press(`[fx-click="add"]`);
-await editor.js(`(() => { const f = document.querySelector('[name="who"]'); f.value = "Authenticated Users"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await editor.js(
+    `(() => { const f = document.querySelector('[name="who"]'); f.value = "Authenticated Users"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+);
 await sleep(400);
 await press(`.naming button[type="submit"]`);
 await press(`.tabs [fx-value-v="access"]`);
@@ -84,7 +93,18 @@ out.settled = await settled();
 out.after = await state();
 await editor.js(`document.querySelector(".inherit.warn")?.scrollIntoView({ block: "center" })`);
 await pic("summary");
-out.dacls = Object.fromEntries(["push", "push/a", "push/a/deep", "push/a/deep/f.txt", "push/b.txt", "push/locked", "push/locked/in.txt", "push/many/f7"].map((p) => [p, shown(`${AT}/${p}`)]));
+out.dacls = Object.fromEntries(
+    [
+        "push",
+        "push/a",
+        "push/a/deep",
+        "push/a/deep/f.txt",
+        "push/b.txt",
+        "push/locked",
+        "push/locked/in.txt",
+        "push/many/f7",
+    ].map((p) => [p, shown(`${AT}/${p}`)]),
+);
 
 // Again, and stopped partway: take Read away and push that.
 await press(`.who[fx-value-sid="S-1-5-11"]`);

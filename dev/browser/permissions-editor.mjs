@@ -14,19 +14,28 @@ const out = {
         sd set ${AT}/finance 'O:${D}-1002G:BAD:(D;OICI;0x10156;;;${D}-1001)(A;OICI;0x1301bf;;;${D}-1002)(XA;OICI;0x1200a9;;;AU;(@User.Department == "Finance"))(A;OICIIO;GA;;;CO)(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)S:(ML;OICI;NW;;;ME)(AU;OICISAFA;0x120089;;;${D}-1001)(RA;OICI;;;;WD;("Classification",TS,0x0,"Confidential"))(AU;OICIIDFA;0x10000;;;WD)' >/dev/null && echo made`).trim(),
 };
 const desk = await session(light ? 9372 : 9371, { user: "dana", password: "dana-dev-password" });
-if (light) await desk.a.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
+if (light) {
+    await desk.a.send("Emulation.setEmulatedMedia", {
+        features: [{ name: "prefers-color-scheme", value: "light" }],
+    });
+}
 const pic = (name) => desk.picture(`permissions-editor-${light ? "light-" : ""}${name}.png`);
-// A first sign-in brings Get started, and an earlier run may leave Gexora:
+// A first sign-in brings Get started, and an earlier run may leave File Explorer:
 // they go, so the dialog comes over a desktop with one window.
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 for (const strip of await strips()) {
-    const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     if (close) await desk.pressAt(close);
     await sleep(800);
 }
-await desk.launch(`gexora ${AT}`);
+await desk.launch(`gxwi-file-explorer ${AT}`);
 const gexora = await desk.frame(".listing", '.fx-surface[data-role="window"]');
-if (!gexora) await desk.finish({ ...out, stopped: "no Gexora" }, 1);
+if (!gexora) await desk.finish({ ...out, stopped: "no File Explorer" }, 1);
 desk.surface = '.fx-surface[data-role="window"]';
 await desk.menuOn(gexora, `.entries [fx-value-name="finance"]`);
 await desk.choose("Permissions…");
@@ -35,9 +44,19 @@ for (let i = 0; i < 40 && !editor; i++) {
     editor = await desk.frame(".editor", '.fx-surface[data-role="dialog"]');
     if (!editor) await sleep(300);
 }
-if (!editor) await desk.finish({ ...out, stopped: "no dialog", trouble: await gexora.js(`document.querySelector(".trouble")?.textContent ?? null`) }, 1);
+if (!editor) {
+    await desk.finish(
+        {
+            ...out,
+            stopped: "no dialog",
+            trouble: await gexora.js(`document.querySelector(".trouble")?.textContent ?? null`),
+        },
+        1,
+    );
+}
 desk.surface = '.fx-surface[data-role="dialog"]';
-const look = () => editor.js(`({
+const look = () =>
+    editor.js(`({
     tabs: [...document.querySelectorAll(".toptabs [role=tab]")].map((t) => t.textContent),
     banners: [...document.querySelectorAll(".inherit p")].map((p) => p.textContent),
     listed: [...document.querySelectorAll(".who .name")].map((n) => n.textContent),
@@ -49,7 +68,9 @@ const look = () => editor.js(`({
 // The dialog may be taller than the screen: what is pressed is scrolled
 // into sight first, as a person would.
 const press = async (selector) => {
-    const there = await editor.js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e?.scrollIntoView({ block: "center" }); return !!e; })()`);
+    const there = await editor.js(
+        `(() => { const e = document.querySelector(${JSON.stringify(selector)}); e?.scrollIntoView({ block: "center" }); return !!e; })()`,
+    );
     if (!there) out.missed = [...(out.missed ?? []), selector];
     await sleep(200);
     await desk.press(editor, selector);
@@ -84,17 +105,23 @@ await top();
 await pic("policy");
 await press(`.toptabs [fx-value-v="eff"]`);
 await sleep(1500);
-out.effective = await editor.js(`document.querySelector(".capchips")?.innerText ?? document.querySelector(".editor")?.innerText.slice(0, 800)`);
+out.effective = await editor.js(
+    `document.querySelector(".capchips")?.innerText ?? document.querySelector(".editor")?.innerText.slice(0, 800)`,
+);
 await top();
 await pic("effective");
 await press(`.advswitch input`);
-out.advanced = await editor.js(`[...document.querySelectorAll(".xrow")].map((r) => r.innerText.replace(/\\n/g, " | "))`);
+out.advanced = await editor.js(
+    `[...document.querySelectorAll(".xrow")].map((r) => r.innerText.replace(/\\n/g, " | "))`,
+);
 await top();
 await pic("advanced-dacl");
 await editor.js(`document.querySelector(".xed")?.scrollIntoView({ block: "start" })`);
 await pic("advanced-entry");
 await press(`.toptabs [fx-value-v="sacl"]`);
-out.sacl = await editor.js(`[...document.querySelectorAll(".xrow")].map((r) => r.innerText.replace(/\\n/g, " | "))`);
+out.sacl = await editor.js(
+    `[...document.querySelectorAll(".xrow")].map((r) => r.innerText.replace(/\\n/g, " | "))`,
+);
 await top();
 await pic("advanced-sacl");
 await press(`.toptabs [fx-value-v="desc"]`);

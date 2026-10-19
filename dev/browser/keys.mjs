@@ -8,11 +8,23 @@ import { spawn } from "node:child_process";
 import { launch } from "./launch.mjs";
 
 const port = 9340;
-const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
-    "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
-    `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
+const chrome = spawn(
+    "chromium",
+    [
+        "--headless",
+        "--ignore-certificate-errors",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        "--blink-settings=preferredColorScheme=0",
+        "--window-size=1200,800",
+        `--remote-debugging-port=${port}`,
+        "about:blank",
+    ],
+    { stdio: "ignore" },
+);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const browser = (path, method = "GET") => fetch(`http://127.0.0.1:${port}${path}`, { method }).then((r) => r.json());
+const browser = (path, method = "GET") =>
+    fetch(`http://127.0.0.1:${port}${path}`, { method }).then((r) => r.json());
 
 async function attach(target) {
     const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -22,35 +34,61 @@ async function attach(target) {
     const log = [];
     ws.onmessage = (m) => {
         const msg = JSON.parse(m.data);
-        if (msg.id) waiting.get(msg.id)?.(msg);
-        else if (msg.method === "Log.entryAdded") log.push(msg.params.entry.text);
-        else if (msg.method === "Runtime.consoleAPICalled") log.push(msg.params.args.map((a) => a.value).join(" "));
-        else if (msg.method === "Runtime.exceptionThrown") log.push(msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text);
+        if (msg.id) {
+            waiting.get(msg.id)?.(msg);
+        } else if (msg.method === "Log.entryAdded") {
+            log.push(msg.params.entry.text);
+        } else if (msg.method === "Runtime.consoleAPICalled") {
+            log.push(msg.params.args.map((a) => a.value).join(" "));
+        } else if (msg.method === "Runtime.exceptionThrown") {
+            log.push(
+                msg.params.exceptionDetails.exception?.description ??
+                    msg.params.exceptionDetails.text,
+            );
+        }
     };
-    const send = (method, params = {}) => new Promise((r) => { const id = next++; waiting.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
+    const send = (method, params = {}) =>
+        new Promise((r) => {
+            const id = next++;
+            waiting.set(id, r);
+            ws.send(JSON.stringify({ id, method, params }));
+        });
     await send("Log.enable");
     await send("Runtime.enable");
-    const js = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.result?.value;
+    const js = async (expression) =>
+        (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }))
+            .result.result?.value;
     return { id: target.id, url: target.url, send, js, log };
 }
 const page = async (url) => attach(await browser(`/json/new?${url}`, "PUT"));
 /** The frames of `parent` that show the hello app's live surface. */
 async function hellos(parent) {
-    const all = await Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === parent.id).map(attach));
+    const all = await Promise.all(
+        (await browser("/json"))
+            .filter((t) => t.type === "iframe" && t.parentId === parent.id)
+            .map(attach),
+    );
     const found = [];
-    for (const frame of all) if (await frame.js(`!!document.querySelector("[fx-click=press]")`)) found.push(frame);
+    for (const frame of all) {
+        if (await frame.js(`!!document.querySelector("[fx-click=press]")`)) found.push(frame);
+    }
     return found;
 }
 
 for (let i = 0; i < 40; i++) {
     await sleep(500);
-    try { await browser("/json"); break; } catch {}
+    try {
+        await browser("/json");
+        break;
+    } catch {}
 }
 const a = await page("https://127.0.0.1:7780/");
 await sleep(1500);
 await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
-await a.js(`document.querySelector(".secret input").value = "alice-dev-password"; document.forms[0].submit()`);
+await a.js(
+    `document.querySelector(".secret input").value = "alice-dev-password"; document.forms[0].submit()`,
+);
 await sleep(4000);
 
 const out = {};
@@ -73,14 +111,19 @@ async function press(chord, text) {
         modifiers,
         key: letter ? key.toLowerCase() : key,
         code: letter ? (/[0-9]/.test(key) ? `Digit${key}` : `Key${key}`) : key,
-        windowsVirtualKeyCode: letter ? key.charCodeAt(0) : { Enter: 13, Escape: 27 }[key] ?? 0,
+        windowsVirtualKeyCode: letter ? key.charCodeAt(0) : ({ Enter: 13, Escape: 27 }[key] ?? 0),
     };
-    await a.send("Input.dispatchKeyEvent", { type: text ? "keyDown" : "rawKeyDown", ...params, ...(text ? { text } : {}) });
+    await a.send("Input.dispatchKeyEvent", {
+        type: text ? "keyDown" : "rawKeyDown",
+        ...params,
+        ...(text ? { text } : {}),
+    });
     await a.send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
     await sleep(500);
 }
 /** Which surface has the focus, and which has the keyboard (0 for the desktop's own page). */
-const where = () => a.js(`({
+const where = () =>
+    a.js(`({
     focused: Number(document.querySelector('.fx-surface[data-focused="true"]')?.dataset.id ?? 0),
     keyboardIn: Number(document.activeElement?.closest?.(".fx-surface")?.dataset.id ?? 0),
 })`);
@@ -135,7 +178,9 @@ await launch(a.send, "hello --raw");
 await sleep(4000);
 out.theRawPageAsItOpened = await where();
 await press("Alt+1");
-const raw = await a.js(`(() => { const s = [...document.querySelectorAll(".fx-surface[data-role=window]")].at(-1); const r = s.querySelector("iframe").getBoundingClientRect(); return { id: Number(s.dataset.id), x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+const raw = await a.js(
+    `(() => { const s = [...document.querySelectorAll(".fx-surface[data-role=window]")].at(-1); const r = s.querySelector("iframe").getBoundingClientRect(); return { id: Number(s.dataset.id), x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`,
+);
 const at = { x: raw.x, y: raw.y, button: "left", clickCount: 1 };
 await a.send("Input.dispatchMouseEvent", { type: "mousePressed", ...at });
 await a.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
@@ -147,10 +192,21 @@ const deaf = `[...document.querySelectorAll('.fx-surface[data-deaf="true"]')].ma
 out.deafBefore = await a.js(deaf);
 
 // The raw page goes somewhere that does not include the desktop's script.
-const rawFrame = (await Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === a.id && t.url.endsWith("/raw/")).map(attach)))[0];
+const rawFrame = (
+    await Promise.all(
+        (await browser("/json"))
+            .filter((t) => t.type === "iframe" && t.parentId === a.id && t.url.endsWith("/raw/"))
+            .map(attach),
+    )
+)[0];
 await rawFrame?.js(`location.href = "ping"`);
 await sleep(4500);
-out.deafAfterItWentElsewhere = { deaf: await a.js(deaf), says: await a.js(`getComputedStyle(document.querySelector('.fx-surface[data-deaf="true"] .fx-identity'), "::after").content`) };
+out.deafAfterItWentElsewhere = {
+    deaf: await a.js(deaf),
+    says: await a.js(
+        `getComputedStyle(document.querySelector('.fx-surface[data-deaf="true"] .fx-identity'), "::after").content`,
+    ),
+};
 
 // An app that is no part of the shell asks for a chord of its own.
 await apps[0].js(`parent.postMessage({ fx: "keys", chords: ["Alt+X"] }, "*")`);

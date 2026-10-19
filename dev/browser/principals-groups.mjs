@@ -18,13 +18,21 @@ const GROUP = "pmgroup";
 const RENAMED = "pmgroup2";
 const MEMBER = "pmmember";
 if (!alice) {
-    guest(`lps remove ${MEMBER} >/dev/null 2>&1; lps group delete ${GROUP} >/dev/null 2>&1; lps group delete ${RENAMED} >/dev/null 2>&1; lps add ${MEMBER} --no-password --no-prompt`);
+    guest(
+        `lps remove ${MEMBER} >/dev/null 2>&1; lps group delete ${GROUP} >/dev/null 2>&1; lps group delete ${RENAMED} >/dev/null 2>&1; lps add ${MEMBER} --no-password --no-prompt`,
+    );
 }
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "principals-groups-alice" : "principals-groups";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of the window whose title starts `title`, once it is there. */
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
@@ -43,7 +51,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -58,7 +68,8 @@ if (!manager) {
 }
 
 /** What the window shows. */
-const shows = () => manager.js(`({
+const shows = () =>
+    manager.js(`({
     bar: [...document.querySelectorAll(".bar button")].map((b) => b.textContent),
     rows: [...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | ") + (b.getAttribute("aria-selected") === "true" ? " (picked)" : "")),
     details: document.querySelector(".details")?.innerText.replaceAll("\\n", " / ") ?? null,
@@ -73,20 +84,39 @@ async function until(ready, ms = 15000) {
     }
     return shows();
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 async function fill(field, value) {
-    await manager.js(`(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await manager.js(
+        `(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+    );
     await sleep(150);
 }
 const said = async (what) => (await until((s) => (s.said ?? "").includes(what))).said;
-const sidOf = (who) => manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-sid") ?? null`);
+const sidOf = (who) =>
+    manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-sid") ?? null`,
+    );
 const pick = async (who) => {
     await until((s) => s.rows.some((row) => row.startsWith(`${who} |`)));
     await press(`.entries button[fx-value-sid="${await sidOf(who)}"]`);
     await until((s) => (s.details ?? "").includes("SID"));
 };
-const lpsGroups = () => guest(`lps group list 2>&1`).split("\n").filter((line) => line.startsWith(GROUP)).join(" / ");
-const lpsMember = () => guest(`lps show ${MEMBER} 2>&1`).split("\n").filter((line) => /^(primary group|groups|  )/.test(line)).join(" / ").replace(/ +/g, " ");
+const lpsGroups = () =>
+    guest(`lps group list 2>&1`)
+        .split("\n")
+        .filter((line) => line.startsWith(GROUP))
+        .join(" / ");
+const lpsMember = () =>
+    guest(`lps show ${MEMBER} 2>&1`)
+        .split("\n")
+        .filter((line) => /^(primary group|groups|  )/.test(line))
+        .join(" / ")
+        .replace(/ +/g, " ");
 
 await until((s) => s.rows.some((row) => row.startsWith("dana")));
 await press(`.tab[fx-click="groups"]`);
@@ -112,7 +142,10 @@ await fill("description", "Checks the groups");
 await desk.picture(`${name}-new.png`);
 await press(`.details button[type="submit"]`);
 out.made = await said("is made");
-out.madeShown = (await until((s) => (s.details ?? "").includes("Checks the groups"))).details.split(" / ").slice(0, 2).join(" / ");
+out.madeShown = (await until((s) => (s.details ?? "").includes("Checks the groups"))).details
+    .split(" / ")
+    .slice(0, 2)
+    .join(" / ");
 out.madeOnGuest = lpsGroups();
 
 // Its description, and its name.
@@ -126,7 +159,10 @@ await until((s) => (s.details ?? "").includes("New name"));
 await fill("new-name", RENAMED);
 await press(`.details button[type="submit"]`);
 out.renamed = await said("is now called");
-out.renamedOnGuest = guest(`lps group list 2>&1`).split("\n").filter((line) => line.startsWith(RENAMED)).join(" / ");
+out.renamedOnGuest = guest(`lps group list 2>&1`)
+    .split("\n")
+    .filter((line) => line.startsWith(RENAMED))
+    .join(" / ");
 
 // A member, who stops it being deleted, and is taken out again.
 await press(`.details button[fx-click="add-member"]`);
@@ -134,10 +170,16 @@ await until((s) => (s.details ?? "").includes("Add a member"));
 await fill("member", MEMBER);
 await press(`.details button[type="submit"]`);
 out.added = await said(`${MEMBER} is in`);
-out.addedShown = (await until((s) => (s.details ?? "").includes(`Members / ${MEMBER}`))).details.match(/Members \/ [^/]*/)?.[0] ?? null;
+out.addedShown =
+    (await until((s) => (s.details ?? "").includes(`Members / ${MEMBER}`))).details.match(
+        /Members \/ [^/]*/,
+    )?.[0] ?? null;
 out.addedOnGuest = lpsMember();
 await press(`.details button[fx-click="delete-group"]`);
-out.notDeletable = (await until((s) => (s.details ?? "").includes("before deleting it"))).details.match(/[^/]*before deleting it/)?.[0] ?? null;
+out.notDeletable =
+    (await until((s) => (s.details ?? "").includes("before deleting it"))).details.match(
+        /[^/]*before deleting it/,
+    )?.[0] ?? null;
 out.notDeletableOffers = (await shows()).actions.filter((label) => label === "Delete").length;
 await desk.picture(`${name}-not-deletable.png`);
 await press(`.details .asking button[fx-click="cancel"]`);
@@ -161,7 +203,9 @@ await press(`.tab[fx-click="users"]`);
 await pick(MEMBER);
 await press(`.details button[fx-click="join"]`);
 await until((s) => (s.details ?? "").includes("Add them to"));
-const renamedSid = await manager.js(`[...document.querySelectorAll("[name=group] option")].find((o) => o.textContent === ${JSON.stringify(RENAMED)})?.value ?? null`);
+const renamedSid = await manager.js(
+    `[...document.querySelectorAll("[name=group] option")].find((o) => o.textContent === ${JSON.stringify(RENAMED)})?.value ?? null`,
+);
 await fill("group", renamedSid);
 await desk.picture(`${name}-join.png`);
 await press(`.details button[type="submit"]`);
@@ -181,11 +225,17 @@ out.left = await said(`is out of ${RENAMED}`);
 // they are gone, it goes.
 await press(`.tab[fx-click="groups"]`);
 await pick(RENAMED);
-out.primaryMember = (await until((s) => (s.details ?? "").includes(`Members / ${MEMBER}`))).details.match(/Members \/ [^/]*/)?.[0] ?? null;
+out.primaryMember =
+    (await until((s) => (s.details ?? "").includes(`Members / ${MEMBER}`))).details.match(
+        /Members \/ [^/]*/,
+    )?.[0] ?? null;
 await press(`.details button[fx-click="remove-member"][fx-value-member="${MEMBER}"]`);
 out.primaryRefused = (await until((s) => (s.said ?? "").includes("primary group"))).said;
 await press(`.details button[fx-click="delete-group"]`);
-out.primaryNotDeletable = (await until((s) => (s.details ?? "").includes("before deleting it"))).details.match(/[^/]*before deleting it[^/]*/)?.[0] ?? null;
+out.primaryNotDeletable =
+    (await until((s) => (s.details ?? "").includes("before deleting it"))).details.match(
+        /[^/]*before deleting it[^/]*/,
+    )?.[0] ?? null;
 await press(`.details .asking button[fx-click="cancel"]`);
 guest(`lps remove ${MEMBER}`);
 await until((s) => (s.details ?? "").includes("Nobody is in it"));
@@ -193,5 +243,8 @@ await press(`.details button[fx-click="delete-group"]`);
 await until((s) => (s.details ?? "").includes("can't be undone"));
 await press(`.details button[fx-click="delete-group-yes"]`);
 out.deleted = await said("is deleted");
-out.goneOnGuest = guest(`lps group list 2>&1`).split("\n").filter((line) => line.startsWith(RENAMED)).length === 0;
+out.goneOnGuest =
+    guest(`lps group list 2>&1`)
+        .split("\n")
+        .filter((line) => line.startsWith(RENAMED)).length === 0;
 await desk.finish(out);

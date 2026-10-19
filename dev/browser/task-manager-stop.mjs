@@ -18,14 +18,25 @@
 import { guest, session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
-const pidOf = (arg) => guest(`for p in /proc/[0-9]*; do [ "$(cat $p/cmdline 2>/dev/null | tr '\\0' ' ')" = "/usr/bin/sleep ${arg} " ] && echo \${p#/proc/}; done; true`).trim().split("\n")[0];
+const pidOf = (arg) =>
+    guest(
+        `for p in /proc/[0-9]*; do [ "$(cat $p/cmdline 2>/dev/null | tr '\\0' ' ')" = "/usr/bin/sleep ${arg} " ] && echo \${p#/proc/}; done; true`,
+    )
+        .trim()
+        .split("\n")[0];
 const service = pidOf(4200);
 const job = pidOf(4300);
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = { service, job };
 const name = alice ? "task-manager-stop-alice" : "task-manager-stop";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -43,7 +54,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -53,10 +66,13 @@ await desk.launch("task");
 await gone(["Get started"]);
 const manager = await window("Task Manager", ".list");
 if (!manager || !service || !job) {
-    out.stopped = !manager ? "no Task Manager window to attach to" : "the test service or job isn't running";
+    out.stopped = !manager
+        ? "no Task Manager window to attach to"
+        : "the test service or job isn't running";
     await desk.finish(out, 1);
 }
-const details = () => manager.js(`document.querySelector(".details")?.innerText.replaceAll("\\n", " / ") ?? null`);
+const details = () =>
+    manager.js(`document.querySelector(".details")?.innerText.replaceAll("\\n", " / ") ?? null`);
 async function until(ready, ms = 15000) {
     for (let waited = 0; waited < ms; waited += 300) {
         const now = await details();
@@ -65,12 +81,19 @@ async function until(ready, ms = 15000) {
     }
     return details();
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 const has = (selector) => manager.js(`!!document.querySelector(${JSON.stringify(selector)})`);
 await sleep(2500);
 
 await press(`.entries button[fx-value-pid="${service}"]`);
-out.servicePicked = await until((d) => d.includes(`Process ${service}`) && d.includes("Belongs to"));
+out.servicePicked = await until(
+    (d) => d.includes(`Process ${service}`) && d.includes("Belongs to"),
+);
 await desk.picture(`${name}-service.png`);
 out.stopServiceOffered = await has('.details button[fx-click="stop-service"]');
 if (!alice && out.stopServiceOffered) {
@@ -98,9 +121,15 @@ if (!alice && out.stopJobOffered) {
 // Who is signed in.
 await press('.tab[fx-value-by="Signed in"]');
 await sleep(1000);
-out.signedIn = await manager.js(`[...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | "))`);
-out.signedNote = await manager.js(`[...document.querySelectorAll(".said")].map((p) => p.textContent)`);
-const first = await manager.js(`document.querySelector(".entries button")?.getAttribute("fx-value-id") ?? null`);
+out.signedIn = await manager.js(
+    `[...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | "))`,
+);
+out.signedNote = await manager.js(
+    `[...document.querySelectorAll(".said")].map((p) => p.textContent)`,
+);
+const first = await manager.js(
+    `document.querySelector(".entries button")?.getAttribute("fx-value-id") ?? null`,
+);
 if (first) {
     await press(`.entries button[fx-value-id="${first}"]`);
     out.session = await until((d) => d.includes("Session"));

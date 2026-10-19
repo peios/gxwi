@@ -17,17 +17,24 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { guest, session, sleep } from "./harness.mjs";
 
-const send = (command) => promisify(execFile)(new URL("../guest.sh", import.meta.url).pathname, [command]);
+const send = (command) =>
+    promisify(execFile)(new URL("../guest.sh", import.meta.url).pathname, [command]);
 
 const alice = process.argv[2] === "alice";
-const desk = await session(alice ? 9368 : 9367, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9368 : 9367,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = { trials: [] };
 const key = "Machine\\System\\Services\\watched";
 const closed = "D:P(A;;KA;;;SY)(A;;KR;;;BA)(A;;KR;;;AU)";
 const open = "D:P(A;;KA;;;SY)(A;;KA;;;BA)(A;;KA;;;AU)";
 
 /** The windows on the desktop, by the title on their strips. */
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function until(ready, look, ms = 15000, every = 300) {
     for (let waited = 0; waited < ms; waited += every) {
         const now = await look();
@@ -39,7 +46,9 @@ async function until(ready, look, ms = 15000, every = 300) {
 async function close(titles) {
     for (const strip of await strips()) {
         if (!titles.includes(strip.title)) continue;
-        const at = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const at = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (at) await desk.pressAt(at);
         await sleep(800);
     }
@@ -64,11 +73,27 @@ for (let i = 0; i < 40 && !manager; i++) {
     if (!manager) await sleep(300);
 }
 if (!manager) await desk.finish({ ...out, stopped: "no Services Manager window" }, 1);
-const id = await until((found) => found, () => manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "Watched one")?.id ?? null`));
+const id = await until(
+    (found) => found,
+    () =>
+        manager.js(
+            `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "Watched one")?.id ?? null`,
+        ),
+);
 for (let tries = 0; tries < 3; tries++) {
-    await manager.js(`document.getElementById(${JSON.stringify(id)})?.scrollIntoView({ block: "center" })`);
+    await manager.js(
+        `document.getElementById(${JSON.stringify(id)})?.scrollIntoView({ block: "center" })`,
+    );
     await desk.press(manager, `#${id}`);
-    if ((await until((title) => title === "Watched one", () => manager.js(`document.querySelector(".details h2")?.textContent`), 4000)) === "Watched one") break;
+    if (
+        (await until(
+            (title) => title === "Watched one",
+            () => manager.js(`document.querySelector(".details h2")?.textContent`),
+            4000,
+        )) === "Watched one"
+    ) {
+        break;
+    }
 }
 const label = () => manager.js(`document.querySelector(".details .open")?.textContent ?? null`);
 out.before = await until((said) => said === "Definition…", label);
@@ -78,15 +103,21 @@ for (let trial = 0; trial < 6; trial++) {
     const want = trial % 2 === 0 ? "Edit definition…" : "Definition…";
     const sent = Date.now();
     let returned = null;
-    const sending = send(`reg sd '${key}' --dacl --set '${trial % 2 === 0 ? open : closed}' >/dev/null 2>&1`).then(() => (returned = Date.now() - sent));
+    const sending = send(
+        `reg sd '${key}' --dacl --set '${trial % 2 === 0 ? open : closed}' >/dev/null 2>&1`,
+    ).then(() => (returned = Date.now() - sent));
     const said = await until((said) => said === want, label, 6000, 25);
     const seen = Date.now() - sent;
     await sending;
     out.trials.push({ want, said, seen, returned });
     await sleep(1500);
 }
-out.slowest = Math.max(...out.trials.map((trial) => (trial.said === trial.want ? trial.seen : Infinity)));
+out.slowest = Math.max(
+    ...out.trials.map((trial) => (trial.said === trial.want ? trial.seen : Infinity)),
+);
 await desk.picture(alice ? "watch-alice.png" : "watch.png");
 // Opened again first: closed, it lets nobody delete it but SYSTEM.
-out.after = guest(`reg sd '${key}' --dacl --set '${open}' >/dev/null 2>&1; svctl definition delete watched 2>&1`).split("\n")[0];
+out.after = guest(
+    `reg sd '${key}' --dacl --set '${open}' >/dev/null 2>&1; svctl definition delete watched 2>&1`,
+).split("\n")[0];
 await desk.finish(out);

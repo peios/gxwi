@@ -15,7 +15,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { guest as asGuest, session, sleep } from "./harness.mjs";
 
-const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
+const guest = (command) =>
+    asGuest(command)
+        .replace(/\n?rc=\d+\s*$/, "")
+        .trim();
 const alice = process.argv[2] === "alice";
 const who = alice ? "alice" : "dana";
 const password = `${who}-dev-password`;
@@ -24,14 +27,29 @@ const out = {};
 const name = alice ? "my-settings-alice" : "my-settings";
 // A key made for the check, thrown away with it.
 const keyDir = mkdtempSync(join(tmpdir(), "my-settings-"));
-execFileSync("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-C", "settings check", "-f", join(keyDir, "k")]);
+execFileSync("ssh-keygen", [
+    "-q",
+    "-t",
+    "ed25519",
+    "-N",
+    "",
+    "-C",
+    "settings check",
+    "-f",
+    join(keyDir, "k"),
+]);
 const key = readFileSync(join(keyDir, "k.pub"), "utf8").trim();
 rmSync(keyDir, { recursive: true });
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 for (const strip of await strips()) {
     if (!["Get started", "My Settings"].some((title) => strip.title.startsWith(title))) continue;
-    const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     if (close) await desk.pressAt(close);
     await sleep(800);
 }
@@ -43,7 +61,8 @@ if (!w) {
     await desk.finish(out, 1);
 }
 w.surface = `.fx-surface[data-id="${(await strips()).filter((s) => s.title.startsWith("My Settings")).at(-1).id}"]`;
-const shows = () => w.js(`({
+const shows = () =>
+    w.js(`({
     said: document.querySelector(".st-status .said")?.textContent ?? null,
     nav: [...document.querySelectorAll(".st-nav button")].map((b) => b.innerText.replaceAll("\\n", " — ")),
     groups: [...document.querySelectorAll(".st-group, .st-banner")].map((g) => g.innerText.replaceAll("\\n", " | ").slice(0, 300)),
@@ -55,9 +74,14 @@ const section = async (id) => {
     await press(`#st-nav-${id}`);
     await sleep(1200);
 };
-const put = (field, value) => w.js(`(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+const put = (field, value) =>
+    w.js(
+        `(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`,
+    );
 const press = async (selector) => {
-    await w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`);
+    await w.js(
+        `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+    );
     return desk.press(w, selector);
 };
 /** Fills a form's fields, then submits it, and says what the window said. */
@@ -83,10 +107,26 @@ await submit("save-name", { "display-name": nameWas });
 // The password: refused, then changed and changed back.
 await section("password");
 await desk.picture(`${name}-password.png`);
-out.wrongPassword = await submit("change-password", { current: "not-it", new: "x-new-1", confirm: "x-new-1" });
-out.mismatch = await submit("change-password", { current: password, new: "x-new-1", confirm: "x-new-2" });
-out.changed = await submit("change-password", { current: password, new: `${password}-2`, confirm: `${password}-2` });
-out.changedBack = await submit("change-password", { current: `${password}-2`, new: password, confirm: password });
+out.wrongPassword = await submit("change-password", {
+    current: "not-it",
+    new: "x-new-1",
+    confirm: "x-new-1",
+});
+out.mismatch = await submit("change-password", {
+    current: password,
+    new: "x-new-1",
+    confirm: "x-new-2",
+});
+out.changed = await submit("change-password", {
+    current: password,
+    new: `${password}-2`,
+    confirm: `${password}-2`,
+});
+out.changedBack = await submit("change-password", {
+    current: `${password}-2`,
+    new: password,
+    confirm: password,
+});
 
 // A key: refused, added, taken away. The form stays open while refused.
 await section("keys");
@@ -111,18 +151,29 @@ out.keyRemoved.lps = guest(`lps key list ${who} 2>&1`);
 
 // Language and formats, each applied as it is chosen.
 await section("language");
-out.languages = await w.js(`[...document.querySelectorAll("[name='lang'] option")].map((o) => o.textContent)`);
+out.languages = await w.js(
+    `[...document.querySelectorAll("[name='lang'] option")].map((o) => o.textContent)`,
+);
 await put("lang", "en_GB.UTF-8");
 await sleep(1500);
 await put("formats", "en_GB.UTF-8");
 await sleep(1500);
-out.language = { said: (await shows()).said, nav: (await shows()).nav[3], registry: guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG; reg get 'Users\\\\${sid}\\\\Locale' LC_TIME`) };
+out.language = {
+    said: (await shows()).said,
+    nav: (await shows()).nav[3],
+    registry: guest(
+        `reg get 'Users\\\\${sid}\\\\Locale' LANG; reg get 'Users\\\\${sid}\\\\Locale' LC_TIME`,
+    ),
+};
 await desk.picture(`${name}-language.png`);
 await put("lang", "");
 await sleep(1500);
 await put("formats", "");
 await sleep(1500);
-out.languageBack = { said: (await shows()).said, registry: guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG 2>&1`) };
+out.languageBack = {
+    said: (await shows()).said,
+    registry: guest(`reg get 'Users\\\\${sid}\\\\Locale' LANG 2>&1`),
+};
 await section("account");
 
 out.end = await shows();

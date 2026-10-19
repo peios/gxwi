@@ -9,11 +9,23 @@ import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
 const port = 9341;
-const chrome = spawn("chromium", ["--headless", "--ignore-certificate-errors", "--disable-gpu", "--hide-scrollbars",
-    "--blink-settings=preferredColorScheme=0", "--window-size=1200,800",
-    `--remote-debugging-port=${port}`, "about:blank"], { stdio: "ignore" });
+const chrome = spawn(
+    "chromium",
+    [
+        "--headless",
+        "--ignore-certificate-errors",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        "--blink-settings=preferredColorScheme=0",
+        "--window-size=1200,800",
+        `--remote-debugging-port=${port}`,
+        "about:blank",
+    ],
+    { stdio: "ignore" },
+);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const browser = (path, method = "GET") => fetch(`http://127.0.0.1:${port}${path}`, { method }).then((r) => r.json());
+const browser = (path, method = "GET") =>
+    fetch(`http://127.0.0.1:${port}${path}`, { method }).then((r) => r.json());
 
 async function attach(target) {
     const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -23,34 +35,60 @@ async function attach(target) {
     const log = [];
     ws.onmessage = (m) => {
         const msg = JSON.parse(m.data);
-        if (msg.id) waiting.get(msg.id)?.(msg);
-        else if (msg.method === "Log.entryAdded") log.push(msg.params.entry.text);
-        else if (msg.method === "Runtime.consoleAPICalled") log.push(msg.params.args.map((a) => a.value).join(" "));
-        else if (msg.method === "Runtime.exceptionThrown") log.push(msg.params.exceptionDetails.exception?.description ?? msg.params.exceptionDetails.text);
+        if (msg.id) {
+            waiting.get(msg.id)?.(msg);
+        } else if (msg.method === "Log.entryAdded") {
+            log.push(msg.params.entry.text);
+        } else if (msg.method === "Runtime.consoleAPICalled") {
+            log.push(msg.params.args.map((a) => a.value).join(" "));
+        } else if (msg.method === "Runtime.exceptionThrown") {
+            log.push(
+                msg.params.exceptionDetails.exception?.description ??
+                    msg.params.exceptionDetails.text,
+            );
+        }
     };
-    const send = (method, params = {}) => new Promise((r) => { const id = next++; waiting.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
+    const send = (method, params = {}) =>
+        new Promise((r) => {
+            const id = next++;
+            waiting.set(id, r);
+            ws.send(JSON.stringify({ id, method, params }));
+        });
     await send("Log.enable");
     await send("Runtime.enable");
-    const js = async (expression) => (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })).result.result?.value;
+    const js = async (expression) =>
+        (await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }))
+            .result.result?.value;
     return { id: target.id, send, js, log };
 }
 const page = async (url) => attach(await browser(`/json/new?${url}`, "PUT"));
 /** The frame of `parent` that `has` something, among those the browser keeps apart. */
 async function frame(parent, has) {
-    const all = await Promise.all((await browser("/json")).filter((t) => t.type === "iframe" && t.parentId === parent.id).map(attach));
-    for (const one of all) if (await one.js(`!!document.querySelector(${JSON.stringify(has)})`)) return one;
+    const all = await Promise.all(
+        (await browser("/json"))
+            .filter((t) => t.type === "iframe" && t.parentId === parent.id)
+            .map(attach),
+    );
+    for (const one of all) {
+        if (await one.js(`!!document.querySelector(${JSON.stringify(has)})`)) return one;
+    }
     return null;
 }
 
 for (let i = 0; i < 40; i++) {
     await sleep(500);
-    try { await browser("/json"); break; } catch {}
+    try {
+        await browser("/json");
+        break;
+    } catch {}
 }
 const a = await page("https://127.0.0.1:7780/");
 await sleep(1500);
 await a.js(`document.querySelector("#username").value = "alice"; document.forms[0].submit()`);
 await sleep(2000);
-await a.js(`document.querySelector(".secret input").value = "alice-dev-password"; document.forms[0].submit()`);
+await a.js(
+    `document.querySelector(".secret input").value = "alice-dev-password"; document.forms[0].submit()`,
+);
 await sleep(4000);
 
 const out = {};
@@ -74,9 +112,13 @@ async function press(on, chord, text) {
         modifiers,
         key: letter ? key.toLowerCase() : key === "Space" ? " " : key,
         code: letter ? (/[0-9]/.test(key) ? `Digit${key}` : `Key${key}`) : key,
-        windowsVirtualKeyCode: letter ? key.charCodeAt(0) : CODES[key] ?? 0,
+        windowsVirtualKeyCode: letter ? key.charCodeAt(0) : (CODES[key] ?? 0),
     };
-    await on.send("Input.dispatchKeyEvent", { type: text ? "keyDown" : "rawKeyDown", ...params, ...(text ? { text } : {}) });
+    await on.send("Input.dispatchKeyEvent", {
+        type: text ? "keyDown" : "rawKeyDown",
+        ...params,
+        ...(text ? { text } : {}),
+    });
     await on.send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
     await sleep(400);
 }
@@ -99,7 +141,11 @@ const shows = `({
 })`;
 
 const launcher = await frame(a, "[name=query][fx-autofocus]");
-if (!launcher) { out.stopped = "no launcher to attach to"; out.desk = await a.js(desk); await finish(1); }
+if (!launcher) {
+    out.stopped = "no launcher to attach to";
+    out.desk = await a.js(desk);
+    await finish(1);
+}
 out.atLogon = await a.js(desk);
 
 // Sent for, with the keyboard in the desktop's own page.
@@ -108,11 +154,16 @@ out.sentFor = { desk: await a.js(desk), launcher: await launcher.js(shows) };
 await press(a, "ArrowDown");
 await press(a, "ArrowDown");
 await press(a, "ArrowUp");
-out.afterDownDownUp = (await launcher.js(shows)).listed.findIndex((entry) => entry.endsWith("PICKED"));
+out.afterDownDownUp = (await launcher.js(shows)).listed.findIndex((entry) =>
+    entry.endsWith("PICKED"),
+);
 for (const letter of "HELLO") await press(a, letter, letter.toLowerCase());
 await sleep(500);
 out.afterTypingHello = await launcher.js(shows);
-writeFileSync(new URL("launcher.png", import.meta.url), Buffer.from((await a.send("Page.captureScreenshot")).result.data, "base64"));
+writeFileSync(
+    new URL("launcher.png", import.meta.url),
+    Buffer.from((await a.send("Page.captureScreenshot")).result.data, "base64"),
+);
 await press(a, "Enter");
 await sleep(3000);
 out.afterEnter = { desk: await a.js(desk), launcher: await launcher.js(shows) };
@@ -134,9 +185,21 @@ out.afterEscape = await a.js(desk);
 
 // A press on a window sends it away too.
 await press(a, "Alt+P");
-const tile = await a.js(`(() => { const r = document.querySelector(".fx-surface[data-kind=app][data-role=window] .fx-strip").getBoundingClientRect(); return { x: r.left + 200, y: r.top + 10 }; })()`);
-await a.send("Input.dispatchMouseEvent", { type: "mousePressed", ...tile, button: "left", clickCount: 1 });
-await a.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...tile, button: "left", clickCount: 1 });
+const tile = await a.js(
+    `(() => { const r = document.querySelector(".fx-surface[data-kind=app][data-role=window] .fx-strip").getBoundingClientRect(); return { x: r.left + 200, y: r.top + 10 }; })()`,
+);
+await a.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    ...tile,
+    button: "left",
+    clickCount: 1,
+});
+await a.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    ...tile,
+    button: "left",
+    clickCount: 1,
+});
 await sleep(400);
 out.afterAPressOnAWindow = await a.js(desk);
 

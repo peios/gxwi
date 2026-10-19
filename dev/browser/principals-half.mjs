@@ -10,15 +10,25 @@
 import { guest, session, sleep } from "./harness.mjs";
 
 const USER = "pmhalf";
-const KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEK7Bpk2tHLFoBxVQIrWCFPsqcTcRFAiPBir7uaFTsCu pm-laptop";
-guest(`lps remove ${USER} >/dev/null 2>&1; lps add ${USER} --no-password --no-prompt >/dev/null; echo '${KEY}' > /tmp/pmhalf.pub; lps key add ${USER} /tmp/pmhalf.pub laptop >/dev/null`);
-const sids = guest(`lps show ${USER}; lps show dana`).match(/^sid +\S+/gm).map((line) => line.split(/ +/)[1]);
-guest(`lps claim set ${USER} Team sid S-1-5-32-544 ${sids.join(" ")} >/dev/null; lps claim set ${USER} Department string Engineering >/dev/null`);
+const KEY =
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEK7Bpk2tHLFoBxVQIrWCFPsqcTcRFAiPBir7uaFTsCu pm-laptop";
+guest(
+    `lps remove ${USER} >/dev/null 2>&1; lps add ${USER} --no-password --no-prompt >/dev/null; echo '${KEY}' > /tmp/pmhalf.pub; lps key add ${USER} /tmp/pmhalf.pub laptop >/dev/null`,
+);
+const sids = guest(`lps show ${USER}; lps show dana`)
+    .match(/^sid +\S+/gm)
+    .map((line) => line.split(/ +/)[1]);
+guest(
+    `lps claim set ${USER} Team sid S-1-5-32-544 ${sids.join(" ")} >/dev/null; lps claim set ${USER} Department string Engineering >/dev/null`,
+);
 const desk = await session(9366, { user: "dana", password: "dana-dev-password" });
 const out = {};
 const name = "principals-half";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -36,7 +46,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -52,9 +64,15 @@ if (!manager) {
     await desk.finish(out, 1);
 }
 
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 /** How wide the window is, and anything in it wider than its place. */
-const fits = () => manager.js(`(() => {
+const fits = () =>
+    manager.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".details *, .list *, .bar *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
@@ -63,7 +81,9 @@ const fits = () => manager.js(`(() => {
     return { width: innerWidth, sideways: page.scrollWidth > page.clientWidth, pane: details ? Math.round(details.getBoundingClientRect().width) : null, over: [...new Set(over)].slice(0, 6) };
 })()`);
 const pick = async (label) => {
-    const at = await manager.js(`(() => { const b = [...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)}); return b ? (b.getAttribute("fx-value-sid") ? '[fx-value-sid="' + b.getAttribute("fx-value-sid") + '"]' : '[fx-value-record="' + b.getAttribute("fx-value-record") + '"]') : null; })()`);
+    const at = await manager.js(
+        `(() => { const b = [...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)}); return b ? (b.getAttribute("fx-value-sid") ? '[fx-value-sid="' + b.getAttribute("fx-value-sid") + '"]' : '[fx-value-record="' + b.getAttribute("fx-value-record") + '"]') : null; })()`,
+    );
     if (at) await press(`.entries button${at}`);
     await sleep(700);
 };
@@ -75,7 +95,9 @@ const look = async (label) => {
 await sleep(1000);
 await pick(USER);
 await look("users");
-await manager.js(`[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "SSH keys")?.scrollIntoView({ block: "start" })`);
+await manager.js(
+    `[...document.querySelectorAll(".details h3")].find((h) => h.textContent === "SSH keys")?.scrollIntoView({ block: "start" })`,
+);
 await sleep(300);
 await look("user-keys");
 await manager.js(`document.querySelector(".details").scrollTop = 99999`);

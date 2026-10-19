@@ -1,7 +1,7 @@
 // The permissions editor's inheritance, Effective Access for someone typed,
 // and the dialog at a narrow width, in headless Chromium, as dana, an
 // administrator. Access inheritance is stopped (dropping what was
-// inherited) and applied, then turned back on, which Gexora's copy of the
+// inherited) and applied, then turned back on, which File Explorer's copy of the
 // parent's descriptor makes possible, and applied again.
 //
 //     node dev/browser/permissions-editor-inherit.mjs
@@ -15,14 +15,18 @@ const out = {
 };
 const desk = await session(9375, { user: "dana", password: "dana-dev-password" });
 const pic = (name) => desk.picture(`permissions-editor-inherit-${name}.png`);
-for (const id of await desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => s.dataset.id)`)) {
-    const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+for (const id of await desk.a.js(
+    `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => s.dataset.id)`,
+)) {
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('.fx-surface[data-id="${id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     if (close) await desk.pressAt(close);
     await sleep(800);
 }
-await desk.launch(`gexora ${AT}`);
+await desk.launch(`gxwi-file-explorer ${AT}`);
 const gexora = await desk.frame(".listing", '.fx-surface[data-role="window"]');
-if (!gexora) await desk.finish({ ...out, stopped: "no Gexora" }, 1);
+if (!gexora) await desk.finish({ ...out, stopped: "no File Explorer" }, 1);
 
 let editor;
 async function open() {
@@ -37,13 +41,16 @@ async function open() {
     await desk.finish({ ...out, stopped: "no dialog" }, 1);
 }
 const press = async (selector) => {
-    const there = await editor.js(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e?.scrollIntoView({ block: "center" }); return !!e; })()`);
+    const there = await editor.js(
+        `(() => { const e = document.querySelector(${JSON.stringify(selector)}); e?.scrollIntoView({ block: "center" }); return !!e; })()`,
+    );
     if (!there) out.missed = [...(out.missed ?? []), selector];
     await sleep(200);
     await desk.press(editor, selector);
     await sleep(500);
 };
-const look = () => editor.js(`({
+const look = () =>
+    editor.js(`({
     banners: [...document.querySelectorAll(".inherit p, .banner p")].map((p) => p.textContent),
     links: [...document.querySelectorAll(".inherit button, .banner button")].map((b) => b.textContent + (b.disabled ? " (off)" : "")),
     listed: [...document.querySelectorAll(".who")].map((n) => n.querySelector(".name").textContent + (n.querySelector(".from") ? " " + n.querySelector(".from").textContent : "")),
@@ -51,7 +58,9 @@ const look = () => editor.js(`({
 const apply = async (name) => {
     await press(`footer [fx-click="apply"]`);
     await sleep(1500);
-    out[name] = await editor.js(`({ status: document.querySelector("footer .status")?.textContent ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`);
+    out[name] = await editor.js(
+        `({ status: document.querySelector("footer .status")?.textContent ?? null, trouble: document.querySelector(".trouble")?.textContent ?? null })`,
+    );
 };
 const dacl = () => guest(`sd show --sddl ${AT}/finance`).trim().split("\n")[1];
 
@@ -69,7 +78,7 @@ out.afterStop = dacl();
 await press(`footer [fx-click="cancel"]`);
 await sleep(1000);
 
-// Opened again, and inheriting again from what Gexora sent of the parent.
+// Opened again, and inheriting again from what File Explorer sent of the parent.
 await open();
 out.reopened = await look();
 await press(`[fx-click="inherit-on"][fx-value-v="access"]`);
@@ -80,7 +89,9 @@ out.afterOn = dacl();
 
 // Effective Access for someone typed by name.
 await press(`.toptabs [fx-value-v="eff"]`);
-await editor.js(`(() => { const f = document.querySelector('[name="eff.name"]'); f.value = "alice"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await editor.js(
+    `(() => { const f = document.querySelector('[name="eff.name"]'); f.value = "alice"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+);
 await sleep(400);
 await press(`.eff-find button[type="submit"]`);
 await sleep(1500);
@@ -94,12 +105,19 @@ await pic("effective");
 
 // A narrow screen: the dialog fits, and nothing makes it scroll sideways.
 for (const width of [720, 480]) {
-    await desk.a.send("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: false });
+    await desk.a.send("Emulation.setDeviceMetricsOverride", {
+        width,
+        height: 800,
+        deviceScaleFactor: 1,
+        mobile: false,
+    });
     await sleep(1500);
     await press(`.toptabs [fx-value-v="access"]`);
     await press(`.who[fx-value-sid="${D}-1001"]`);
     await editor.js(`document.scrollingElement.scrollTop = 0`);
-    out[`narrow${width}`] = await editor.js(`({ inner: innerWidth, sideways: (() => { const s = document.scrollingElement; s.scrollLeft = 1000; const moved = s.scrollLeft; s.scrollLeft = 0; return moved; })(), over: [...document.querySelectorAll(".editor *")].filter((e) => e.getBoundingClientRect().right > innerWidth + 1).slice(0, 6).map((e) => e.tagName + "." + e.className) })`);
+    out[`narrow${width}`] = await editor.js(
+        `({ inner: innerWidth, sideways: (() => { const s = document.scrollingElement; s.scrollLeft = 1000; const moved = s.scrollLeft; s.scrollLeft = 0; return moved; })(), over: [...document.querySelectorAll(".editor *")].filter((e) => e.getBoundingClientRect().right > innerWidth + 1).slice(0, 6).map((e) => e.tagName + "." + e.className) })`,
+    );
     await pic(`narrow-${width}`);
     await editor.js(`document.querySelector(".pane")?.scrollIntoView({ block: "start" })`);
     await pic(`narrow-${width}-pane`);

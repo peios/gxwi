@@ -14,7 +14,10 @@ const desk = await session(9367, { user: "dana", password: "dana-dev-password" }
 const out = {};
 
 /** The windows on the desktop, by the title on their strips. */
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function until(ready, look, ms = 15000) {
     for (let waited = 0; waited < ms; waited += 300) {
         const now = await look();
@@ -26,7 +29,9 @@ async function until(ready, look, ms = 15000) {
 /** Presses `selector` in `frame`, scrolled into sight, until `then` holds. */
 async function press(frame, selector, then = async () => true) {
     for (let tries = 0; tries < 3; tries++) {
-        await frame.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`);
+        await frame.js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        );
         await desk.press(frame, selector);
         for (let waited = 0; waited < 10; waited++) {
             if (await then()) return true;
@@ -40,7 +45,9 @@ async function press(frame, selector, then = async () => true) {
 async function getStartedGoes() {
     for (const strip of await strips()) {
         if (strip.title !== "Get started") continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -67,22 +74,45 @@ for (let i = 0; i < 40 && !manager; i++) {
     if (!manager) await sleep(300);
 }
 if (!manager) await desk.finish({ ...out, stopped: "no Services Manager window" }, 1);
-await until((rows) => rows > 0, () => manager.js(`document.querySelectorAll(".entries button").length`));
-const row = () => manager.js(`(() => { const b = [...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "Tidy temporary files"); return b ? { id: b.id, state: b.querySelector(".state").textContent, next: b.querySelector(".next")?.textContent ?? null } : null; })()`);
+await until(
+    (rows) => rows > 0,
+    () => manager.js(`document.querySelectorAll(".entries button").length`),
+);
+const row = () =>
+    manager.js(
+        `(() => { const b = [...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === "Tidy temporary files"); return b ? { id: b.id, state: b.querySelector(".state").textContent, next: b.querySelector(".next")?.textContent ?? null } : null; })()`,
+    );
 const tidy = await until((found) => found?.next, row);
 out.row = tidy;
-out.head = await manager.js(`[...document.querySelectorAll(".head span")].map((s) => s.textContent)`);
-await press(manager, `#${tidy.id}`, async () => (await manager.js(`document.querySelector(".details h2")?.textContent`)) === "Tidy temporary files");
-const timers = () => manager.js(`[...document.querySelectorAll(".details .timer")].map((t) => t.innerText.replace(/\\n+/g, " | "))`);
+out.head = await manager.js(
+    `[...document.querySelectorAll(".head span")].map((s) => s.textContent)`,
+);
+await press(
+    manager,
+    `#${tidy.id}`,
+    async () =>
+        (await manager.js(`document.querySelector(".details h2")?.textContent`)) ===
+        "Tidy temporary files",
+);
+const timers = () =>
+    manager.js(
+        `[...document.querySelectorAll(".details .timer")].map((t) => t.innerText.replace(/\\n+/g, " | "))`,
+    );
 out.timers = await until((said) => said.length === 2, timers);
 await manager.js(`document.querySelector(".details .timers")?.scrollIntoView({ block: "center" })`);
 await desk.picture("timers-details.png");
 
 // It fires within two minutes and its delay: then it says when it last ran,
 // and the next run is another.
-out.fired = await until((said) => said.length === 2 && !said[0].includes("Not since"), timers, 200000);
+out.fired = await until(
+    (said) => said.length === 2 && !said[0].includes("Not since"),
+    timers,
+    200000,
+);
 out.rowAfter = await row();
 await manager.js(`document.querySelector(".details .timers")?.scrollIntoView({ block: "center" })`);
 await desk.picture("timers-fired.png");
-out.after = guest(`svctl status tidy 2>&1 | sed -n '1p;/^cause/p;/timers:/,$p'; svctl definition delete tidy 2>&1`).split("\n");
+out.after = guest(
+    `svctl status tidy 2>&1 | sed -n '1p;/^cause/p;/timers:/,$p'; svctl definition delete tidy 2>&1`,
+).split("\n");
 await desk.finish(out);

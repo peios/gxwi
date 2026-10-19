@@ -22,11 +22,17 @@ import { session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
 const light = process.argv[2] === "light";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "disk-manager-alice" : light ? "disk-manager-light" : "disk-manager";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -44,7 +50,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -58,10 +66,17 @@ if (!w) {
     await desk.finish(out, 1);
 }
 
-const press = (selector) => w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(w, selector));
+const press = (selector) =>
+    w
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(w, selector));
 /** Presses the first button (or link row) whose text starts with `text`. */
 const button = async (text, within = ".st-page") => {
-    const found = await w.js(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(within + " button")})].find((b) => b.innerText.trim().startsWith(${JSON.stringify(text)}) && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`);
+    const found = await w.js(
+        `(() => { const b = [...document.querySelectorAll(${JSON.stringify(within + " button")})].find((b) => b.innerText.trim().startsWith(${JSON.stringify(text)}) && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`,
+    );
     if (!found) return false;
     await press('[data-test="this"]');
     await w.js(`document.querySelector('[data-test="this"]')?.removeAttribute("data-test")`);
@@ -69,8 +84,14 @@ const button = async (text, within = ".st-page") => {
     return true;
 };
 const section = (id) => press(`[id="st-nav-${id}"]`).then(() => sleep(1200));
-const put = (field, value) => w.js(`(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`).then(() => sleep(600));
-const shows = () => w.js(`({
+const put = (field, value) =>
+    w
+        .js(
+            `(() => { const f = document.querySelector("[name='${field}']"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`,
+        )
+        .then(() => sleep(600));
+const shows = () =>
+    w.js(`({
     said: document.querySelector(".st-status .said")?.textContent ?? null,
     hero: [...document.querySelectorAll(".st-hero, .st-head")].map((h) => h.innerText.replaceAll("\\n", " | ")),
     banner: [...document.querySelectorAll(".st-banner")].map((b) => b.textContent),
@@ -81,7 +102,8 @@ const shows = () => w.js(`({
     disabled: [...document.querySelectorAll(".st-page button")].filter((b) => b.disabled).map((b) => b.innerText.trim()),
     nav: [...document.querySelectorAll(".st-nav button")].map((b) => b.innerText.replaceAll("\\n", " · ")),
 })`);
-const wide = () => w.js(`(() => {
+const wide = () =>
+    w.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".st-page *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
@@ -128,7 +150,7 @@ if (!alice) {
 await button("Partition 2");
 out.mounted = await shows();
 await desk.picture(`${name}-volume.png`);
-await button("vdb", ".st-page .st-back") || (await press(".st-back"));
+(await button("vdb", ".st-page .st-back")) || (await press(".st-back"));
 await sleep(800);
 
 if (!alice) {
@@ -175,7 +197,10 @@ await button("/mnt/data");
 out.mount = await shows();
 await desk.picture(`${name}-mount-page.png`);
 if (!alice) {
-    await put(`${await w.js(`document.querySelector("select[name^='policy:']")?.name`)}`, "synth-persist");
+    await put(
+        `${await w.js(`document.querySelector("select[name^='policy:']")?.name`)}`,
+        "synth-persist",
+    );
     await sleep(800);
     out.policy = await shows();
     out.policyField = await w.js(`document.querySelector("select[name^='policy:']")?.value`);
@@ -186,7 +211,12 @@ if (!alice) {
 await section("startup");
 if (!alice) {
     await button("Add…");
-    await put("startup-fs", await w.js(`[...document.querySelectorAll("select[name=startup-fs] option")].find((o) => o.textContent.startsWith("data"))?.value ?? ""`));
+    await put(
+        "startup-fs",
+        await w.js(
+            `[...document.querySelectorAll("select[name=startup-fs] option")].find((o) => o.textContent.startsWith("data"))?.value ?? ""`,
+        ),
+    );
 }
 out.startup = await shows();
 await desk.picture(`${name}-startup.png`);

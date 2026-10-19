@@ -13,7 +13,10 @@
 import { guest as asGuest, session, sleep } from "./harness.mjs";
 
 /** A guest command's output, without the exit status the channel adds. */
-const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
+const guest = (command) =>
+    asGuest(command)
+        .replace(/\n?rc=\d+\s*$/, "")
+        .trim();
 
 const alice = process.argv[2] === "alice";
 // `node security-policy.mjs light`: the list and one certificate in the
@@ -23,11 +26,23 @@ const light = process.argv[2] === "light";
 // the kernel lists, at full width and half, as dana, and nothing changed.
 const keys = process.argv[2] === "keys";
 const who = alice ? "alice" : "dana";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
-const name = alice ? "security-policy-alice" : light ? "security-policy-light" : keys ? "security-policy-keys" : "security-policy";
+const name = alice
+    ? "security-policy-alice"
+    : light
+      ? "security-policy-light"
+      : keys
+        ? "security-policy-keys"
+        : "security-policy";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -45,7 +60,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -59,14 +76,21 @@ if (!w) {
     out.stopped = "no Security Policy window to attach to";
     await desk.finish(out, 1);
 }
-const press = (selector) => w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(w, selector));
-const put = (field, value) => w.js(`(() => {
+const press = (selector) =>
+    w
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(w, selector));
+const put = (field, value) =>
+    w.js(`(() => {
     const f = document.querySelector("[name='${field}']");
     f.value = ${JSON.stringify(value)};
     f.dispatchEvent(new Event("input", { bubbles: true }));
     f.dispatchEvent(new Event("change", { bubbles: true }));
 })()`);
-const shows = () => w.js(`({
+const shows = () =>
+    w.js(`({
     section: document.querySelector('.st-nav [aria-current="page"] b')?.textContent ?? null,
     nav: [...document.querySelectorAll(".st-nav button")].map((b) => b.innerText.replaceAll("\\n", " — ")),
     said: document.querySelector(".st-status .said")?.textContent ?? null,
@@ -103,7 +127,9 @@ if (keys) {
     await section("keys");
     out.keys = {
         shows: await shows(),
-        fingerprints: await w.js(`[...document.querySelectorAll("button[fx-copy]")].map((b) => b.getAttribute("fx-value-text"))`),
+        fingerprints: await w.js(
+            `[...document.querySelectorAll("button[fx-copy]")].map((b) => b.getAttribute("fx-value-text"))`,
+        ),
         listing: guest("cat /sys/kernel/security/kacs/signing_keys 2>&1"),
         kernel: guest("uname -r"),
     };
@@ -142,7 +168,9 @@ await desk.picture(`${name}-certificate.png`);
 
 /** Closes every dialog on the desktop. */
 async function dialogsGone() {
-    const closes = await desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="dialog"] [data-part="close"]')].map((c) => { const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`);
+    const closes = await desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="dialog"] [data-part="close"]')].map((c) => { const r = c.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`,
+    );
     for (const at of closes) {
         await desk.pressAt(at);
         await sleep(800);
@@ -155,12 +183,19 @@ if (!alice) {
     await press('button[fx-click="export"]');
     await sleep(2500);
     const saving = await desk.frame(".chooser", '.fx-surface[data-role="dialog"]');
-    out.exportName = saving ? await saving.js(`document.querySelector("[name='name']")?.value ?? null`) : "no dialog";
+    out.exportName = saving
+        ? await saving.js(`document.querySelector("[name='name']")?.value ?? null`)
+        : "no dialog";
     if (saving) {
         await desk.press(saving, "form.choose button.primary");
         await sleep(2500);
     }
-    out.exported = { said: (await shows()).said, file: guest(`head -1 /home/${who}/digicert-tls-ecc-p384-root-g5.pem; wc -c < /home/${who}/digicert-tls-ecc-p384-root-g5.pem`) };
+    out.exported = {
+        said: (await shows()).said,
+        file: guest(
+            `head -1 /home/${who}/digicert-tls-ecc-p384-root-g5.pem; wc -c < /home/${who}/digicert-tls-ecc-p384-root-g5.pem`,
+        ),
+    };
 
     // Distrusted, after being asked.
     await press('button[fx-click="ask-distrust"]');
@@ -192,22 +227,33 @@ if (!alice) {
     await sleep(400);
     await press('form[fx-submit="distrust-by-fingerprint"] button.danger');
     await sleep(2500);
-    out.byFingerprint = { said: (await shows()).said, groups: (await shows()).groups, listed: guest("trust list --distrusted") };
+    out.byFingerprint = {
+        said: (await shows()).said,
+        groups: (await shows()).groups,
+        listed: guest("trust list --distrusted"),
+    };
     await desk.picture(`${name}-by-fingerprint.png`);
     await press('button[fx-click="ask-restore"]');
     await sleep(900);
     await press('.st-more.asking button[fx-click="restore"]');
     await sleep(2500);
-    out.byFingerprintBack = { said: (await shows()).said, listed: guest("trust list --distrusted | tail -1") };
+    out.byFingerprintBack = {
+        said: (await shows()).said,
+        listed: guest("trust list --distrusted | tail -1"),
+    };
 
     // A CA of their own, chosen in the file dialog, added and removed.
-    guest(`cp /share/corp-root.pem /share/leaf.pem /home/${who}/ && sd allow /home/${who}/corp-root.pem ${who}:r >/dev/null; sd allow /home/${who}/leaf.pem ${who}:r >/dev/null`);
+    guest(
+        `cp /share/corp-root.pem /share/leaf.pem /home/${who}/ && sd allow /home/${who}/corp-root.pem ${who}:r >/dev/null; sd allow /home/${who}/leaf.pem ${who}:r >/dev/null`,
+    );
     await section("trusted");
     await press('button[fx-click="choose-file"]');
     await sleep(2500);
     let dialog = await desk.frame(".chooser", '.fx-surface[data-role="dialog"]');
     if (dialog) {
-        await dialog.js(`(() => { const e = [...document.querySelectorAll("[fx-value-name]")].find((x) => x.textContent.includes("corp-root.pem")); e?.scrollIntoView({ block: "center" }); })()`);
+        await dialog.js(
+            `(() => { const e = [...document.querySelectorAll("[fx-value-name]")].find((x) => x.textContent.includes("corp-root.pem")); e?.scrollIntoView({ block: "center" }); })()`,
+        );
         await desk.doublePress(dialog, `[fx-value-name="corp-root.pem"]`);
         await sleep(2500);
     }
@@ -215,7 +261,11 @@ if (!alice) {
     await desk.picture(`${name}-adding.png`);
     await press('form[fx-submit="add"] button.primary');
     await sleep(2500);
-    out.added = { said: (await shows()).said, groups: (await shows()).groups.slice(0, 1), store: store() };
+    out.added = {
+        said: (await shows()).said,
+        groups: (await shows()).groups.slice(0, 1),
+        store: store(),
+    };
     await desk.picture(`${name}-added.png`);
     // The added group comes first.
     await press(".st-row.link");
@@ -233,7 +283,9 @@ if (!alice) {
     await sleep(2500);
     dialog = await desk.frame(".chooser", '.fx-surface[data-role="dialog"]');
     if (dialog) {
-        await dialog.js(`(() => { const e = [...document.querySelectorAll("[fx-value-name]")].find((x) => x.textContent.includes("leaf.pem")); e?.scrollIntoView({ block: "center" }); })()`);
+        await dialog.js(
+            `(() => { const e = [...document.querySelectorAll("[fx-value-name]")].find((x) => x.textContent.includes("leaf.pem")); e?.scrollIntoView({ block: "center" }); })()`,
+        );
         await desk.doublePress(dialog, `[fx-value-name="leaf.pem"]`);
         await sleep(2500);
     }
@@ -254,17 +306,28 @@ if (!alice) {
     await desk.picture(`${name}-compat-asking.png`);
     await press('button[fx-click="cancel"]');
     await sleep(1000);
-    out.compatKept = { switches: (await shows()).switches, registry: guest(`reg get 'Machine\\System\\Trust' GenerateLinuxTrustFiles`) };
+    out.compatKept = {
+        switches: (await shows()).switches,
+        registry: guest(`reg get 'Machine\\System\\Trust' GenerateLinuxTrustFiles`),
+    };
     // Off, confirmed: the files go. On again: they are back.
     await press('input[name="compat"]');
     await sleep(1200);
     await press('.st-more.asking button[fx-click="compat-off"]');
     await sleep(2500);
-    out.compatOff = { said: (await shows()).said, switches: (await shows()).switches, files: guest("ls /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem 2>&1 | head -2") };
+    out.compatOff = {
+        said: (await shows()).said,
+        switches: (await shows()).switches,
+        files: guest("ls /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem 2>&1 | head -2"),
+    };
     await desk.picture(`${name}-compat-off.png`);
     await press('input[name="compat"]');
     await sleep(2500);
-    out.compatOn = { said: (await shows()).said, switches: (await shows()).switches, files: guest("ls /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem 2>&1 | head -2") };
+    out.compatOn = {
+        said: (await shows()).said,
+        switches: (await shows()).switches,
+        files: guest("ls /etc/ssl/certs/ca-certificates.crt /etc/ssl/cert.pem 2>&1 | head -2"),
+    };
 }
 // Who may change trust, and who may control the service, in the editor.
 for (const which of ["perm-trust", "perm-service"]) {
@@ -302,7 +365,10 @@ for (const which of ["perm-trust", "perm-service"]) {
 
 // The kernel's signing keys, or why they aren't listed.
 await section("keys");
-out.keys = { shows: await shows(), listing: guest("cat /sys/kernel/security/kacs/signing_keys 2>&1") };
+out.keys = {
+    shows: await shows(),
+    listing: guest("cat /sys/kernel/security/kacs/signing_keys 2>&1"),
+};
 await desk.picture(`${name}-keys.png`);
 
 await section("distrusted");

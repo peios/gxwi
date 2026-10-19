@@ -21,12 +21,18 @@ import { guest, session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
 const paging = process.argv[2] === "paging";
-const desk = await session(alice ? 9364 : paging ? 9365 : 9363, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9364 : paging ? 9365 : 9363,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "event-viewer-alice" : paging ? "event-viewer-paging" : "event-viewer";
 
 /** The windows on the desktop, by the title on their strips. */
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of a window titled `title` that `not` is not, once it is there. */
 async function window(title, has, not = null) {
     for (let i = 0; i < 40; i++) {
@@ -47,7 +53,9 @@ async function window(title, has, not = null) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -62,7 +70,8 @@ if (!viewer) {
     await desk.finish(out, 1);
 }
 /** What a window shows. */
-const shows = (frame = viewer) => frame.js(`({
+const shows = (frame = viewer) =>
+    frame.js(`({
     tab: document.querySelector('.tab[aria-pressed="true"]')?.textContent ?? null,
     rows: [...document.querySelectorAll(".entries .row")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | ") + (b.classList.contains("error") ? " | ERROR" : "") + (b.getAttribute("aria-selected") === "true" ? " | PICKED" : "")),
     trouble: document.querySelector(".trouble")?.textContent ?? null,
@@ -92,13 +101,18 @@ async function enter(field, text) {
 }
 
 // It opens on the events.
-out.first = first(await until((s) => s.rows.length > 0 || s.trouble !== null || s.more.length > 0), 3);
+out.first = first(
+    await until((s) => s.rows.length > 0 || s.trouble !== null || s.more.length > 0),
+    3,
+);
 await desk.picture(`${name}-events.png`);
 
 /** Shows the logs. */
 async function logs() {
     await desk.press(viewer, '.tab[fx-value-kind="logs"]');
-    return until((s) => s.tab === "Logs" && (s.rows.length > 0 || s.more.length > 0 || s.trouble !== null));
+    return until(
+        (s) => s.tab === "Logs" && (s.rows.length > 0 || s.more.length > 0 || s.trouble !== null),
+    );
 }
 
 if (alice) {
@@ -113,8 +127,17 @@ if (paging) {
         const before = (await shows()).rows.at(-1);
         await viewer.js(`document.querySelector(".older")?.scrollIntoView()`);
         if (!(await desk.press(viewer, ".older"))) break;
-        const now = await until((s) => s.rows.at(-1) !== before && s.more.every((m) => m !== "Reading older ones…"));
-        out[`page${page}`] = { count: now.rows.length, newest: now.rows[0], oldest: now.rows.at(-1), note: now.note, live: now.live, footer: now.footer };
+        const now = await until(
+            (s) => s.rows.at(-1) !== before && s.more.every((m) => m !== "Reading older ones…"),
+        );
+        out[`page${page}`] = {
+            count: now.rows.length,
+            newest: now.rows[0],
+            oldest: now.rows.at(-1),
+            note: now.note,
+            live: now.live,
+            footer: now.footer,
+        };
     }
     await viewer.js(`document.querySelector(".listing .scroll").scrollTop = 0`);
     await desk.picture(`${name}-back.png`);
@@ -128,13 +151,21 @@ if (paging) {
 
 // A type pattern, and an event in full.
 await enter("type", "job.*");
-out.jobs = first(await until((s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("job."))), 3);
+out.jobs = first(
+    await until(
+        (s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("job.")),
+    ),
+    3,
+);
 await desk.press(viewer, ".entries li:nth-child(1) .row");
 out.event = (await until((s) => s.details?.includes("Its fields"))).details;
 await desk.picture(`${name}-event.png`);
 
 // The details pane, widened by dragging its edge, from the pane's side.
-const widths = () => viewer.js(`({ listing: Math.round(document.querySelector(".listing").getBoundingClientRect().width), details: Math.round(document.querySelector(".details").getBoundingClientRect().width) })`);
+const widths = () =>
+    viewer.js(
+        `({ listing: Math.round(document.querySelector(".listing").getBoundingClientRect().width), details: Math.round(document.querySelector(".details").getBoundingClientRect().width) })`,
+    );
 out.beforeDrag = await widths();
 const middle = await desk.middle(viewer, ".details");
 const from = { x: middle.x - out.beforeDrag.details / 2 + 2, y: middle.y };
@@ -171,12 +202,23 @@ await desk.picture(`${name}-live.png`);
 
 // Errors only, which applies when ticked.
 await desk.press(viewer, "input[name=errors]");
-out.errors = first(await until((s) => s.rows.length > 0 && s.rows.every((r) => r.endsWith("ERROR") || r.endsWith("PICKED"))), 3);
+out.errors = first(
+    await until(
+        (s) =>
+            s.rows.length > 0 && s.rows.every((r) => r.endsWith("ERROR") || r.endsWith("PICKED")),
+    ),
+    3,
+);
 await desk.press(viewer, "input[name=errors]");
 
 // One origin, typed: applied on Enter.
 await enter("origin", "timed");
-out.origin = first(await until((s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("timed"))), 3);
+out.origin = first(
+    await until(
+        (s) => s.rows.length > 0 && s.rows.every((r) => r.split(" | ")[1].startsWith("timed")),
+    ),
+    3,
+);
 await desk.picture(`${name}-origin.png`);
 await enter("origin", "");
 
@@ -197,7 +239,10 @@ out.serviceMenu = (await desk.menuOn(manager, `#service-${at}`)) && (await desk.
 await desk.choose("Logs…");
 const opened = await window("Event Viewer: sshd", "form.filters", viewer);
 if (opened) {
-    out.serviceLogs = first(await until((s) => s.rows.length > 0 || s.more.length > 0, 15000, opened), 4);
+    out.serviceLogs = first(
+        await until((s) => s.rows.length > 0 || s.more.length > 0, 15000, opened),
+        4,
+    );
     out.serviceLogs.origin = await opened.js(`document.querySelector("input[name=origin]").value`);
 } else {
     out.serviceLogs = "no second Event Viewer window";

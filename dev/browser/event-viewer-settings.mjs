@@ -15,15 +15,27 @@ import { guest, session, sleep } from "./harness.mjs";
 
 const mode = process.argv[2] ?? "dana";
 const alice = mode === "alice";
-const desk = await session(alice ? 9370 : 9369, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9370 : 9369,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
-const name = alice ? "event-viewer-settings-alice" : mode === "tidy" ? "event-viewer-settings-tidy" : "event-viewer-settings";
+const name = alice
+    ? "event-viewer-settings-alice"
+    : mode === "tidy"
+      ? "event-viewer-settings-tidy"
+      : "event-viewer-settings";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -46,7 +58,8 @@ if (!viewer) {
 }
 await desk.press(viewer, '.tab[fx-value-kind="settings"]');
 
-const shows = () => viewer.js(`({
+const shows = () =>
+    viewer.js(`({
     title: [...document.querySelectorAll(".tab")].filter((t) => t.getAttribute("aria-pressed") === "true").map((t) => t.textContent),
     note: document.querySelector(".settings-page > .note")?.textContent ?? null,
     groups: [...document.querySelectorAll(".settings-page .group h2")].map((h) => h.textContent + " (" + h.parentElement.querySelectorAll(".setting").length + ")"),
@@ -67,7 +80,9 @@ async function until(ready, ms = 20000) {
 }
 /** Types `text` into the field called `field` and presses Enter. */
 async function enter(field, text) {
-    await viewer.js(`document.querySelector("input[name='${field}']").scrollIntoView({ block: "center" })`);
+    await viewer.js(
+        `document.querySelector("input[name='${field}']").scrollIntoView({ block: "center" })`,
+    );
     await sleep(300);
     await desk.press(viewer, `input[name='${field}']`);
     await viewer.js(`document.querySelector("input[name='${field}']").select()`);
@@ -80,14 +95,20 @@ const read = (s) => s.groups.length > 0 && s.patterns.length > 0;
 if (mode === "tidy") {
     await until(read);
     if (await viewer.js(`!!document.querySelector("#p-logs-sshd")`)) {
-        await viewer.js(`document.querySelector("#p-logs-sshd").scrollIntoView({ block: "center" })`);
+        await viewer.js(
+            `document.querySelector("#p-logs-sshd").scrollIntoView({ block: "center" })`,
+        );
         await sleep(300);
         await desk.press(viewer, '#p-logs-sshd button[fx-click="policy-remove-ask"]');
-        out.asked = await viewer.js(`document.querySelector("#p-logs-sshd .note")?.textContent ?? null`);
+        out.asked = await viewer.js(
+            `document.querySelector("#p-logs-sshd .note")?.textContent ?? null`,
+        );
         await desk.picture(`${name}-asked.png`);
         await desk.press(viewer, '#p-logs-sshd button[fx-click="policy-remove"]');
     }
-    out.after = (await until((s) => !s.patterns.some((p) => p.startsWith("Logs from sshd")))).patterns;
+    out.after = (
+        await until((s) => !s.patterns.some((p) => p.startsWith("Logs from sshd")))
+    ).patterns;
     out.said = (await shows()).said;
     await desk.finish(out);
 }
@@ -113,7 +134,9 @@ out.recorded = guest(`evctl "EVENTS eventd.config.changed TAKE 1" | cut -c1-400`
 await desk.picture(`${name}-changed.png`);
 await desk.press(viewer, '#s-HealthMetricIntervalSeconds button[fx-click="setting-default"]');
 out.defaulted = (await until((s) => s.health?.said?.startsWith("Back"))).health;
-out.registryAfter = guest(`reg get "Machine\\System\\eventd" HealthMetricIntervalSeconds 2>&1`).trim();
+out.registryAfter = guest(
+    `reg get "Machine\\System\\eventd" HealthMetricIntervalSeconds 2>&1`,
+).trim();
 
 // Out of its range: refused here, and nothing written.
 await enter("v-MaxQueriesPerUser", "99999");
@@ -142,8 +165,16 @@ if (editor) {
     await desk.press(editor, "footer .primary");
     await sleep(1500);
 }
-out.added = (await until((s) => s.patterns.some((p) => p.startsWith("Logs from sshd") && !p.includes("Authenticated Users")))).patterns.filter((p) => p.startsWith("Logs"));
-await viewer.js(`[...document.querySelectorAll(".pattern")].find((p) => p.querySelector(".covers").textContent.startsWith("Logs from sshd"))?.scrollIntoView({ block: "center" })`);
+out.added = (
+    await until((s) =>
+        s.patterns.some(
+            (p) => p.startsWith("Logs from sshd") && !p.includes("Authenticated Users"),
+        ),
+    )
+).patterns.filter((p) => p.startsWith("Logs"));
+await viewer.js(
+    `[...document.querySelectorAll(".pattern")].find((p) => p.querySelector(".covers").textContent.startsWith("Logs from sshd"))?.scrollIntoView({ block: "center" })`,
+);
 await sleep(500);
 await desk.picture(`${name}-added.png`);
 await desk.finish(out);

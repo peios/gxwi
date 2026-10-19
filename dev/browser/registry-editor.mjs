@@ -14,30 +14,39 @@ import { guest, session, sleep } from "./harness.mjs";
 const alice = process.argv[2] === "alice";
 const KEY = "Machine\\Software\\RegEditCheck";
 const r = (path) => path.replaceAll("\\", "\\\\");
-const GUARD = "0100048014000000240000000000000034000000010200000000000520000000200200000102000000000005200000002002000002003400020000000000140000000010010100000000000512000000000018000000008001020000000000052000000020020000";
+const GUARD =
+    "0100048014000000240000000000000034000000010200000000000520000000200200000102000000000005200000002002000002003400020000000000140000000010010100000000000512000000000018000000008001020000000000052000000020020000";
 if (!alice) {
-    const said = guest([
-        `{ reg del -y -r '${KEY}' >/dev/null 2>&1 || true; }`,
-        `reg new -p '${KEY}\\Closed\\Open'`,
-        `reg set '${KEY}' Text sz:hello`,
-        `reg set '${KEY}' Count dword:4096`,
-        `reg set '${KEY}' Big qword:9000000000`,
-        `reg set '${KEY}' List multi:alpha,beta`,
-        `reg set '${KEY}' Blob hex:000102030405060708090a0b0c0d0e0f1011`,
-        `reg sd '${KEY}\\Closed' --set 'O:BAG:BAD:P(A;;GA;;;BA)(A;;GA;;;SY)'`,
-        `reg sd '${KEY}\\Closed\\Open' --set 'O:BAG:BAD:P(A;;GR;;;WD)(A;;GA;;;BA)(A;;GA;;;SY)'`,
-        `reg set '${KEY}\\Closed\\Open' Visible sz:yes`,
-        // O:BAG:BAD:(A;;GA;;;SY)(A;;GR;;;BA), made with peios' sddl::parse.
-        `reg set '${KEY}' Guard hex:${GUARD}`,
-        "echo ready",
-    ].join(" && "));
+    const said = guest(
+        [
+            `{ reg del -y -r '${KEY}' >/dev/null 2>&1 || true; }`,
+            `reg new -p '${KEY}\\Closed\\Open'`,
+            `reg set '${KEY}' Text sz:hello`,
+            `reg set '${KEY}' Count dword:4096`,
+            `reg set '${KEY}' Big qword:9000000000`,
+            `reg set '${KEY}' List multi:alpha,beta`,
+            `reg set '${KEY}' Blob hex:000102030405060708090a0b0c0d0e0f1011`,
+            `reg sd '${KEY}\\Closed' --set 'O:BAG:BAD:P(A;;GA;;;BA)(A;;GA;;;SY)'`,
+            `reg sd '${KEY}\\Closed\\Open' --set 'O:BAG:BAD:P(A;;GR;;;WD)(A;;GA;;;BA)(A;;GA;;;SY)'`,
+            `reg set '${KEY}\\Closed\\Open' Visible sz:yes`,
+            // O:BAG:BAD:(A;;GA;;;SY)(A;;GR;;;BA), made with peios' sddl::parse.
+            `reg set '${KEY}' Guard hex:${GUARD}`,
+            "echo ready",
+        ].join(" && "),
+    );
     if (!said.includes("ready")) throw new Error(`could not make ${KEY}: ${said}`);
 }
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "registry-editor-alice" : "registry-editor";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of the window whose title starts `title`, once it is there. */
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
@@ -56,7 +65,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -71,7 +82,8 @@ if (!editor) {
 }
 
 /** What the window shows. */
-const shows = () => editor.js(`({
+const shows = () =>
+    editor.js(`({
     path: document.querySelector("input[name=path]")?.value ?? null,
     tree: [...document.querySelectorAll(".tree li")].map((li) => {
         const depth = (() => { let d = 0, at = li.parentElement; while (at && !at.matches("nav")) { if (at.tagName === "UL") d++; at = at.parentElement; } return d - 1; })();
@@ -104,11 +116,16 @@ async function go(path) {
 
 /** Sets a field of the form in the pane to `value`, as typing or picking does. */
 async function fill(field, value) {
-    await editor.js(`(() => { const f = document.querySelector("[name=${field}]"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`);
+    await editor.js(
+        `(() => { const f = document.querySelector("[name=${field}]"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`,
+    );
     await sleep(500);
 }
 /** The pane's buttons, with whether each may be pressed. */
-const buttons = () => editor.js(`[...document.querySelectorAll(".details button")].map((b) => b.textContent + (b.disabled ? " (disabled: " + b.title + ")" : ""))`);
+const buttons = () =>
+    editor.js(
+        `[...document.querySelectorAll(".details button")].map((b) => b.textContent + (b.disabled ? " (disabled: " + b.title + ")" : ""))`,
+    );
 /** The permissions editor's dialog, once it is on the desktop. */
 async function dialog() {
     for (let i = 0; i < 30; i++) {
@@ -120,13 +137,16 @@ async function dialog() {
 }
 const closed = async () => {
     for (let i = 0; i < 30; i++) {
-        if (await desk.a.js(`!document.querySelector('.fx-surface[data-role="dialog"]')`)) return true;
+        if (await desk.a.js(`!document.querySelector('.fx-surface[data-role="dialog"]')`)) {
+            return true;
+        }
         await sleep(300);
     }
     return false;
 };
 /** What the dialog shows. */
-const says = (sd) => sd.js(`({
+const says = (sd) =>
+    sd.js(`({
     title: document.querySelector("header")?.innerText,
     fixed: document.querySelector(".fixed")?.textContent ?? null,
     listed: [...document.querySelectorAll(".who")].map((b) => b.querySelector(".name").textContent),
@@ -166,8 +186,12 @@ if (alice) {
     // privilege; and a folder she may not list says so.
     await desk.press(editor, `.tree .name[aria-selected="true"]`);
     await sleep(500);
-    out.files = await editor.js(`[...document.querySelectorAll(".details .files button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : ""))`);
-    await editor.js(`document.querySelector('.details button[fx-click="export"]').scrollIntoView({ block: "center" })`);
+    out.files = await editor.js(
+        `[...document.querySelectorAll(".details .files button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : ""))`,
+    );
+    await editor.js(
+        `document.querySelector('.details button[fx-click="export"]').scrollIntoView({ block: "center" })`,
+    );
     await desk.press(editor, `.details button[fx-click="export"]`);
     let fd = null;
     for (let i = 0; i < 30 && !fd; i++) {
@@ -176,11 +200,15 @@ if (alice) {
     }
     if (fd) {
         out.aliceHome = await fd.js(`document.querySelector("input[name=path]").value`);
-        await fd.js(`(() => { const f = document.querySelector("[name=path]"); f.value = "/home/dana"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+        await fd.js(
+            `(() => { const f = document.querySelector("[name=path]"); f.value = "/home/dana"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+        );
         await sleep(300);
         await desk.press(fd, `form.where button[type="submit"]`);
         await sleep(500);
-        out.unlisted = await fd.js(`({ empty: document.querySelector(".empty")?.textContent, tools: [...document.querySelectorAll(".tools button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : "")) })`);
+        out.unlisted = await fd.js(
+            `({ empty: document.querySelector(".empty")?.textContent, tools: [...document.querySelectorAll(".tools button")].map((b) => b.textContent + (b.disabled ? " (off: " + b.title + ")" : "")) })`,
+        );
         await desk.picture(`${name}-unlisted.png`);
         await desk.press(fd, `form.choose button[fx-click="cancel"]`);
     }
@@ -225,14 +253,18 @@ out.live = await until((s) => s.values.some((v) => v.startsWith("Added")), 8000)
 await desk.picture(`${name}-live.png`);
 
 // The window's strip names the key shown.
-out.strip = (await strips()).map((strip) => strip.title).filter((title) => title.startsWith("Registry Editor"));
+out.strip = (await strips())
+    .map((strip) => strip.title)
+    .filter((title) => title.startsWith("Registry Editor"));
 
 // Keys opened in the tree, by their arrows.
 await desk.press(editor, `.tree .twist[fx-value-path="${r(KEY)}"]`);
 await sleep(600);
 await desk.press(editor, `.tree .twist[fx-value-path="${r(KEY)}\\\\Closed"]`);
 await sleep(600);
-out.twisted = await editor.js(`[...document.querySelectorAll(".tree .name")].map((b) => b.getAttribute("fx-value-path")).filter((path) => path.includes("RegEditCheck"))`);
+out.twisted = await editor.js(
+    `[...document.querySelectorAll(".tree .name")].map((b) => b.getAttribute("fx-value-path")).filter((path) => path.includes("RegEditCheck"))`,
+);
 
 // Editing, on RegEditCheck again.
 await go(KEY);
@@ -275,12 +307,15 @@ out.clashKept = (await shows()).values.find((v) => v.startsWith("Text"));
 await desk.picture(`${name}-clash.png`);
 // Saved again, knowing, it replaces theirs.
 await desk.press(editor, `.details button[type="submit"]`);
-out.clashSaved = (await until((s) => s.values.some((v) => v.startsWith("Text | Text | mine")))).values.find((v) => v.startsWith("Text"));
+out.clashSaved = (
+    await until((s) => s.values.some((v) => v.startsWith("Text | Text | mine")))
+).values.find((v) => v.startsWith("Text"));
 
 // A value's right-click menu, and a value deleted after asking.
 await desk.press(editor, `.entries button[fx-value-name="Added"]`);
 await sleep(400);
-out.valueMenu = (await desk.menuOn(editor, `.entries button[fx-value-name="Added"]`)) && (await desk.menu());
+out.valueMenu =
+    (await desk.menuOn(editor, `.entries button[fx-value-name="Added"]`)) && (await desk.menu());
 await desk.choose("Delete…");
 await sleep(500);
 out.askedValue = (await shows()).details;
@@ -304,10 +339,13 @@ out.newKey = await until((s) => s.path === `${KEY}\\Made`);
 // A key with keys under it, deleted after asking, all at once.
 // Keys side by side as well as one under another: loregd stalls an open
 // made after a transaction has written (PEI-1241), which this would hit.
-guest(`reg new -p '${KEY}\\Tree\\A\\B' && reg new '${KEY}\\Tree\\C' && reg set '${KEY}\\Tree\\A' Here sz:yes`);
+guest(
+    `reg new -p '${KEY}\\Tree\\A\\B' && reg new '${KEY}\\Tree\\C' && reg set '${KEY}\\Tree\\A' Here sz:yes`,
+);
 await go(`${KEY}\\Tree`);
 await until((s) => s.path === `${KEY}\\Tree`);
-out.keyMenu = (await desk.menuOn(editor, `.tree .name[aria-selected="true"]`)) && (await desk.menu());
+out.keyMenu =
+    (await desk.menuOn(editor, `.tree .name[aria-selected="true"]`)) && (await desk.menu());
 await desk.choose("Delete…");
 await sleep(500);
 out.askedKey = (await shows()).details;
@@ -319,7 +357,9 @@ out.treeGone = guest(`reg ls '${KEY}'`);
 // A value holding a descriptor: shown as SDDL, opened in the permissions
 // editor, and written back with what was changed.
 await go(KEY);
-out.guardListed = (await until((s) => s.values.some((v) => v.startsWith("Guard")))).values.find((v) => v.startsWith("Guard"));
+out.guardListed = (await until((s) => s.values.some((v) => v.startsWith("Guard")))).values.find(
+    (v) => v.startsWith("Guard"),
+);
 await desk.press(editor, `.entries button[fx-value-name="Guard"]`);
 await sleep(500);
 out.guardDetails = (await shows()).details;
@@ -328,12 +368,15 @@ let sd = await dialog();
 out.guardDialog = sd ? await says(sd) : "no dialog";
 await desk.picture(`${name}-guard.png`);
 if (sd) out.guardApplied = await everyoneReads(sd);
-out.guardAfter = (await until((s) => s.values.some((v) => v.startsWith("Guard") && v.includes(";;;WD)")))).values.find((v) => v.startsWith("Guard"));
+out.guardAfter = (
+    await until((s) => s.values.some((v) => v.startsWith("Guard") && v.includes(";;;WD)")))
+).values.find((v) => v.startsWith("Guard"));
 
 // The key's own permissions, from its menu: Everyone may read Made.
 await go(`${KEY}\\Made`);
 await until((s) => s.path === `${KEY}\\Made`);
-out.keyMenuNow = (await desk.menuOn(editor, `.tree .name[aria-selected="true"]`)) && (await desk.menu());
+out.keyMenuNow =
+    (await desk.menuOn(editor, `.tree .name[aria-selected="true"]`)) && (await desk.menu());
 await desk.choose("Permissions…");
 sd = await dialog();
 out.keyDialog = sd ? await says(sd) : "no dialog";
@@ -344,10 +387,16 @@ out.keySd = guest(`reg sd '${KEY}\\Made'`);
 // What the registry manual says: eventd's key, a value set there, and a
 // documented value that isn't, set from the manual.
 await go("Machine\\System\\eventd");
-const docs = await until((s) => s.path === "Machine\\System\\eventd" && (s.details ?? "").includes("About this key"));
+const docs = await until(
+    (s) => s.path === "Machine\\System\\eventd" && (s.details ?? "").includes("About this key"),
+);
 out.keyDocs = docs.details.slice(0, 600);
-out.unset = await editor.js(`[...document.querySelectorAll(".entries li.unset")].map((li) => li.innerText.replaceAll("\\n", " | "))`);
-out.unsetLast = await editor.js(`(() => { const rows = [...document.querySelectorAll(".entries li")]; const first = rows.findIndex((li) => li.classList.contains("unset")); return first >= 0 && rows.slice(first).every((li) => li.classList.contains("unset")); })()`);
+out.unset = await editor.js(
+    `[...document.querySelectorAll(".entries li.unset")].map((li) => li.innerText.replaceAll("\\n", " | "))`,
+);
+out.unsetLast = await editor.js(
+    `(() => { const rows = [...document.querySelectorAll(".entries li")]; const first = rows.findIndex((li) => li.classList.contains("unset")); return first >= 0 && rows.slice(first).every((li) => li.classList.contains("unset")); })()`,
+);
 out.unsetInPane = await editor.js(`!!document.querySelector(".details .unset")`);
 await desk.picture(`${name}-key-docs.png`);
 const someValue = docs.values[0]?.split(" | ")[0];
@@ -360,7 +409,9 @@ if (someValue) {
 // A documented value that isn't set, at the foot of the list: picked, the
 // pane says so; double-clicked, it is a new value, named, typed and given
 // its default as the manual says.
-const firstUnset = await editor.js(`document.querySelector(".entries li.unset button")?.getAttribute("fx-value-name") ?? null`);
+const firstUnset = await editor.js(
+    `document.querySelector(".entries li.unset button")?.getAttribute("fx-value-name") ?? null`,
+);
 if (firstUnset) {
     const row = `.entries li.unset button[fx-value-name="${firstUnset}"]`;
     await editor.js(`document.querySelector('${row}').scrollIntoView({ block: "center" })`);
@@ -373,7 +424,9 @@ if (firstUnset) {
     out.setDocumented = {
         value: firstUnset,
         name: await editor.js(`document.querySelector("[name=value-name]")?.value`),
-        type: await editor.js(`document.querySelector("[name=value-type]")?.selectedOptions[0]?.textContent`),
+        type: await editor.js(
+            `document.querySelector("[name=value-type]")?.selectedOptions[0]?.textContent`,
+        ),
         data: await editor.js(`document.querySelector("[name=value-data]")?.value`),
     };
     await desk.picture(`${name}-unset-set.png`);
@@ -384,11 +437,14 @@ if (firstUnset) {
 // Layers, in a window of their own: one made, disabled and enabled again,
 // and a precedence above 0 refused, since dana, an administrator, doesn't
 // hold SeTcbPrivilege.
-guest(`/tmp/reg-new layer del -y regcheck >/dev/null 2>&1; reg layer del -y regcheck >/dev/null 2>&1; echo ok`);
+guest(
+    `/tmp/reg-new layer del -y regcheck >/dev/null 2>&1; reg layer del -y regcheck >/dev/null 2>&1; echo ok`,
+);
 await desk.press(editor, `.bar button[fx-click="layers"]`);
 const layersWindow = await window("Registry Editor: Layers", ".layers-window");
 if (layersWindow) {
-    const table = () => layersWindow.js(`({
+    const table = () =>
+        layersWindow.js(`({
         rows: [...document.querySelectorAll(".layers tbody tr")].map((tr) => [...tr.children].slice(0, 4).map((td) => td.querySelector("input")?.value ?? td.textContent).join(" | ")),
         said: document.querySelector(".said")?.textContent ?? null,
         may: document.querySelector(".add .may")?.textContent ?? null,
@@ -396,7 +452,9 @@ if (layersWindow) {
     out.layersFirst = await table();
     await desk.press(layersWindow, `button[fx-click="new"]`);
     await sleep(500);
-    out.newLayerPrecedence = await layersWindow.js(`document.querySelector("[name=new-precedence]").disabled`);
+    out.newLayerPrecedence = await layersWindow.js(
+        `document.querySelector("[name=new-precedence]").disabled`,
+    );
     await desk.press(layersWindow, `input[name="new-name"]`);
     await desk.type("regcheck");
     await desk.press(layersWindow, `form.new button[type="submit"]`);
@@ -408,7 +466,9 @@ if (layersWindow) {
     await desk.press(layersWindow, `button[fx-click="toggle"][fx-value-name="regcheck"]`);
     await sleep(600);
     const at = (await table()).rows.findIndex((row) => row.startsWith("regcheck"));
-    await layersWindow.js(`(() => { const f = document.querySelector("[name=precedence-${at}]"); f.value = "5"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await layersWindow.js(
+        `(() => { const f = document.querySelector("[name=precedence-${at}]"); f.value = "5"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+    );
     await sleep(300);
     await desk.press(layersWindow, `form.precedence[fx-value-name="regcheck"] button`);
     await sleep(600);
@@ -430,7 +490,9 @@ if (layersWindow) {
     await desk.press(editor, `.details button[type="submit"]`);
     await sleep(800);
     out.layeredSaid = (await shows()).said;
-    out.layered = (await until((s) => s.values.some((v) => v.startsWith("Text | Text | layered")))).details;
+    out.layered = (
+        await until((s) => s.values.some((v) => v.startsWith("Text | Text | layered")))
+    ).details;
     out.layeredReg = guest(`reg get -L '${KEY}' Text`);
     await desk.picture(`${name}-layered.png`);
 
@@ -440,7 +502,9 @@ if (layersWindow) {
     await desk.press(layersWindow, `button[fx-click="delete-yes"]`);
     await sleep(800);
     out.layerGone = await table();
-    out.afterLayer = (await until((s) => s.values.some((v) => v.startsWith("Text | Text | mine")), 8000)).values.find((v) => v.startsWith("Text"));
+    out.afterLayer = (
+        await until((s) => s.values.some((v) => v.startsWith("Text | Text | mine")), 8000)
+    ).values.find((v) => v.startsWith("Text"));
     await fill("layer", "");
     await gone(["Registry Editor: Layers"]);
 } else {
@@ -461,7 +525,8 @@ async function fileDialog() {
     }
     return null;
 }
-const dialogShows = (d) => d.js(`({
+const dialogShows = (d) =>
+    d.js(`({
     title: document.querySelector("h1")?.textContent,
     folder: document.querySelector("input[name=path]")?.value,
     name: document.querySelector("input[name=name]")?.value ?? null,
@@ -472,7 +537,9 @@ const dialogShows = (d) => d.js(`({
     said: document.querySelector(".said")?.textContent ?? null,
 })`);
 async function dfill(d, field, value) {
-    await d.js(`(() => { const f = document.querySelector("[name=${field}]"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await d.js(
+        `(() => { const f = document.querySelector("[name=${field}]"); f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+    );
     await sleep(400);
 }
 const dialogGone = async () => {
@@ -482,7 +549,12 @@ const dialogGone = async () => {
     }
     return false;
 };
-const press = (selector) => editor.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(editor, selector));
+const press = (selector) =>
+    editor
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(editor, selector));
 
 // Export, into a folder made in the dialog.
 await press(`.details button[fx-click="export"]`);
@@ -524,7 +596,10 @@ out.importAsked = (await until((s) => (s.details ?? "").startsWith("Import"))).d
 await desk.picture(`${name}-import.png`);
 await press(`.details button[fx-click="import-yes"]`);
 out.imported = await until((s) => s.values.some((v) => v.startsWith("Count | Number | 8192")));
-out.imported = { said: out.imported.said, count: out.imported.values.find((v) => v.startsWith("Count")) };
+out.imported = {
+    said: out.imported.said,
+    count: out.imported.values.find((v) => v.startsWith("Count")),
+};
 
 // A backup made, a value changed, the backup restored.
 await press(`.details button[fx-click="backup"]`);
@@ -553,7 +628,10 @@ if (fd) {
 out.restoreAsked = (await until((s) => (s.details ?? "").startsWith("Restore"))).details;
 await press(`.details button[fx-click="restore-yes"]`);
 out.restored = await until((s) => s.values.some((v) => v.startsWith("Count | Number | 8192")));
-out.restored = { said: out.restored.said, count: out.restored.values.find((v) => v.startsWith("Count")) };
+out.restored = {
+    said: out.restored.said,
+    count: out.restored.values.find((v) => v.startsWith("Count")),
+};
 
 // The dialog's own file managing: Exports renamed, then deleted after
 // asking, and the dialog cancelled with nothing chosen.
@@ -580,10 +658,14 @@ out.afterCancel = (await shows()).said;
 out.homeAfter = guest(`ls -a '${home}'`);
 
 // The keys under Users are each someone's, and say whose.
-await editor.js(`document.querySelector('.tree .twist[fx-value-path="Users"]').scrollIntoView({ block: "center" })`);
+await editor.js(
+    `document.querySelector('.tree .twist[fx-value-path="Users"]').scrollIntoView({ block: "center" })`,
+);
 await desk.press(editor, `.tree .twist[fx-value-path="Users"]`);
 await sleep(800);
-out.users = await editor.js(`[...document.querySelectorAll(".tree .name")].filter((b) => (b.getAttribute("fx-value-path") ?? "").startsWith("Users\\\\")).map((b) => b.textContent)`);
+out.users = await editor.js(
+    `[...document.querySelectorAll(".tree .name")].filter((b) => (b.getAttribute("fx-value-path") ?? "").startsWith("Users\\\\")).map((b) => b.textContent)`,
+);
 await desk.picture(`${name}-users.png`);
 
 // A path with no key at it.

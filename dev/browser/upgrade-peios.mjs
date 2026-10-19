@@ -16,18 +16,27 @@
 import { guest as asGuest, session, sleep } from "./harness.mjs";
 
 /** A guest command's output, without the exit status the channel adds. */
-const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
+const guest = (command) =>
+    asGuest(command)
+        .replace(/\n?rc=\d+\s*$/, "")
+        .trim();
 
 const alice = process.argv[2] === "alice";
 const light = process.argv[2] === "light";
 // Only the release's settings, queued and applied: for a VM already
 // upgraded this boot.
 const settingsOnly = process.argv[2] === "settings";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "upgrade-peios-alice" : light ? "upgrade-peios-light" : "upgrade-peios";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -45,7 +54,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -63,15 +74,23 @@ async function open() {
 await gone([""]);
 let w = await open();
 
-const press = (selector) => w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(w, selector));
+const press = (selector) =>
+    w
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(w, selector));
 const button = async (text) => {
-    const found = await w.js(`(() => { const b = [...document.querySelectorAll(".st-page button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`);
+    const found = await w.js(
+        `(() => { const b = [...document.querySelectorAll(".st-page button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`,
+    );
     if (!found) return false;
     await press('[data-test="this"]');
     await w.js(`document.querySelector('[data-test="this"]')?.removeAttribute("data-test")`);
     return true;
 };
-const shows = () => w.js(`({
+const shows = () =>
+    w.js(`({
     said: document.querySelector(".st-status .said")?.textContent ?? null,
     hero: [...document.querySelectorAll(".st-hero")].map((h) => h.innerText.replaceAll("\\n", " | ")),
     banner: [...document.querySelectorAll(".st-banner")].map((b) => b.textContent),
@@ -92,7 +111,8 @@ async function until(ok, seconds = 60) {
     now.timedOut = true;
     return now;
 }
-const settledCheck = () => until((s) => !s.progress && !s.groups.some((g) => g.startsWith("Reading")), 90);
+const settledCheck = () =>
+    until((s) => !s.progress && !s.groups.some((g) => g.startsWith("Reading")), 90);
 
 out.first = await settledCheck();
 await desk.picture(`${name}.png`);
@@ -108,7 +128,9 @@ if (light) {
 }
 
 if (settingsOnly) {
-    guest("reg del -r -y 'Machine/Software/Upgrade Peios Test'; upgrade-peios --seeds-only --on-reboot");
+    guest(
+        "reg del -r -y 'Machine/Software/Upgrade Peios Test'; upgrade-peios --seeds-only --on-reboot",
+    );
     await gone(["Upgrade Peios"]);
     w = await open();
     out.waiting = await until((s) => s.buttons.includes("Apply Now"), 30);
@@ -116,7 +138,9 @@ if (settingsOnly) {
     await button("Apply Now");
     out.applied = await until((s) => s.buttons.includes("Close") && !s.progress, 30);
     await desk.picture(`${name}-applied.png`);
-    out.appliedValue = guest("reg get 'Machine/Software/Upgrade Peios Test' Release; ls /lcl/policy/autoapply.d");
+    out.appliedValue = guest(
+        "reg get 'Machine/Software/Upgrade Peios Test' Release; ls /lcl/policy/autoapply.d",
+    );
     await desk.finish(out);
 }
 
@@ -127,7 +151,8 @@ if (!alice) {
 }
 
 // Half a screen: a second window tiles this one to half.
-const wide = () => w.js(`(() => {
+const wide = () =>
+    w.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".st-page *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
@@ -154,7 +179,9 @@ if (!alice) {
     await desk.picture(`${name}-running.png`);
     out.done = await until((s) => !s.progress && s.buttons.includes("Close"), 120);
     await desk.picture(`${name}-done.png`);
-    out.installed = guest("cat /usr/lib/os-release | head -3; reg get 'Machine/Software/Upgrade Peios Test' Release; upgrade-peios --status");
+    out.installed = guest(
+        "cat /usr/lib/os-release | head -3; reg get 'Machine/Software/Upgrade Peios Test' Release; upgrade-peios --status",
+    );
     await button("Close");
     out.after = await settledCheck();
     await desk.picture(`${name}-after.png`);
@@ -163,7 +190,9 @@ if (!alice) {
     // upgrade itself with `reboot`, or queued by hand — then applied now
     // from the window.
     if (!process.argv.includes("reboot")) {
-        guest("reg del -r -y 'Machine/Software/Upgrade Peios Test'; upgrade-peios --seeds-only --on-reboot");
+        guest(
+            "reg del -r -y 'Machine/Software/Upgrade Peios Test'; upgrade-peios --seeds-only --on-reboot",
+        );
         await gone(["Upgrade Peios"]);
         w = await open();
     }
@@ -172,7 +201,9 @@ if (!alice) {
     await button("Apply Now");
     out.applied = await until((s) => s.buttons.includes("Close") && !s.progress, 30);
     await desk.picture(`${name}-applied.png`);
-    out.appliedValue = guest("reg get 'Machine/Software/Upgrade Peios Test' Release; ls /lcl/policy/autoapply.d");
+    out.appliedValue = guest(
+        "reg get 'Machine/Software/Upgrade Peios Test' Release; ls /lcl/policy/autoapply.d",
+    );
     await button("Close");
 }
 

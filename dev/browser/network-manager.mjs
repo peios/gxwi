@@ -11,11 +11,17 @@ import { session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
 const light = process.argv[2] === "light";
-const desk = await session(alice ? 9369 : 9368, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9369 : 9368,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "network-manager-alice" : light ? "network-manager-light" : "network-manager";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -33,7 +39,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -47,9 +55,16 @@ if (!w) {
     await desk.finish(out, 1);
 }
 
-const press = (selector) => w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(w, selector));
+const press = (selector) =>
+    w
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(w, selector));
 const button = async (text, within = ".app") => {
-    const found = await w.js(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(within + " button, " + within + " tr.click")})].find((b) => b.innerText.trim().startsWith(${JSON.stringify(text)}) && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`);
+    const found = await w.js(
+        `(() => { const b = [...document.querySelectorAll(${JSON.stringify(within + " button, " + within + " tr.click")})].find((b) => b.innerText.trim().startsWith(${JSON.stringify(text)}) && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`,
+    );
     if (!found) return false;
     await press('[data-test="this"]');
     await w.js(`document.querySelector('[data-test="this"]')?.removeAttribute("data-test")`);
@@ -65,8 +80,14 @@ const section = async (id) => {
     await press(`nav.side button[fx-value-section="${id}"]`);
     await sleep(1300);
 };
-const put = (field, value) => w.js(`(() => { const f = document.querySelector("[name='${field}']"); if (f.type === "radio") { const r = document.querySelector("[name='${field}'][value='" + ${JSON.stringify(value)} + "']"); r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); return; } f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`).then(() => sleep(700));
-const shows = () => w.js(`({
+const put = (field, value) =>
+    w
+        .js(
+            `(() => { const f = document.querySelector("[name='${field}']"); if (f.type === "radio") { const r = document.querySelector("[name='${field}'][value='" + ${JSON.stringify(value)} + "']"); r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); return; } f.value = ${JSON.stringify(value)}; f.dispatchEvent(new Event("input", { bubbles: true })); f.dispatchEvent(new Event("change", { bubbles: true })); })()`,
+        )
+        .then(() => sleep(700));
+const shows = () =>
+    w.js(`({
     said: document.querySelector(".status .said")?.textContent ?? null,
     force: document.querySelector(".status .force")?.textContent ?? null,
     head: document.querySelector(".phead")?.innerText.replaceAll("\\n", " | ") ?? null,
@@ -76,7 +97,8 @@ const shows = () => w.js(`({
     keep: document.querySelector(".keepbar")?.innerText.replaceAll("\\n", " ") ?? null,
     page: document.querySelector(".page")?.innerText.replaceAll("\\n", " | ").slice(0, 700) ?? null,
 })`);
-const wide = () => w.js(`(() => {
+const wide = () =>
+    w.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".page *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0 && !e.closest(".scroll, .path"))
@@ -103,11 +125,24 @@ await desk.picture(`${name}.png`);
 // The interface's lease: how much of it has gone, and where it renews.
 await w.js(`document.querySelector(".leasebar, .leasesteps")?.scrollIntoView({ block: "center" })`);
 await sleep(600);
-out.lease = await w.js(`document.querySelector(".leasebar")?.parentElement.innerText.replaceAll("\\n", " | ").slice(-200) ?? "no bar"`);
+out.lease = await w.js(
+    `document.querySelector(".leasebar")?.parentElement.innerText.replaceAll("\\n", " | ").slice(-200) ?? "no bar"`,
+);
 await desk.picture(`${name}-lease.png`);
 await w.js(`document.querySelector("main.main").scrollTop = 0`);
 
-for (const id of ["networks", "profiles", "assign", "dns", "exposure", "rules", "activity", "ports", "audit", "advanced"]) {
+for (const id of [
+    "networks",
+    "profiles",
+    "assign",
+    "dns",
+    "exposure",
+    "rules",
+    "activity",
+    "ports",
+    "audit",
+    "advanced",
+]) {
     await section(id);
     out[id] = await shows();
     await desk.picture(`${name}-${id}.png`);
@@ -149,13 +184,17 @@ if (!alice) {
     await button("Apply", ".pending");
     await sleep(2500);
     out.profileApplied = await shows();
-    out.profileInRegistry = (await import("./harness.mjs")).guest('reg get "Machine\\System\\Network\\Profiles\\default"');
+    out.profileInRegistry = (await import("./harness.mjs")).guest(
+        'reg get "Machine\\System\\Network\\Profiles\\default"',
+    );
     await desk.picture(`${name}-profile-applied.png`);
     if (out.profileApplied.keep) {
         await button("Undo", ".keepbar");
         await sleep(2500);
     }
-    out.profileAfterUndo = (await import("./harness.mjs")).guest('reg get "Machine\\System\\Network\\Profiles\\default"');
+    out.profileAfterUndo = (await import("./harness.mjs")).guest(
+        'reg get "Machine\\System\\Network\\Profiles\\default"',
+    );
 }
 
 // A firewall rule, an exception begun, and a connection explained.
@@ -174,14 +213,18 @@ if (!alice) {
     await button("Save", ".drawer");
     await sleep(2500);
     out.exceptionSaved = await shows();
-    out.exceptionInRegistry = (await import("./harness.mjs")).guest('reg ls "Machine\\System\\Network\\Rules\\Flow\\ssh"');
+    out.exceptionInRegistry = (await import("./harness.mjs")).guest(
+        'reg ls "Machine\\System\\Network\\Rules\\Flow\\ssh"',
+    );
     await desk.picture(`${name}-exception-saved.png`);
     await button("Undo", ".keepbar");
     await sleep(2500);
     out.exceptionUndone = await shows();
-    out.exceptionAfterUndo = (await import("./harness.mjs")).guest('reg ls "Machine\\System\\Network\\Rules\\Flow\\ssh"');
+    out.exceptionAfterUndo = (await import("./harness.mjs")).guest(
+        'reg ls "Machine\\System\\Network\\Rules\\Flow\\ssh"',
+    );
 }
-await button("Cancel", ".drawer") || (await button("×", ".drawer"));
+(await button("Cancel", ".drawer")) || (await button("×", ".drawer"));
 await button("Test a connection");
 out.trace = await shows();
 await desk.picture(`${name}-trace.png`);
@@ -236,7 +279,9 @@ if (!alice) {
     await put("r-prio", "10");
     await put("r-prof", "smoke");
     out.tie = await shows();
-    out.tieSaveDisabled = await w.js(`document.querySelector('.drawer button[fx-click="rule-save"]').disabled`);
+    out.tieSaveDisabled = await w.js(
+        `document.querySelector('.drawer button[fx-click="rule-save"]').disabled`,
+    );
     await desk.picture(`${name}-tie.png`);
     await section("profiles");
     await press('button[fx-click="profile-select"][fx-value-p="smoke"]');

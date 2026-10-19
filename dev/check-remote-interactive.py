@@ -12,30 +12,32 @@ accounts guest-start.sh documents; never point this at a production system.
 
 import argparse
 import html
-from html.parser import HTMLParser
-from http.cookiejar import CookieJar
-from pathlib import Path
 import re
 import ssl
 import time
+from html.parser import HTMLParser
+from http.cookiejar import CookieJar
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import HTTPCookieProcessor, HTTPSHandler, Request, build_opener
+from urllib.request import HTTPCookieProcessor, HTTPSHandler, OpenerDirector, Request, build_opener
 
 
 class Inputs(HTMLParser):
-    def __init__(self, page):
+    def __init__(self, page: str) -> None:
         super().__init__()
         self.fields = {}
         self.feed(page)
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attrs = dict(attrs)
         if tag == "input" and "name" in attrs:
             self.fields[attrs["name"]] = attrs.get("value", "")
 
 
-def request(client, url, fields=None):
+def request(
+    client: OpenerDirector, url: str, fields: dict[str, str | None] | None = None
+) -> tuple[int, str]:
     data = None if fields is None else urlencode(fields).encode()
     try:
         response = client.open(Request(url, data=data), timeout=15)
@@ -45,7 +47,7 @@ def request(client, url, fields=None):
         return response.status, response.read().decode()
 
 
-def session_table(share):
+def session_table(share: Path) -> str:
     # The same single-command mailbox as guest.sh. Refuse to race another user.
     for name in ("cmd.sh", "cmd.running"):
         if (share / name).exists():
@@ -65,7 +67,7 @@ def session_table(share):
     return result
 
 
-def login(url, username, password):
+def login(url: str, username: str, password: str | None) -> tuple[OpenerDirector, int, str]:
     # The dev VM's certificate is its own making, and checking it is not what
     # this is for.
     unchecked = ssl.create_default_context()
@@ -84,7 +86,7 @@ def login(url, username, password):
     return client, status, page
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="https://127.0.0.1:7780/")
     parser.add_argument("--share", required=True, type=Path)
@@ -107,13 +109,18 @@ def main():
             assert "S-1-5-32-544" in groups, identity
         else:
             assert "S-1-5-32-544" not in groups, identity
-        rows = [dict(field.split("=", 1) for field in line.split())
-                for line in session_table(args.share).splitlines()
-                if line.startswith("logon_session_id=")]
+        rows = [
+            dict(field.split("=", 1) for field in line.split())
+            for line in session_table(args.share).splitlines()
+            if line.startswith("logon_session_id=")
+        ]
         row = next(row for row in rows if int(row["logon_session_id"]) == session)
         assert row["logon_type"] == "10", row
-        print(f"PASS {username}: session={session} kernel_type=10 "
-              "Interactive+RemoteInteractive, no Network", flush=True)
+        print(
+            f"PASS {username}: session={session} kernel_type=10 "
+            "Interactive+RemoteInteractive, no Network",
+            flush=True,
+        )
         # End the actual compositor so the test leaves no old session to rejoin.
         status, _ = request(client, args.url.rstrip("/") + "/.hello/logoff", {})
         assert status == 200, status

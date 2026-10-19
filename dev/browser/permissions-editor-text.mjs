@@ -15,24 +15,33 @@ const D = "S-1-5-21-1656784432-3555462761-4094152458";
 const AT = "/srv/pe-check";
 const out = {
     // The events pattern this check adds, gone from any run before.
-    unmade: guest(`reg del -r 'Machine\\System\\eventd\\Security\\Events\\pe-check' 2>&1 | tail -1`).trim(),
-    made: guest(`mkdir -p ${AT}/text && sd set ${AT}/text 'O:${D}-1002G:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;AU)(A;OICI;0x1301bf;;;${D}-1002)S:(AL;OICISA;0x10000;;;WD)(AU;OICIFA;0x10156;;;WD)' >/dev/null && echo made`).trim(),
+    unmade: guest(
+        `reg del -r 'Machine\\System\\eventd\\Security\\Events\\pe-check' 2>&1 | tail -1`,
+    ).trim(),
+    made: guest(
+        `mkdir -p ${AT}/text && sd set ${AT}/text 'O:${D}-1002G:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;AU)(A;OICI;0x1301bf;;;${D}-1002)S:(AL;OICISA;0x10000;;;WD)(AU;OICIFA;0x10156;;;WD)' >/dev/null && echo made`,
+    ).trim(),
 };
 const desk = await session(9374, { user: "dana", password: "dana-dev-password" });
 const pic = (name) => desk.picture(`permissions-editor-text-${name}.png`);
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => s.dataset.id)`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => s.dataset.id)`,
+    );
 for (const id of await strips()) {
-    const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('.fx-surface[data-id="${id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     if (close) await desk.pressAt(close);
     await sleep(800);
 }
-await desk.launch(`gexora ${AT}`);
+await desk.launch(`gxwi-file-explorer ${AT}`);
 let gexora = null;
 for (let i = 0; i < 40 && !gexora; i++) {
     gexora = await desk.frame(".listing", '.fx-surface[data-role="window"]');
     if (!gexora) await sleep(300);
 }
-if (!gexora) await desk.finish({ ...out, stopped: "no Gexora" }, 1);
+if (!gexora) await desk.finish({ ...out, stopped: "no File Explorer" }, 1);
 
 async function dialog() {
     for (let i = 0; i < 40; i++) {
@@ -83,13 +92,18 @@ const text = await editor.js(`document.querySelector('textarea[name="x.sddl"]')?
 out.textAsShown = text;
 await pic("editing");
 // Wrong first: an entry libpeios has no code for.
-await set(`textarea[name="x.sddl"]`, text.replace("(A;OICI;0x1200a9;;;AU)", "(QQ;OICI;0x1200a9;;;AU)"));
+await set(
+    `textarea[name="x.sddl"]`,
+    text.replace("(A;OICI;0x1200a9;;;AU)", "(QQ;OICI;0x1200a9;;;AU)"),
+);
 await press(`[fx-click="x-text-use"]`);
 out.wrong = await editor.js(`document.querySelector(".fld .wrong")?.textContent ?? null`);
 await pic("wrong");
 // Then right: Authenticated Users down to Read, and a refusal for alice
 // written in at the top.
-const edited = text.replace("(A;OICI;0x1200a9;;;AU)", "(A;OICI;0x120089;;;AU)").replace("D:P\n", `D:P\n  (D;OICI;0x10000;;;${D}-1001)\n`);
+const edited = text
+    .replace("(A;OICI;0x1200a9;;;AU)", "(A;OICI;0x120089;;;AU)")
+    .replace("D:P\n", `D:P\n  (D;OICI;0x10000;;;${D}-1001)\n`);
 out.edited = edited;
 await set(`textarea[name="x.sddl"]`, edited);
 await press(`[fx-click="x-text-use"]`);
@@ -103,19 +117,30 @@ await pic("used");
 // ---- an entry dragged
 
 await press(`.toptabs [fx-value-v="dacl"]`);
-const ids = await editor.js(`[...document.querySelectorAll(".xlist > li[fx-drag]")].map((li) => li.id)`);
-out.orderBefore = await editor.js(`[...document.querySelectorAll(".xlist > li .xw")].map((w) => w.textContent)`);
-const [from, to] = [await desk.middle(editor, `#${ids.at(-1)} .xn`), await desk.middle(editor, `#${ids[0]} .xn`)];
+const ids = await editor.js(
+    `[...document.querySelectorAll(".xlist > li[fx-drag]")].map((li) => li.id)`,
+);
+out.orderBefore = await editor.js(
+    `[...document.querySelectorAll(".xlist > li .xw")].map((w) => w.textContent)`,
+);
+const [from, to] = [
+    await desk.middle(editor, `#${ids.at(-1)} .xn`),
+    await desk.middle(editor, `#${ids[0]} .xn`),
+];
 const letGo = await desk.drag(from, { x: to.x, y: to.y - 4 });
 await pic("dragging");
 await letGo();
-out.orderAfter = await editor.js(`[...document.querySelectorAll(".xlist > li .xw")].map((w) => w.textContent)`);
+out.orderAfter = await editor.js(
+    `[...document.querySelectorAll(".xlist > li .xw")].map((w) => w.textContent)`,
+);
 await pic("dragged");
 
 // Applied, then read back.
 await press(`footer [fx-click="apply"]`);
 // What the folder passes down changed, so it asks about what is inside.
-out.asked = await editor.js(`document.querySelector(".ask")?.closest(".banner, .push, div")?.innerText ?? null`);
+out.asked = await editor.js(
+    `document.querySelector(".ask")?.closest(".banner, .push, div")?.innerText ?? null`,
+);
 await pic("asked");
 await press(`[fx-click="push"][fx-value-v="here"]`);
 await sleep(1500);
@@ -127,7 +152,10 @@ await sleep(1000);
 // ---- eventd's fields, from Event Viewer
 
 await desk.launch("event");
-const titled = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const titled = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 let viewer = null;
 for (let i = 0; i < 40 && !viewer; i++) {
     const ours = (await titled()).filter((strip) => strip.title.startsWith("Event Viewer"));
@@ -140,15 +168,21 @@ for (let i = 0; i < 40 && !viewer; i++) {
 if (!viewer) await desk.finish({ ...out, stopped: "no Event Viewer" }, 1);
 await desk.press(viewer, '.tab[fx-value-kind="settings"]');
 await sleep(1500);
-out.patternBefore = await viewer.js(`[...document.querySelectorAll(".pattern")].map((p) => p.querySelector(".covers").textContent).filter((c) => c.includes("pe-check"))`);
+out.patternBefore = await viewer.js(
+    `[...document.querySelectorAll(".pattern")].map((p) => p.querySelector(".covers").textContent).filter((c) => c.includes("pe-check"))`,
+);
 if (!out.patternBefore.length) {
-    await viewer.js(`document.querySelector("input[name='add-events']").scrollIntoView({ block: "center" })`);
+    await viewer.js(
+        `document.querySelector("input[name='add-events']").scrollIntoView({ block: "center" })`,
+    );
     await sleep(300);
     await desk.press(viewer, "input[name='add-events']");
     await desk.type("pe-check");
     await desk.key("Enter", { vk: 13 }, "\r");
 } else {
-    await viewer.js(`document.querySelector('[fx-click="policy-edit"][fx-value-pattern="pe-check"]').scrollIntoView({ block: "center" })`);
+    await viewer.js(
+        `document.querySelector('[fx-click="policy-edit"][fx-value-pattern="pe-check"]').scrollIntoView({ block: "center" })`,
+    );
     await sleep(300);
     await desk.press(viewer, '[fx-click="policy-edit"][fx-value-pattern="pe-check"]');
 }
@@ -165,12 +199,18 @@ out.specific = await editor.js(`({
 const named = await editor.js(`document.querySelector('input[name$=".named"]')?.name`);
 await set(`input[name="${named}"]`, "source.name");
 await press(`[fx-click="r-named"]`);
-out.specificAfter = await editor.js(`[...document.querySelectorAll(".chips .chip")].map((c) => c.textContent)`);
+out.specificAfter = await editor.js(
+    `[...document.querySelectorAll(".chips .chip")].map((c) => c.textContent)`,
+);
 await pic("fields");
 await press(`footer .primary`);
 await sleep(2000);
-out.grants = await viewer.js(`[...document.querySelectorAll(".pattern")].filter((p) => p.querySelector(".covers").textContent.includes("pe-check")).map((p) => [...p.querySelectorAll(".grants li")].map((l) => l.textContent).join("; "))`);
-await viewer.js(`[...document.querySelectorAll(".pattern")].find((p) => p.querySelector(".covers").textContent.includes("pe-check"))?.scrollIntoView({ block: "center" })`);
+out.grants = await viewer.js(
+    `[...document.querySelectorAll(".pattern")].filter((p) => p.querySelector(".covers").textContent.includes("pe-check")).map((p) => [...p.querySelectorAll(".grants li")].map((l) => l.textContent).join("; "))`,
+);
+await viewer.js(
+    `[...document.querySelectorAll(".pattern")].find((p) => p.querySelector(".covers").textContent.includes("pe-check"))?.scrollIntoView({ block: "center" })`,
+);
 await sleep(500);
 await pic("fields-granted");
 await desk.finish(out);

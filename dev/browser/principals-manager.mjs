@@ -14,11 +14,17 @@ import { guest, session, sleep } from "./harness.mjs";
 const alice = process.argv[2] === "alice";
 const GROUP = "pmcheck";
 if (!alice) guest(`lps group delete ${GROUP} >/dev/null 2>&1; echo ok`);
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "principals-manager-alice" : "principals-manager";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 /** The frame of the window whose title starts `title`, once it is there. */
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
@@ -37,7 +43,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -52,7 +60,8 @@ if (!manager) {
 }
 
 /** What the window shows. */
-const shows = () => manager.js(`({
+const shows = () =>
+    manager.js(`({
     tabs: [...document.querySelectorAll(".tab")].map((b) => b.textContent + (b.getAttribute("aria-pressed") === "true" ? " (shown)" : "")),
     rows: [...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | ") + (b.getAttribute("aria-selected") === "true" ? " (picked)" : "")),
     listing: document.querySelector(".list .trouble, .list .more")?.textContent ?? null,
@@ -68,8 +77,16 @@ async function until(ready, ms = 15000) {
     }
     return shows();
 }
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
-const sidOf = (who) => manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-sid") ?? null`);
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
+const sidOf = (who) =>
+    manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-sid") ?? null`,
+    );
 
 out.users = await until((s) => s.rows.some((row) => row.startsWith("dana")));
 await desk.picture(`${name}-users.png`);
@@ -92,19 +109,27 @@ if (dana) {
 // The groups, and finding in them.
 await press(`.tab[fx-click="groups"]`);
 out.groups = (await until((s) => s.tabs.includes("Groups (shown)"))).rows;
-await manager.js(`(() => { const f = document.querySelector("[name=filter]"); f.value = "admin"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await manager.js(
+    `(() => { const f = document.querySelector("[name=filter]"); f.value = "admin"; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+);
 await sleep(600);
 out.found = (await shows()).rows;
-await manager.js(`(() => { const f = document.querySelector("[name=filter]"); f.value = ""; f.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+await manager.js(
+    `(() => { const f = document.querySelector("[name=filter]"); f.value = ""; f.dispatchEvent(new Event("input", { bubbles: true })); })()`,
+);
 await sleep(400);
 
 if (!alice) {
     // A group made on a terminal appears, and goes, without Refresh.
     out.made = guest(`lps group create ${GROUP}`);
-    out.appeared = (await until((s) => s.rows.some((row) => row.startsWith(GROUP)), 15000)).rows.filter((row) => row.startsWith(GROUP));
+    out.appeared = (
+        await until((s) => s.rows.some((row) => row.startsWith(GROUP)), 15000)
+    ).rows.filter((row) => row.startsWith(GROUP));
     await desk.picture(`${name}-appeared.png`);
     guest(`lps group delete ${GROUP}`);
-    out.went = !(await until((s) => !s.rows.some((row) => row.startsWith(GROUP)), 15000)).rows.some((row) => row.startsWith(GROUP));
+    out.went = !(await until((s) => !s.rows.some((row) => row.startsWith(GROUP)), 15000)).rows.some(
+        (row) => row.startsWith(GROUP),
+    );
 }
 out.said = (await shows()).said;
 out.footer = (await shows()).footer;

@@ -12,7 +12,10 @@ const desk = await session(9366, { user: "dana", password: "dana-dev-password" }
 const out = {};
 const name = "task-manager-half";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -30,7 +33,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -46,9 +51,15 @@ if (!manager) {
     await desk.finish(out, 1);
 }
 
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
 /** How wide the window is, and anything in it wider than its place. */
-const fits = () => manager.js(`(() => {
+const fits = () =>
+    manager.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".details *, .list *, .bar *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
@@ -57,7 +68,9 @@ const fits = () => manager.js(`(() => {
     return { width: innerWidth, sideways: page.scrollWidth > page.clientWidth, pane: details ? Math.round(details.getBoundingClientRect().width) : null, over: [...new Set(over)].slice(0, 6) };
 })()`);
 const pick = async (label) => {
-    const pid = await manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)})?.getAttribute("fx-value-pid") ?? null`);
+    const pid = await manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(label)})?.getAttribute("fx-value-pid") ?? null`,
+    );
     if (pid) await press(`.entries button[fx-value-pid="${pid}"]`);
     await sleep(700);
 };

@@ -1,3 +1,4 @@
+#!/bin/sh
 # Runs in the guest, as the gxwid dev service: start gxwid from the share with
 # its output where the host can read it.
 #
@@ -7,17 +8,30 @@
 # (as a session is, across a push) segfaults when next started from there.
 # The copy lands in /tmp, whose files only SYSTEM and administrators can
 # touch, so everyone is let read and run it.
+# Publish the shared client library before starting any migrated application.
+# An adjacent exclusive temporary file prevents partial reads during replacement.
+if [ -f /gxwi/libgxwi.so.1 ]; then
+    library_dir=/usr/lib/x86_64-linux-peios
+    mkdir -p "$library_dir" || exit 1
+    library_temp=$(mktemp "$library_dir/.libgxwi.so.1.XXXXXXXX") || exit 1
+    trap 'rm -f -- "$library_temp"' EXIT HUP INT TERM
+    cp /gxwi/libgxwi.so.1 "$library_temp" &&
+        chmod 755 "$library_temp" &&
+        sd allow --replace "$library_temp" SYSTEM:full Administrators:full Everyone:rx &&
+        mv "$library_temp" "$library_dir/libgxwi.so.1" || exit 1
+    trap - EXIT HUP INT TERM
+fi
 from=/gxwi/gxwi-hello
 [ -e /gxwi/fenestra ] && from=/gxwi/fenestra
-cp "$from" /tmp/gxwi-compositor.$$ \
-    && sd allow /tmp/gxwi-compositor.$$ Everyone:rx \
-    && mv /tmp/gxwi-compositor.$$ /tmp/gxwi-compositor
+cp "$from" /tmp/gxwi-compositor.$$ &&
+    sd allow /tmp/gxwi-compositor.$$ Everyone:rx &&
+    mv /tmp/gxwi-compositor.$$ /tmp/gxwi-compositor
 # GXWI's stand-in is also what dev/browser/overlay.mjs sets as the overlay,
 # because it says who it is running as. It is copied off the share for the
 # same reason the compositor is.
-cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ \
-    && sd allow /tmp/gxwi-overlay.$$ Everyone:rx \
-    && mv /tmp/gxwi-overlay.$$ /tmp/gxwi-overlay
+cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ &&
+    sd allow /tmp/gxwi-overlay.$$ Everyone:rx &&
+    mv /tmp/gxwi-overlay.$$ /tmp/gxwi-overlay
 # The test app and the parts of Fenestra's fallback shell go beside it, where
 # Fenestra looks for them. fenesh, the shell proper, goes there too if
 # ../fenesh/dev/push.sh has put one on the share, for its setting to name.
@@ -25,29 +39,29 @@ cp /gxwi/gxwi-hello /tmp/gxwi-overlay.$$ \
 # The installer goes there too if ../installer-gxwi/dev/push.sh has put one on
 # the share. Nothing here starts it: its dev/overlay.sh names it as the
 # overlay, and takes that away again.
-for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh fenesh-settings gexora gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager gxwi-upgrade-peios gxwi-disk-manager gxwi-network-manager ssh-settings peiterm peitor installer-gxwi; do
+for beside in gxwi-hello-app fenestra-taskbar fenestra-launcher fenesh fenesh-settings gxwi-file-explorer gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager gxwi-upgrade-peios gxwi-disk-manager gxwi-network-manager ssh-settings gxwi-terminal gxwi-text-editor installer-gxwi; do
     [ -e "/gxwi/$beside" ] || continue
-    cp "/gxwi/$beside" "/tmp/$beside.$$" \
-        && sd allow "/tmp/$beside.$$" Everyone:rx \
-        && mv "/tmp/$beside.$$" "/tmp/$beside"
+    cp "/gxwi/$beside" "/tmp/$beside.$$" &&
+        sd allow "/tmp/$beside.$$" Everyone:rx &&
+        mv "/tmp/$beside.$$" "/tmp/$beside"
 done
 # The test app, Gexora, the permissions editor, the file dialog, Services
 # Manager, Event Viewer, Registry Editor, Principals Manager, Task Manager,
-# the settings apps, peiterm and peitor go where a package would put them,
+# the settings apps, gxwi-terminal and gxwi-text-editor go where a package would put them,
 # /usr/bin, which is where their declarations say they are, so that the
 # launcher has something to start that can be seen.
-for app in gxwi-hello-app gexora gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager gxwi-upgrade-peios gxwi-disk-manager gxwi-network-manager fenesh-settings ssh-settings peiterm peitor; do
-    [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/usr/bin/$app.$$" \
-        && sd allow "/usr/bin/$app.$$" Everyone:rx \
-        && mv "/usr/bin/$app.$$" "/usr/bin/$app"
+for app in gxwi-hello-app gxwi-file-explorer gxwi-sd-editor gxwi-file-dialog gxwi-services-manager gxwi-event-viewer gxwi-registry-editor gxwi-principals-manager gxwi-task-manager gxwi-system-settings gxwi-my-settings gxwi-security-policy gxwi-package-manager gxwi-feature-manager gxwi-upgrade-peios gxwi-disk-manager gxwi-network-manager fenesh-settings ssh-settings gxwi-terminal gxwi-text-editor; do
+    [ -e "/tmp/$app" ] && cp -p "/tmp/$app" "/usr/bin/$app.$$" &&
+        sd allow "/usr/bin/$app.$$" Everyone:rx &&
+        mv "/usr/bin/$app.$$" "/usr/bin/$app"
 done
 # A peipkg on the share, from ../gxwi-package-manager/dev/push.sh, takes the
 # place of the one the image ships, for Package Manager to drive one with the
 # driven mode before an image has it.
 if [ -e /gxwi/peipkg ] && [ /gxwi/peipkg -nt /usr/bin/peipkg ]; then
-    cp /gxwi/peipkg "/usr/bin/peipkg.$$" \
-        && sd allow "/usr/bin/peipkg.$$" Everyone:rx \
-        && mv "/usr/bin/peipkg.$$" /usr/bin/peipkg
+    cp /gxwi/peipkg "/usr/bin/peipkg.$$" &&
+        sd allow "/usr/bin/peipkg.$$" Everyone:rx &&
+        mv "/usr/bin/peipkg.$$" /usr/bin/peipkg
 fi
 # A feat on the share, from ../gxwi-feature-manager/dev/push.sh, likewise,
 # for Feature Manager to drive one with the driven mode, and an
@@ -57,9 +71,9 @@ fi
 # replaces the link, leaving the binary and every other tool in it alone.
 for tool in feat upgrade-peios lsblk; do
     if [ -e "/gxwi/$tool" ] && [ "/gxwi/$tool" -nt "/usr/bin/$tool" ]; then
-        cp "/gxwi/$tool" "/usr/bin/$tool.$$" \
-            && sd allow "/usr/bin/$tool.$$" Everyone:rx \
-            && mv "/usr/bin/$tool.$$" "/usr/bin/$tool"
+        cp "/gxwi/$tool" "/usr/bin/$tool.$$" &&
+            sd allow "/usr/bin/$tool.$$" Everyone:rx &&
+            mv "/usr/bin/$tool.$$" "/usr/bin/$tool"
     fi
 done
 # An installerd on the share, from ../installer-gxwi/dev/push.sh, takes the
@@ -68,23 +82,23 @@ done
 # where it lives and restarted, and only when the share's is newer: restarting
 # it ends whatever conversation it was holding.
 if [ -e /gxwi/installerd ] && [ /gxwi/installerd -nt /usr/sbin/installerd ]; then
-    cp /gxwi/installerd "/usr/sbin/installerd.$$" \
-        && sd allow "/usr/sbin/installerd.$$" Everyone:rx \
-        && mv "/usr/sbin/installerd.$$" /usr/sbin/installerd \
-        && svctl restart installerd >> /share/svctl.txt 2>&1
-    echo "run-gxwid: installerd replaced from the share" >> /share/gxwi.log
+    cp /gxwi/installerd "/usr/sbin/installerd.$$" &&
+        sd allow "/usr/sbin/installerd.$$" Everyone:rx &&
+        mv "/usr/sbin/installerd.$$" /usr/sbin/installerd &&
+        svctl restart installerd >>/share/svctl.txt 2>&1
+    echo "run-gxwid: installerd replaced from the share" >>/share/gxwi.log
 fi
 # Their declarations (PGSS Applications) go where the catalogue is, which
 # the launcher lists and Fenestra names a running program by. Readable by
 # everyone, as the icons are: every part of the shell reads them as whoever
 # logged on.
 if [ -d /gxwi/apps ]; then
-    mkdir -p /usr/share/apps \
-        && sd allow --replace --flags CI,OI /usr/share/apps SYSTEM:full Administrators:full Everyone:rx
+    mkdir -p /usr/share/apps &&
+        sd allow --replace --flags CI,OI /usr/share/apps SYSTEM:full Administrators:full Everyone:rx
     for declaration in /gxwi/apps/*.toml; do
         [ -e "$declaration" ] || continue
-        cp "$declaration" "/usr/share/apps/$(basename "$declaration").$$" \
-            && mv "/usr/share/apps/$(basename "$declaration").$$" "/usr/share/apps/$(basename "$declaration")"
+        cp "$declaration" "/usr/share/apps/$(basename "$declaration").$$" &&
+            mv "/usr/share/apps/$(basename "$declaration").$$" "/usr/share/apps/$(basename "$declaration")"
     done
 fi
 # The icon themes on the share go where PGSS Icons has them looked for.
@@ -96,15 +110,15 @@ for theme in /gxwi/icons/*/; do
     [ -d "$theme" ] || continue
     name=$(basename "$theme")
     for dir in /usr/share/icons "/usr/share/icons/$name"; do
-        mkdir -p "$dir" \
-            && sd allow --replace --flags CI,OI "$dir" SYSTEM:full Administrators:full Everyone:rx
+        mkdir -p "$dir" &&
+            sd allow --replace --flags CI,OI "$dir" SYSTEM:full Administrators:full Everyone:rx
     done
     for svg in "$theme"*.svg; do
-        cp "$svg" "/usr/share/icons/$name/$(basename "$svg").$$" \
-            && mv "/usr/share/icons/$name/$(basename "$svg").$$" "/usr/share/icons/$name/$(basename "$svg")"
+        cp "$svg" "/usr/share/icons/$name/$(basename "$svg").$$" &&
+            mv "/usr/share/icons/$name/$(basename "$svg").$$" "/usr/share/icons/$name/$(basename "$svg")"
     done
 done
-echo "run-gxwid: sessions will run a copy of $from" >> /share/gxwi.log
+echo "run-gxwid: sessions will run a copy of $from" >>/share/gxwi.log
 # What gxwid and Fenestra are to read from the registry, from whichever of
 # them has pushed its settings to the share. Applied on every start, so an
 # edited one takes a push to try. Nothing in gxwid's environment says any of
@@ -112,7 +126,7 @@ echo "run-gxwid: sessions will run a copy of $from" >> /share/gxwi.log
 # names itself as the shell where Fenestra's names the fallback.
 for settings in /gxwi/gxwi-dev.reg /gxwi/fenestra-dev.reg /gxwi/fenesh-dev.reg; do
     [ -e "$settings" ] || continue
-    echo "run-gxwid: applying $settings" >> /share/gxwi.log
-    REG_ASSUME_YES=1 reg apply --yes "$settings" >> /share/gxwi.log 2>&1
+    echo "run-gxwid: applying $settings" >>/share/gxwi.log
+    REG_ASSUME_YES=1 reg apply --yes "$settings" >>/share/gxwi.log 2>&1
 done
-exec /gxwi/gxwid >> /share/gxwi.log 2>&1
+exec /gxwi/gxwid >>/share/gxwi.log 2>&1

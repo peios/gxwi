@@ -16,15 +16,24 @@
 import { guest as asGuest, session, sleep } from "./harness.mjs";
 
 /** A guest command's output, without the exit status the channel adds. */
-const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
+const guest = (command) =>
+    asGuest(command)
+        .replace(/\n?rc=\d+\s*$/, "")
+        .trim();
 
 const alice = process.argv[2] === "alice";
 const light = process.argv[2] === "light";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "package-manager-alice" : light ? "package-manager-light" : "package-manager";
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -42,7 +51,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -55,21 +66,30 @@ if (!w) {
     out.stopped = "no Package Manager window to attach to";
     await desk.finish(out, 1);
 }
-const press = (selector) => w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(w, selector));
+const press = (selector) =>
+    w
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(w, selector));
 const button = async (text) => {
-    const found = await w.js(`(() => { const b = [...document.querySelectorAll(".st-page button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`);
+    const found = await w.js(
+        `(() => { const b = [...document.querySelectorAll(".st-page button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`,
+    );
     if (!found) return false;
     await press('[data-test="this"]');
     await w.js(`document.querySelector('[data-test="this"]')?.removeAttribute("data-test")`);
     return true;
 };
-const put = (field, value) => w.js(`(() => {
+const put = (field, value) =>
+    w.js(`(() => {
     const f = document.querySelector("[name='${field}']");
     f.value = ${JSON.stringify(value)};
     f.dispatchEvent(new Event("input", { bubbles: true }));
     f.dispatchEvent(new Event("change", { bubbles: true }));
 })()`);
-const shows = () => w.js(`({
+const shows = () =>
+    w.js(`({
     section: document.querySelector('.st-nav [aria-current="page"] b')?.textContent ?? null,
     nav: [...document.querySelectorAll(".st-nav button")].map((b) => b.innerText.replaceAll("\\n", " — ")),
     head: document.querySelector(".st-head h1")?.textContent ?? null,
@@ -99,7 +119,11 @@ async function until(ok, seconds = 30) {
     return now;
 }
 /** Waits for a change to stop at a question or an end. */
-const settled = () => until((s) => !s.progress || s.buttons.some((b) => ["Close", "Allow This", "Cancel"].includes(b)), 90);
+const settled = () =>
+    until(
+        (s) => !s.progress || s.buttons.some((b) => ["Close", "Allow This", "Cancel"].includes(b)),
+        90,
+    );
 
 out.installed = await until((s) => s.rows > 0 || s.groups.some((g) => g.includes("couldn't")));
 await desk.picture(`${name}.png`);
@@ -126,8 +150,12 @@ if (!alice) {
     // A second name for the development repository, set up as an image
     // sets one up: its .repo file with its key, and no trust ceremony.
     const { readFileSync } = await import("node:fs");
-    const anchor = JSON.parse(readFileSync(new URL("../../target/vmshare/devrepo/repo.json", import.meta.url))).repo.signing.keys[0].fingerprint;
-    guest(`printf 'base_url = "file:///share/devrepo"\\npriority = 60\\nsignature_policy = "required"\\ntrust_anchors = ["${anchor}"]\\n' > /lcl/conf/peipkg/mirror.repo`);
+    const anchor = JSON.parse(
+        readFileSync(new URL("../../target/vmshare/devrepo/repo.json", import.meta.url)),
+    ).repo.signing.keys[0].fingerprint;
+    guest(
+        `printf 'base_url = "file:///share/devrepo"\\npriority = 60\\nsignature_policy = "required"\\ntrust_anchors = ["${anchor}"]\\n' > /lcl/conf/peipkg/mirror.repo`,
+    );
     await section("history");
     await section("repositories");
     out.untrusted = await shows();
@@ -155,7 +183,9 @@ await sleep(900);
 
 // One package: its details, its files, and a check of them. which, if
 // dev/repo.sh installed it from the development repository.
-const one = (await w.js(`!!document.querySelector('.st-row.link[fx-value-name="org.gnu.which"]')`)) ? "org.gnu.which" : "org.gnu.sed";
+const one = (await w.js(`!!document.querySelector('.st-row.link[fx-value-name="org.gnu.which"]')`))
+    ? "org.gnu.which"
+    : "org.gnu.sed";
 await press(`.st-row.link[fx-value-name="${one}"]`);
 await sleep(1200);
 out.opened = await shows();
@@ -302,7 +332,8 @@ out.roots = await shows();
 await desk.picture(`${name}-roots.png`);
 
 // Half a screen: a second window tiles this one to half.
-const wide = () => w.js(`(() => {
+const wide = () =>
+    w.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".st-page *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
@@ -338,7 +369,9 @@ if (!alice) {
     out.halfPlan = await wide();
     await desk.picture(`${name}-half-plan.png`);
     await button(had ? "Remove" : "Install");
-    const close = await desk.a.js(`(() => { const r = document.querySelector('${w.surface} [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('${w.surface} [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     await desk.pressAt(close);
     out.closing = await shows().catch(() => ({ gone: true }));
     await desk.picture(`${name}-closing.png`);
@@ -347,7 +380,11 @@ if (!alice) {
         await sleep(500);
         left = !(await strips()).some((strip) => strip.title.startsWith("Package Manager"));
     }
-    out.closedWhenDone = { left, patch: guest("peipkg info org.gnu.patch > /dev/null 2>&1 && echo installed || echo absent"), last: guest("peipkg history -n 1") };
+    out.closedWhenDone = {
+        left,
+        patch: guest("peipkg info org.gnu.patch > /dev/null 2>&1 && echo installed || echo absent"),
+        last: guest("peipkg history -n 1"),
+    };
 }
 await gone(["Event Viewer"]);
 

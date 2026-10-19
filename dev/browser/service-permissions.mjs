@@ -20,7 +20,10 @@ import { guest, session, sleep } from "./harness.mjs";
 
 const alice = process.argv[2] === "alice";
 const defaults = process.argv[2] === "defaults";
-const desk = await session(alice ? 9364 : defaults ? 9366 : 9363, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9364 : defaults ? 9366 : 9363,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "permissions-alice" : defaults ? "permissions-defaults" : "permissions";
 const services = "Machine\\System\\Services";
@@ -28,7 +31,10 @@ const sshd = "Machine\\System\\Services\\sshd";
 
 // A first sign-in brings Get started with it, which takes half the screen
 // and, with it, the details pane: it goes.
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 for (const window of await strips()) {
     if (window.title !== "Get started") continue;
     const close = await desk.a.js(`(() => {
@@ -47,7 +53,8 @@ if (!manager) {
 // Its own surface, by id: another window may be first on the page.
 const ours = (await strips()).find((window) => window.title === "Services Manager");
 if (ours) manager.surface = `.fx-surface[data-id="${ours.id}"]`;
-const details = () => manager.js(`({
+const details = () =>
+    manager.js(`({
     text: document.querySelector(".details")?.innerText ?? null,
     buttons: [...document.querySelectorAll(".details .permissions button, .bar .commands button")].map((b) => b.textContent + (b.disabled ? " (" + (b.title || "disabled") + ")" : "")),
     said: document.querySelector(".said")?.textContent ?? null,
@@ -62,7 +69,10 @@ async function until(ready, look, ms = 15000) {
 }
 
 // sshd, picked by a real press on its row.
-await until((rows) => rows > 0, () => manager.js(`document.querySelectorAll(".entries button").length`));
+await until(
+    (rows) => rows > 0,
+    () => manager.js(`document.querySelectorAll(".entries button").length`),
+);
 const at = await manager.js(`(() => {
     const rows = [...document.querySelectorAll(".entries button")];
     const at = rows.findIndex((b) => b.querySelector(".name").textContent === "SSH server");
@@ -86,9 +96,15 @@ async function dialog() {
     }
     return null;
 }
-const gone = () => until((none) => none, () => desk.a.js(`!document.querySelector('.fx-surface[data-role="dialog"]')`), 10000);
+const gone = () =>
+    until(
+        (none) => none,
+        () => desk.a.js(`!document.querySelector('.fx-surface[data-role="dialog"]')`),
+        10000,
+    );
 /** What the dialog shows. */
-const shows = (editor) => editor.js(`({
+const shows = (editor) =>
+    editor.js(`({
     title: document.querySelector("header")?.innerText,
     fixed: document.querySelector(".fixed")?.textContent ?? null,
     listed: [...document.querySelectorAll(".who")].map((b) => b.querySelector(".name").textContent + (b.getAttribute("aria-selected") === "true" ? " (picked)" : "")),
@@ -107,7 +123,9 @@ if (defaults) {
         drawn again under the pointer can take the first press. */
     const press = async (selector, then) => {
         for (let tries = 0; tries < 4; tries++) {
-            await manager.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`);
+            await manager.js(
+                `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+            );
             await desk.press(manager, selector);
             if (await until(then, details, 2500).then(then)) return true;
         }
@@ -125,7 +143,10 @@ if (defaults) {
     await desk.press(editor, "footer .primary");
     out.everyClosed = await gone();
     out.everyValue = value(services);
-    out.afterEvery = await until((d) => d.text?.includes("takes the default set for every service"), details);
+    out.afterEvery = await until(
+        (d) => d.text?.includes("takes the default set for every service"),
+        details,
+    );
     // sshd's own, and then the default again.
     editor = await open("control");
     if (editor) {
@@ -136,7 +157,9 @@ if (defaults) {
     }
     out.ownValue = value(sshd);
     out.own = await until((d) => d.buttons.includes("Use the default"), details);
-    await press(`button[fx-click="forget"][fx-value-which="service"]`, (d) => d.buttons.includes("Keep its own"));
+    await press(`button[fx-click="forget"][fx-value-which="service"]`, (d) =>
+        d.buttons.includes("Keep its own"),
+    );
     out.asked = await details();
     await desk.picture(`${name}-asking.png`);
     await press(`button[fx-click="forget-yes"]`, (d) => d.said !== null);
@@ -144,7 +167,9 @@ if (defaults) {
     out.ownAfter = value(sshd);
     // The built-in default again, for every service.
     await until((d) => d.buttons.includes("Use the built-in default"), details);
-    await press(`button[fx-click="forget"][fx-value-which="every"]`, (d) => d.buttons.includes("Keep it"));
+    await press(`button[fx-click="forget"][fx-value-which="every"]`, (d) =>
+        d.buttons.includes("Keep it"),
+    );
     out.askedEvery = (await details()).text;
     await press(`button[fx-click="forget-yes"]`, (d) => d.said?.includes("built-in"));
     out.forgotEvery = await details();

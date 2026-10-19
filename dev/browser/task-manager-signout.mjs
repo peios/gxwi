@@ -18,18 +18,32 @@ import { guest, session, sleep } from "./harness.mjs";
 const asAlice = process.argv[2] === "alice";
 const stubborn = process.argv[2] === "stubborn";
 const out = {};
-const name = asAlice ? "task-manager-signout-alice" : stubborn ? "task-manager-signout-stubborn" : "task-manager-signout";
+const name = asAlice
+    ? "task-manager-signout-alice"
+    : stubborn
+      ? "task-manager-signout-stubborn"
+      : "task-manager-signout";
 
 // alice signs in first, so that dana has a session of hers to end.
 const alice = asAlice || stubborn ? null : await session(9367);
 if (stubborn) {
-    out.ssh = guest(`SSH_ASKPASS=/tmp/pw SSH_ASKPASS_REQUIRE=force DISPLAY=x ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no alice@127.0.0.1 'sh -c "trap \\"\\" TERM HUP; exec sleep 600" </dev/null >/dev/null 2>&1 & echo started' </dev/null 2>&1 | tail -1`).trim();
+    out.ssh = guest(
+        `SSH_ASKPASS=/tmp/pw SSH_ASKPASS_REQUIRE=force DISPLAY=x ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no alice@127.0.0.1 'sh -c "trap \\"\\" TERM HUP; exec sleep 600" </dev/null >/dev/null 2>&1 & echo started' </dev/null 2>&1 | tail -1`,
+    ).trim();
 }
-const desk = asAlice ? await session(9367) : await session(9366, { user: "dana", password: "dana-dev-password" });
+const desk = asAlice
+    ? await session(9367)
+    : await session(9366, { user: "dana", password: "dana-dev-password" });
 // alice's shell on the desktop, or her stubborn process over SSH, and dana's.
-const aliceSession = () => guest(`for p in /proc/[0-9]*; do case "$(cat $p/comm 2>/dev/null)" in fenesh|sleep) grep -q "SigIgn:.*4007" $p/status || [ "$(cat $p/comm)" = fenesh ] && /tmp/tokcheck \${p#/proc/};; esac; done; true`);
+const aliceSession = () =>
+    guest(
+        `for p in /proc/[0-9]*; do case "$(cat $p/comm 2>/dev/null)" in fenesh|sleep) grep -q "SigIgn:.*4007" $p/status || [ "$(cat $p/comm)" = fenesh ] && /tmp/tokcheck \${p#/proc/};; esac; done; true`,
+    );
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -47,7 +61,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -61,13 +77,24 @@ if (!manager) {
     alice?.close();
     await desk.finish(out, 1);
 }
-const details = () => manager.js(`document.querySelector(".details")?.innerText.replaceAll("\\n", " / ") ?? null`);
-const press = (selector) => manager.js(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`).then(() => desk.press(manager, selector));
-const rowOf = (who) => manager.js(`[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-id") ?? null`);
+const details = () =>
+    manager.js(`document.querySelector(".details")?.innerText.replaceAll("\\n", " / ") ?? null`);
+const press = (selector) =>
+    manager
+        .js(
+            `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(manager, selector));
+const rowOf = (who) =>
+    manager.js(
+        `[...document.querySelectorAll(".entries button")].find((b) => b.querySelector(".name").textContent === ${JSON.stringify(who)})?.getAttribute("fx-value-id") ?? null`,
+    );
 await sleep(2500);
 await press('.tab[fx-value-by="Signed in"]');
 await sleep(2000);
-out.signedIn = await manager.js(`[...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | "))`);
+out.signedIn = await manager.js(
+    `[...document.querySelectorAll(".entries button")].map((b) => [...b.querySelectorAll("span")].map((s) => s.textContent).join(" | "))`,
+);
 
 if (asAlice) {
     const own = await rowOf("alice");
@@ -109,6 +136,8 @@ out.answeredAfterMs = Date.now() - pressed;
 await desk.picture(`${name}-done.png`);
 await sleep(3000);
 out.aliceAfter = aliceSession();
-out.listedAfter = guest(`cat /sys/kernel/security/kacs/sessions | while read a b c; do case "$a" in *=${id}) echo still listed;; esac; done; echo checked`).trim();
+out.listedAfter = guest(
+    `cat /sys/kernel/security/kacs/sessions | while read a b c; do case "$a" in *=${id}) echo still listed;; esac; done; echo checked`,
+).trim();
 alice?.close();
 await desk.finish(out);

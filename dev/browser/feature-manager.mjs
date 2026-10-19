@@ -18,20 +18,31 @@
 import { guest as asGuest, session, sleep } from "./harness.mjs";
 
 /** A guest command's output, without the exit status the channel adds. */
-const guest = (command) => asGuest(command).replace(/\n?rc=\d+\s*$/, "").trim();
+const guest = (command) =>
+    asGuest(command)
+        .replace(/\n?rc=\d+\s*$/, "")
+        .trim();
 
 const alice = process.argv[2] === "alice";
 const light = process.argv[2] === "light";
-const desk = await session(alice ? 9367 : 9366, alice ? undefined : { user: "dana", password: "dana-dev-password" });
+const desk = await session(
+    alice ? 9367 : 9366,
+    alice ? undefined : { user: "dana", password: "dana-dev-password" },
+);
 const out = {};
 const name = alice ? "feature-manager-alice" : light ? "feature-manager-light" : "feature-manager";
 
 if (!alice && !light) {
-    guest("rm -f /tmp/feat-example-fail; feat remove example; feat remove dynamic-boot; peipkg info dev.peios.feat-example > /dev/null 2>&1 || peipkg install --yes --allow-stale dev.peios.feat-example");
+    guest(
+        "rm -f /tmp/feat-example-fail; feat remove example; feat remove dynamic-boot; peipkg info dev.peios.feat-example > /dev/null 2>&1 || peipkg install --yes --allow-stale dev.peios.feat-example",
+    );
 }
 out.before = guest("feat list");
 
-const strips = () => desk.a.js(`[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`);
+const strips = () =>
+    desk.a.js(
+        `[...document.querySelectorAll('.fx-surface[data-role="window"]')].map((s) => ({ id: s.dataset.id, title: s.innerText.split("\\n")[0].trim() }))`,
+    );
 async function window(title, has) {
     for (let i = 0; i < 40; i++) {
         const ours = (await strips()).filter((strip) => strip.title.startsWith(title));
@@ -49,7 +60,9 @@ async function window(title, has) {
 async function gone(titles) {
     for (const strip of await strips()) {
         if (!titles.some((title) => strip.title.startsWith(title))) continue;
-        const close = await desk.a.js(`(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+        const close = await desk.a.js(
+            `(() => { const r = document.querySelector('.fx-surface[data-id="${strip.id}"] [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+        );
         if (close) await desk.pressAt(close);
         await sleep(800);
     }
@@ -67,17 +80,28 @@ async function open() {
 await gone([""]);
 let w = await open();
 
-const press = (selector) => w.js(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`).then(() => desk.press(w, selector));
+const press = (selector) =>
+    w
+        .js(
+            `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center" })`,
+        )
+        .then(() => desk.press(w, selector));
 /** Presses a feature's button: its event and verb, as the page sends them. */
-const change = (feature, event, verb) => press(`button[fx-click="${event}"][fx-value-name="${feature}"]${verb ? `[fx-value-verb="${verb}"]` : ""}`);
+const change = (feature, event, verb) =>
+    press(
+        `button[fx-click="${event}"][fx-value-name="${feature}"]${verb ? `[fx-value-verb="${verb}"]` : ""}`,
+    );
 const button = async (text) => {
-    const found = await w.js(`(() => { const b = [...document.querySelectorAll(".st-page button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`);
+    const found = await w.js(
+        `(() => { const b = [...document.querySelectorAll(".st-page button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)} && !b.disabled); if (!b) return false; b.setAttribute("data-test", "this"); return true; })()`,
+    );
     if (!found) return false;
     await press('[data-test="this"]');
     await w.js(`document.querySelector('[data-test="this"]')?.removeAttribute("data-test")`);
     return true;
 };
-const shows = () => w.js(`({
+const shows = () =>
+    w.js(`({
     said: document.querySelector(".st-status .said")?.textContent ?? null,
     banner: [...document.querySelectorAll(".st-banner")].map((b) => b.textContent),
     cards: [...document.querySelectorAll(".st-group")].map((g) => g.innerText.replaceAll("\\n", " | ").slice(0, 400)),
@@ -144,7 +168,7 @@ if (!alice) {
     await sleep(600);
     out.asking = await shows();
     await desk.picture(`${name}-remove-asking.png`);
-    await press('.st-more.asking button.danger');
+    await press(".st-more.asking button.danger");
     out.removed = await ended();
 
     // Installed without turning on.
@@ -169,7 +193,8 @@ if (!alice) {
 }
 
 // Half a screen: a second window tiles this one to half.
-const wide = () => w.js(`(() => {
+const wide = () =>
+    w.js(`(() => {
     const page = document.documentElement;
     const over = [...document.querySelectorAll(".st-page *")]
         .filter((e) => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX === "visible" && e.clientWidth > 0)
@@ -185,7 +210,9 @@ await desk.picture(`${name}-half.png`);
 if (!alice) {
     await change("example", "change", "add");
     await until((s) => s.progress !== null, 10);
-    const close = await desk.a.js(`(() => { const r = document.querySelector('${w.surface} [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    const close = await desk.a.js(
+        `(() => { const r = document.querySelector('${w.surface} [data-part="close"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`,
+    );
     await desk.pressAt(close);
     await sleep(500);
     out.closing = await shows().catch(() => ({ gone: true }));
