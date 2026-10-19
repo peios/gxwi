@@ -66,37 +66,80 @@ impl Glyph {
     fn paths(self) -> &'static str {
         match self {
             Glyph::Clock => r#"<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>"#,
-            Glyph::Globe => r#"<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>"#,
-            Glyph::Keyboard => r#"<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>"#,
+            Glyph::Globe => {
+                r#"<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>"#
+            }
+            Glyph::Keyboard => {
+                r#"<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>"#
+            }
             Glyph::Info => r#"<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>"#,
             Glyph::Power => r#"<path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>"#,
-            Glyph::User => r#"<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.4-7 8-7s7 2.5 8 7"/>"#,
-            Glyph::Lock => r#"<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>"#,
-            Glyph::Key => r#"<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3M16 7l3 3M14 9l2 2"/>"#,
-            Glyph::Picture => r#"<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>"#,
-            Glyph::File => r#"<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>"#,
-            Glyph::Dock => r#"<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>"#,
-            Glyph::Screen => r#"<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>"#,
+            Glyph::User => {
+                r#"<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.4-7 8-7s7 2.5 8 7"/>"#
+            }
+            Glyph::Lock => {
+                r#"<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>"#
+            }
+            Glyph::Key => {
+                r#"<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3M16 7l3 3M14 9l2 2"/>"#
+            }
+            Glyph::Picture => {
+                r#"<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>"#
+            }
+            Glyph::File => {
+                r#"<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>"#
+            }
+            Glyph::Dock => {
+                r#"<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>"#
+            }
+            Glyph::Screen => {
+                r#"<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>"#
+            }
             Glyph::Shield => r#"<path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z"/>"#,
             Glyph::Terminal => r#"<path d="m5 8 4 4-4 4M12 16h7"/>"#,
-            Glyph::Tag => r#"<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>"#,
-            Glyph::Server => r#"<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>"#,
-            Glyph::Certificate => r#"<path d="M12 20H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M8 8h8M8 12h4"/><circle cx="17" cy="14" r="3"/><path d="m15.4 16.6-.9 4.4 2.5-1.4 2.5 1.4-.9-4.4"/>"#,
+            Glyph::Tag => {
+                r#"<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>"#
+            }
+            Glyph::Server => {
+                r#"<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/>"#
+            }
+            Glyph::Certificate => {
+                r#"<path d="M12 20H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M8 8h8M8 12h4"/><circle cx="17" cy="14" r="3"/><path d="m15.4 16.6-.9 4.4 2.5-1.4 2.5 1.4-.9-4.4"/>"#
+            }
             Glyph::Blocked => r#"<circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/>"#,
-            Glyph::Package => r#"<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>"#,
+            Glyph::Package => {
+                r#"<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>"#
+            }
             Glyph::Download => r#"<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/>"#,
-            Glyph::Refresh => r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>"#,
-            Glyph::Folder => r#"<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>"#,
-            Glyph::Toggle => r#"<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/>"#,
-            Glyph::Disk => r#"<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 13h18M17 15.5h.01M14 15.5h.01"/>"#,
-            Glyph::Removable => r#"<rect x="7" y="9" width="10" height="13" rx="2"/><path d="M9 9V3h6v6M11 6h.01M13 6h.01"/>"#,
-            Glyph::Disc => r#"<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6a6 6 0 0 0-6 6"/>"#,
-            Glyph::Layers => r#"<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>"#,
+            Glyph::Refresh => {
+                r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/>"#
+            }
+            Glyph::Folder => {
+                r#"<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>"#
+            }
+            Glyph::Toggle => {
+                r#"<rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="2.5"/>"#
+            }
+            Glyph::Disk => {
+                r#"<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 13h18M17 15.5h.01M14 15.5h.01"/>"#
+            }
+            Glyph::Removable => {
+                r#"<rect x="7" y="9" width="10" height="13" rx="2"/><path d="M9 9V3h6v6M11 6h.01M13 6h.01"/>"#
+            }
+            Glyph::Disc => {
+                r#"<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 6a6 6 0 0 0-6 6"/>"#
+            }
+            Glyph::Layers => {
+                r#"<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>"#
+            }
         }
     }
 
     fn svg(self) -> String {
-        format!(r#"<svg viewBox="0 0 24 24" aria-hidden="true">{}</svg>"#, self.paths())
+        format!(
+            r#"<svg viewBox="0 0 24 24" aria-hidden="true">{}</svg>"#,
+            self.paths()
+        )
     }
 }
 
@@ -130,7 +173,11 @@ impl Tile {
 
 /// A glyph on its tile.
 pub fn icon(glyph: Glyph, tile: Tile) -> String {
-    format!(r#"<span class="st-icon {}">{}</span>"#, tile.class(), glyph.svg())
+    format!(
+        r#"<span class="st-icon {}">{}</span>"#,
+        tile.class(),
+        glyph.svg()
+    )
 }
 
 /// One section of an app, as its side lists it.
@@ -178,7 +225,9 @@ pub fn window(nav: &[Nav], current: &str, page: &str, status: &str) -> String {
 
 /// The whole surface of an app with one page and no sections.
 pub fn single(page: &str, status: &str) -> String {
-    format!(r#"<div class="st"><main class="st-page"><div class="st-inner">{page}</div></main></div>{status}"#)
+    format!(
+        r#"<div class="st"><main class="st-page"><div class="st-inner">{page}</div></main></div>{status}"#
+    )
 }
 
 /// A section's heading: its icon, its title and a line on what it is for.
@@ -187,14 +236,20 @@ pub fn head(glyph: Glyph, tile: Tile, title: &str, about: &str) -> String {
         "<header class=\"st-head\">{}<div><h1>{}</h1>{}</div></header>",
         icon(glyph, tile),
         escape(title),
-        if about.is_empty() { String::new() } else { format!("<p>{}</p>", escape(about)) }
+        if about.is_empty() {
+            String::new()
+        } else {
+            format!("<p>{}</p>", escape(about))
+        }
     )
 }
 
 /// What a section is about, large, before its rows: `left` and `right` are
 /// HTML. See [`hero_title`] and [`big`].
 pub fn hero(left: &str, right: &str) -> String {
-    format!(r#"<section class="st-hero"><div class="who">{left}</div><div class="control">{right}</div></section>"#)
+    format!(
+        r#"<section class="st-hero"><div class="who">{left}</div><div class="control">{right}</div></section>"#
+    )
 }
 
 /// A hero's left side for a page that is one thing: its icon, its name and
@@ -210,7 +265,11 @@ pub fn hero_title(glyph: Glyph, tile: Tile, title: &str, about: &str) -> String 
 
 /// A hero's left side for a figure: the time, say, and a line under it.
 pub fn big(figure: &str, under: &str) -> String {
-    format!(r#"<div><div class="big">{}</div><div class="sub">{}</div></div>"#, escape(figure), escape(under))
+    format!(
+        r#"<div><div class="big">{}</div><div class="sub">{}</div></div>"#,
+        escape(figure),
+        escape(under)
+    )
 }
 
 /// How a [`pill`] reads.
@@ -236,13 +295,21 @@ pub fn pill(text: &str, tone: Tone) -> String {
 /// Rows together, under a title when there is one, with `foot` under them:
 /// a [`locked`] or a [`note`], or nothing.
 pub fn group(title: &str, rows: &str, foot: &str) -> String {
-    let title = if title.is_empty() { String::new() } else { format!("<h2>{}</h2>", escape(title)) };
+    let title = if title.is_empty() {
+        String::new()
+    } else {
+        format!("<h2>{}</h2>", escape(title))
+    };
     format!(r#"<section class="st-group">{title}<div class="st-rows">{rows}</div>{foot}</section>"#)
 }
 
 /// A setting: its name, what it means (or nothing), and `control`, HTML.
 pub fn row(label: &str, about: &str, control: &str) -> String {
-    let about = if about.is_empty() { String::new() } else { format!("<small>{}</small>", escape(about)) };
+    let about = if about.is_empty() {
+        String::new()
+    } else {
+        format!("<small>{}</small>", escape(about))
+    };
     format!(
         r#"<div class="st-row"><span class="label"><b>{}</b>{about}</span><span class="control">{control}</span></div>"#,
         escape(label)
@@ -264,7 +331,13 @@ pub fn fact(label: &str, text: &str, mono: bool) -> String {
 pub fn item(icon: &str, name: &str, lines: &[(&str, bool)], control: &str) -> String {
     let lines: String = lines
         .iter()
-        .map(|(text, mono)| format!(r#"<small{}>{}</small>"#, if *mono { r#" class="st-mono""# } else { "" }, escape(text)))
+        .map(|(text, mono)| {
+            format!(
+                r#"<small{}>{}</small>"#,
+                if *mono { r#" class="st-mono""# } else { "" },
+                escape(text)
+            )
+        })
         .collect();
     format!(
         r#"<div class="st-row"><span class="st-item">{icon}<span class="label"><b>{}</b>{lines}</span></span><span class="control">{control}</span></div>"#,
@@ -275,10 +348,23 @@ pub fn item(icon: &str, name: &str, lines: &[(&str, bool)], control: &str) -> St
 /// One of a list that opens to more about it, as a row to press: an icon,
 /// its name, lines under it as [`item`] has them, `aside` (HTML) at the
 /// end before an arrow, and `event` with `values` sent when it is pressed.
-pub fn link(icon: &str, name: &str, lines: &[(&str, bool)], aside: &str, event: &str, values: &[(&str, &str)]) -> String {
+pub fn link(
+    icon: &str,
+    name: &str,
+    lines: &[(&str, bool)],
+    aside: &str,
+    event: &str,
+    values: &[(&str, &str)],
+) -> String {
     let lines: String = lines
         .iter()
-        .map(|(text, mono)| format!(r#"<small{}>{}</small>"#, if *mono { r#" class="st-mono""# } else { "" }, escape(text)))
+        .map(|(text, mono)| {
+            format!(
+                r#"<small{}>{}</small>"#,
+                if *mono { r#" class="st-mono""# } else { "" },
+                escape(text)
+            )
+        })
         .collect();
     format!(
         r#"<button type="button" class="st-row link" fx-click="{}"{}><span class="st-item">{icon}<span class="label"><b>{}</b>{lines}</span></span><span class="control">{aside}<svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span></button>"#,
@@ -330,18 +416,30 @@ pub fn more(kind: More, html: &str) -> String {
 /// Under a group: why it can't be changed. Say who can, and that looking is
 /// fine.
 pub fn locked(why: &str) -> String {
-    format!(r#"<p class="st-foot">{}<span>{}</span></p>"#, Glyph::Lock.svg(), escape(why))
+    format!(
+        r#"<p class="st-foot">{}<span>{}</span></p>"#,
+        Glyph::Lock.svg(),
+        escape(why)
+    )
 }
 
 /// Under a section's heading: why nothing on it can be changed, said once
 /// for the whole section.
 pub fn banner(why: &str) -> String {
-    format!(r#"<p class="st-banner">{}<span>{}</span></p>"#, Glyph::Lock.svg(), escape(why))
+    format!(
+        r#"<p class="st-banner">{}<span>{}</span></p>"#,
+        Glyph::Lock.svg(),
+        escape(why)
+    )
 }
 
 /// Under a section's heading: a word on everything in it, said once.
 pub fn caution(text: &str) -> String {
-    format!(r#"<p class="st-banner">{}<span>{}</span></p>"#, Glyph::Info.svg(), escape(text))
+    format!(
+        r#"<p class="st-banner">{}<span>{}</span></p>"#,
+        Glyph::Info.svg(),
+        escape(text)
+    )
 }
 
 /// A button the keyboard goes to as it appears (fx-autofocus), which also
@@ -352,7 +450,11 @@ pub fn focused_button(label: &str, event: &str, kind: Kind) -> String {
 
 /// Under a group: a word on it.
 pub fn note(text: &str) -> String {
-    format!(r#"<p class="st-foot">{}<span>{}</span></p>"#, Glyph::Info.svg(), escape(text))
+    format!(
+        r#"<p class="st-foot">{}<span>{}</span></p>"#,
+        Glyph::Info.svg(),
+        escape(text)
+    )
 }
 
 /// Under a group: a word on it, with no picture.
@@ -376,8 +478,16 @@ pub fn switch(name: &str, label: &str, enabled: bool) -> String {
 
 /// A field to choose one of `options`, each its value and what it says.
 pub fn select(name: &str, label: &str, options: &[(String, String)], enabled: bool) -> String {
-    let options: String =
-        options.iter().map(|(value, text)| format!(r#"<option value="{}">{}</option>"#, escape(value), escape(text))).collect();
+    let options: String = options
+        .iter()
+        .map(|(value, text)| {
+            format!(
+                r#"<option value="{}">{}</option>"#,
+                escape(value),
+                escape(text)
+            )
+        })
+        .collect();
     format!(
         r#"<select class="st-select" name="{}" aria-label="{}"{}>{options}</select>"#,
         escape(name),
@@ -399,7 +509,14 @@ pub enum Width {
 
 /// A field to type in. `kind` is its HTML type (`text`, `password`,
 /// `number`); `attributes` is any more, such as `autocomplete="off"`.
-pub fn text(name: &str, label: &str, kind: &str, width: Width, enabled: bool, attributes: &str) -> String {
+pub fn text(
+    name: &str,
+    label: &str,
+    kind: &str,
+    width: Width,
+    enabled: bool,
+    attributes: &str,
+) -> String {
     let width = match width {
         Width::Short => " short",
         Width::Normal => "",
@@ -427,7 +544,13 @@ pub enum Kind {
 }
 
 /// A button sending `event` with `values`, as fx-value-* attributes.
-pub fn button(label: &str, event: &str, values: &[(&str, &str)], kind: Kind, enabled: bool) -> String {
+pub fn button(
+    label: &str,
+    event: &str,
+    values: &[(&str, &str)],
+    kind: Kind,
+    enabled: bool,
+) -> String {
     let class = match kind {
         Kind::Plain => "st-button",
         Kind::Primary => "st-button primary",
@@ -450,11 +573,18 @@ pub fn submit(label: &str, kind: Kind, enabled: bool) -> String {
         Kind::Plain => "st-button",
         _ => "st-button primary",
     };
-    format!(r#"<button class="{class}"{}>{}</button>"#, disabled(enabled), escape(label))
+    format!(
+        r#"<button class="{class}"{}>{}</button>"#,
+        disabled(enabled),
+        escape(label)
+    )
 }
 
 fn attributes(values: &[(&str, &str)]) -> String {
-    values.iter().map(|(name, value)| format!(r#" fx-value-{}="{}""#, escape(name), escape(value))).collect()
+    values
+        .iter()
+        .map(|(name, value)| format!(r#" fx-value-{}="{}""#, escape(name), escape(value)))
+        .collect()
 }
 
 /// Buttons in a row, at the end.
@@ -482,7 +612,13 @@ pub fn keys(chord: &str) -> String {
 
 /// A chord as a chip, with a button sending `remove` and `values` (and the
 /// chord as `chord`) to take it away, when `enabled`.
-pub fn chord(chord: &str, shown: &str, remove: &str, values: &[(&str, &str)], enabled: bool) -> String {
+pub fn chord(
+    chord: &str,
+    shown: &str,
+    remove: &str,
+    values: &[(&str, &str)],
+    enabled: bool,
+) -> String {
     let remove = if enabled {
         format!(
             r#"<button type="button" class="x" fx-click="{}"{} fx-value-chord="{}" title="Remove {}" aria-label="Remove {}">×</button>"#,
@@ -522,8 +658,18 @@ pub fn chords(html: &str) -> String {
 pub fn progress(done: usize, of: usize, text: &str) -> String {
     // A <progress> says how far in attributes: a page's style attributes
     // are refused (style-src 'self').
-    let bar = if of == 0 { "<progress></progress>".to_string() } else { format!(r#"<progress max="{of}" value="{}"></progress>"#, done.min(of)) };
-    format!(r#"<div class="st-progress" role="status"><span class="text">{}</span>{bar}</div>"#, escape(text))
+    let bar = if of == 0 {
+        "<progress></progress>".to_string()
+    } else {
+        format!(
+            r#"<progress max="{of}" value="{}"></progress>"#,
+            done.min(of)
+        )
+    };
+    format!(
+        r#"<div class="st-progress" role="status"><span class="text">{}</span>{bar}</div>"#,
+        escape(text)
+    )
 }
 
 /// What an empty list says, quietly, where its items would be.
@@ -533,7 +679,11 @@ pub fn none(text: &str) -> String {
 
 /// A value shown, not changed: in the monospace face when `mono`.
 pub fn value(text: &str, mono: bool) -> String {
-    format!(r#"<span class="value{}">{}</span>"#, if mono { " mono" } else { "" }, escape(text))
+    format!(
+        r#"<span class="value{}">{}</span>"#,
+        if mono { " mono" } else { "" },
+        escape(text)
+    )
 }
 
 /// The line along the bottom: what was last done, or why it wasn't, and
@@ -542,41 +692,28 @@ pub fn value(text: &str, mono: bool) -> String {
 pub fn status(said: Option<&Result<String, String>>, aside: &str) -> String {
     let said = match said {
         None => r#"<span class="said" role="status"></span>"#.to_string(),
-        Some(Ok(done)) => format!(r#"<span class="said good" role="status">{}</span>"#, escape(&one_line(done))),
-        Some(Err(why)) => format!(r#"<span class="said bad" role="alert" title="{0}">{0}</span>"#, escape(&one_line(why))),
+        Some(Ok(done)) => format!(
+            r#"<span class="said good" role="status">{}</span>"#,
+            escape(&one_line(done))
+        ),
+        Some(Err(why)) => format!(
+            r#"<span class="said bad" role="alert" title="{0}">{0}</span>"#,
+            escape(&one_line(why))
+        ),
     };
-    format!(r#"<footer class="st-status">{said}<span>{}</span></footer>"#, escape(aside))
+    format!(
+        r#"<footer class="st-status">{said}<span>{}</span></footer>"#,
+        escape(aside)
+    )
 }
 
 fn one_line(text: &str) -> String {
-    text.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>().join(" · ")
+    text.lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_chord_is_its_keys() {
-        assert_eq!(keys("Ctrl+Alt+ArrowLeft"), "<kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>←</kbd>");
-    }
-
-    #[test]
-    fn text_is_escaped_and_html_is_not() {
-        let row = row("<b>", "a & b", "<input>");
-        assert!(row.contains("&lt;b&gt;") && row.contains("a &amp; b") && row.contains("<input>"));
-    }
-
-    #[test]
-    fn the_status_line_is_there_when_nothing_was_said() {
-        assert!(status(None, "").contains("st-status"));
-        assert!(status(Some(&Ok("one\ntwo".into())), "").contains("one · two"));
-    }
-
-    #[test]
-    fn the_current_section_is_marked() {
-        let nav = [Nav::Section(Section { id: "time", title: "Time", now: "UTC".into(), glyph: Glyph::Clock, tile: Tile::Blue })];
-        assert!(window(&nav, "time", "", "").contains(r#"aria-current="page""#));
-        assert!(!window(&nav, "other", "", "").contains("aria-current"));
-    }
-}
+mod tests;

@@ -17,7 +17,7 @@ use axum::Router;
 use axum::extract::State;
 use axum::http::header::CONTENT_TYPE;
 use axum::routing::get;
-use libgxwi::{App, Facts, Fields, Live, Value, escape};
+use gxwi::{App, Facts, Fields, Live, Value, escape};
 use serde_json::json;
 
 struct Hello {
@@ -61,7 +61,7 @@ impl Live for Hello {
 // What this program looks like, to whatever lists it. The icon itself is
 // `hello.svg`, beside this file, installed as the base theme's
 // `dev.peios.gxwi.hello.svg`.
-libgxwi::icon!(b"dev.peios.gxwi.hello");
+gxwi::icon!(b"dev.peios.gxwi.hello");
 
 fn main() {
     let mut said: Vec<String> = std::env::args().skip(1).collect();
@@ -69,7 +69,11 @@ fn main() {
     if raw {
         said.remove(0);
     }
-    let greeting = if said.is_empty() { "Hello, World".to_string() } else { said.join(" ") };
+    let greeting = if said.is_empty() {
+        "Hello, World".to_string()
+    } else {
+        said.join(" ")
+    };
 
     let mut app = App::connect().unwrap_or_else(|e| die(&format!("the display: {e}")));
     app.stylesheet("/style.css", include_str!("style.css"));
@@ -89,29 +93,47 @@ fn main() {
             }),
         ));
     }
-    app.run().unwrap_or_else(|e| die(&format!("the display: {e}")));
+    app.run()
+        .unwrap_or_else(|e| die(&format!("the display: {e}")));
 }
 
 /// A page of the app's own, which finds out what a page kept apart the way
 /// an app's is can and cannot do, and says so here so it can be read from
 /// outside the frame.
 fn raw_page() -> Router {
-    let file = |kind: &'static str, body: &'static str| get(move || async move { ([(CONTENT_TYPE, kind)], body) });
+    let file = |kind: &'static str, body: &'static str| {
+        get(move || async move { ([(CONTENT_TYPE, kind)], body) })
+    };
     let found = Arc::new(Mutex::new(Value::Null));
     Router::new()
-        .route("/raw/", file("text/html; charset=utf-8", include_str!("raw.html")))
-        .route("/raw/raw.js", file("text/javascript", include_str!("raw.js")))
-        .route("/raw/worker.js", file("text/javascript", include_str!("worker.js")))
-        .route("/raw/ping", get(|| async { "pong" }).post(|| async { "pong" }))
+        .route(
+            "/raw/",
+            file("text/html; charset=utf-8", include_str!("raw.html")),
+        )
+        .route(
+            "/raw/raw.js",
+            file("text/javascript", include_str!("raw.js")),
+        )
+        .route(
+            "/raw/worker.js",
+            file("text/javascript", include_str!("worker.js")),
+        )
+        .route(
+            "/raw/ping",
+            get(|| async { "pong" }).post(|| async { "pong" }),
+        )
         .route(
             "/raw/found",
             get(|State(found): State<Arc<Mutex<Value>>>| async move {
                 let found = found.lock().unwrap_or_else(|e| e.into_inner()).clone();
                 ([(CONTENT_TYPE, "application/json")], found.to_string())
             })
-            .post(|State(found): State<Arc<Mutex<Value>>>, body: String| async move {
-                *found.lock().unwrap_or_else(|e| e.into_inner()) = serde_json::from_str(&body).unwrap_or_default();
-            }),
+            .post(
+                |State(found): State<Arc<Mutex<Value>>>, body: String| async move {
+                    *found.lock().unwrap_or_else(|e| e.into_inner()) =
+                        serde_json::from_str(&body).unwrap_or_default();
+                },
+            ),
         )
         .with_state(found)
 }

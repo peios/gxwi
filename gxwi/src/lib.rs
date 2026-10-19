@@ -1,0 +1,421 @@
+//! What a program uses to have windows on a GXWI desktop.
+//!
+//! **If you are here to give a program a user interface, this is the way.**
+//! Do not open a port and serve a web page from it: nobody can reach it, it
+//! has no place on the desktop, and it would not know who was asking. A
+//! program becomes an app by connecting to the desktop it was started on,
+//! which this does.
+//!
+//! ```no_run
+//! use gxwi::{App, Facts, Fields, Live, escape};
+//!
+//! struct Counter { count: u64 }
+//!
+//! impl Live for Counter {
+//!     fn render(&self, _: &Facts) -> String {
+//!         format!("<button fx-click=\"press\">Press</button> pressed {} times", self.count)
+//!     }
+//!     fn event(&mut self, name: &str, _: &serde_json::Value, _: &mut Fields) {
+//!         if name == "press" { self.count += 1 }
+//!     }
+//! }
+//!
+//! fn main() -> std::io::Result<()> {
+//!     let mut app = App::connect()?;
+//!     app.live("Counter", Counter { count: 0 });
+//!     app.run()
+//! }
+//! ```
+//!
+//! # How an app is made
+//!
+//! **The process is the app.** A window is a *live surface*: this process
+//! renders it as HTML ([`Live::render`]) and is told what the person does
+//! ([`Live::event`]). The page showing it belongs to the desktop, is the same
+//! for every app, and runs no script of the app's. So an app is written
+//! without JavaScript, and everything about a window lives here, in the
+//! process: it is the same on every device looking at it, and it is all
+//! still there when a browser tab is closed and opened again. Do not look for
+//! somewhere in the browser to keep things. There is nowhere, on purpose.
+//!
+//! **An app has no address.** It listens on no port. The desktop is the only
+//! web server a browser meets. The app hands it one end of a socket and
+//! answers HTTP/2 on the other, which [`App::run`] does; [`App::stylesheet`]
+//! and [`App::routes`] are for what an app serves besides its surfaces. Refer
+//! to an app's own files relatively, never from `/`: where its pages are is
+//! not for the app to know.
+//!
+//! **Closing is a request.** The person asks; [`Live::closing`] answers. An
+//! app ends when its last surface has gone.
+//!
+//! [`App::raw_page`] is for what a live surface cannot be, a page with
+//! scripts of its own such as a terminal. Read what it costs first.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::io;
+use std::sync::{Arc, Mutex};
+
+use axum::Router;
+use axum::body::Bytes;
+use axum::http::header::CONTENT_TYPE;
+use axum::routing::get;
+
+pub mod apps;
+pub mod display;
+mod files;
+pub mod icons;
+mod live;
+pub mod settings;
+pub mod shortcuts;
+mod sys;
+
+pub use live::{Closer, Facts, Fields, Live, MAX_FIELD_BYTES, Surface, escape};
+/// What comes with an event.
+pub use serde_json::Value;
+
+pub use display::{Declaration, Edge, Listed, Role};
+
+use display::{Asked, Display};
+
+/// The app's place on the desktop: the connection, and which of its surfaces
+/// are still there.
+pub(crate) struct Desk {
+    display: Display,
+    open: Mutex<BTreeSet<u64>>,
+}
+
+impl Desk {
+    /// Calls a surface something else, if it is still there.
+    pub(crate) fn retitle(&self, surface: u64, title: &str) {
+        if !self
+            .open
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains(&surface)
+        {
+            return;
+        }
+        if let Err(e) = self.display.title(surface, title) {
+            eprintln!("gxwi: calling surface {surface} something else: {e}");
+        }
+    }
+
+    /// Lets a surface go, and the app with it if that was the last.
+    pub(crate) fn let_go(&self, surface: u64) {
+        let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
+        if !open.remove(&surface) {
+            return;
+        }
+        if let Err(e) = self.display.destroy(surface) {
+            eprintln!("gxwi: letting surface {surface} go: {e}");
+        }
+        if open.is_empty() {
+            self.display.stop_listening();
+        }
+    }
+}
+
+/// What a part of the shell may ask of the desktop. See [`App::shell`].
+#[derive(Clone)]
+pub struct Shell {
+    desk: Arc<Desk>,
+}
+
+impl Shell {
+    /// Has the desktop start a program, as it starts everything: with the
+    /// display in its environment, so that the program can be an app. Nothing
+    /// says whether it started.
+    pub fn start(&self, program: &str, arguments: &[String]) -> io::Result<()> {
+        self.desk.display.start(program, arguments)
+    }
+
+    /// Has the desktop ask for a surface to be closed, as the person does
+    /// with the button on a window's strip: `id` is the desktop's for it
+    /// ([`Listed::id`]), and the app whose surface it is decides what
+    /// closing means ([`Live::closing`]). Nothing says whether it went; the
+    /// surfaces a shell is told are what says.
+    pub fn close(&self, id: u64) -> io::Result<()> {
+        self.desk.display.close(id)
+    }
+
+    /// Has the desktop end the session: every app's surfaces go with it, this
+    /// one's included, and the person is back at the logon page. Nothing says
+    /// whether it will, but a desktop that agrees is gone at once.
+    pub fn log_off(&self) -> io::Result<()> {
+        self.desk.display.log_off()
+    }
+}
+
+enum Drawn {
+    Live { socket: String },
+    Raw { path: String },
+}
+
+struct Asking {
+    title: String,
+    role: Role,
+    edge: Option<Edge>,
+    drawn: Drawn,
+    /// Whether the surface may go, asked when the person wants it closed.
+    closing: Box<dyn Fn() -> bool + Send>,
+}
+
+pub struct App {
+    desk: Arc<Desk>,
+    router: Router,
+    styles: Vec<String>,
+    surfaces: BTreeMap<u64, Asking>,
+    /// Who is told the session's surfaces, in a part of the shell.
+    told: Option<Box<dyn FnMut(Vec<Listed>) + Send>>,
+}
+
+impl App {
+    /// Connects to the desktop this program was started on, named by
+    /// `GXWI_DISPLAY`. Without one there is no desktop, and a program with
+    /// something else it could do, like print to a terminal, does that.
+    pub fn connect() -> io::Result<App> {
+        let desk = Arc::new(Desk {
+            display: Display::connect()?,
+            open: Mutex::default(),
+        });
+        Ok(App {
+            desk,
+            router: Router::new(),
+            styles: Vec::new(),
+            surfaces: BTreeMap::new(),
+            told: None,
+        })
+    }
+
+    /// Serves `css` at `path`, and styles every live surface with it. A live
+    /// surface already has the desktop's theme, as custom properties such as
+    /// `--text-primary` and `--space-3`: build on those and the app looks
+    /// like it belongs.
+    pub fn stylesheet(&mut self, path: &'static str, css: &'static str) {
+        let router = std::mem::take(&mut self.router);
+        self.router = router.route(
+            path,
+            get(move || async move { ([(CONTENT_TYPE, "text/css")], css) }),
+        );
+        self.styles.push(path.into());
+    }
+
+    /// Serves `body` at `path` as `content_type`: an image a surface shows,
+    /// a file to download. A live surface refers to it from its HTML as
+    /// `../../<path>`, and a stylesheet at the app's root as `<path>`.
+    pub fn file(&mut self, path: &'static str, content_type: &'static str, body: Vec<u8>) {
+        let body = Bytes::from(body);
+        let router = std::mem::take(&mut self.router);
+        self.router = router.route(
+            path,
+            get(move || async move { ([(CONTENT_TYPE, content_type)], body.clone()) }),
+        );
+    }
+
+    /// Whatever else the app serves: images, downloads, anything HTTP.
+    pub fn routes(&mut self, routes: Router) {
+        self.router = std::mem::take(&mut self.router).merge(routes);
+    }
+
+    /// A window, drawn by this process. The surface it returns is for
+    /// changing the app from the process's side ([`Surface::update`]).
+    pub fn live<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Window, None, title, app)
+    }
+
+    /// A live surface along `edge` of the desktop, which the windows make
+    /// room for. How thick it is and how far along the edge it lies are the
+    /// window manager's, so it is drawn to fit whatever it is given. It has
+    /// no strip, so the person has no way to ask for it closed.
+    pub fn panel<L: Live>(&mut self, edge: Edge, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Panel, Some(edge), title, app)
+    }
+
+    /// A live surface over the windows, for a part of the shell: out of sight
+    /// until it is sent for, on the device where it was sent for, and gone
+    /// again when it is done with. Sending for it is the HTML's to do, since
+    /// whether it is in sight differs from device to device: an element with
+    /// `fx-overlay="show"`, `"hide"` or `"toggle"` does that to the surface it
+    /// is in when clicked, and with `fx-global-key` as well it can be sent for
+    /// from anywhere. When it comes into sight the keyboard goes to the
+    /// element marked `fx-autofocus`.
+    ///
+    /// A panel of the same app can send for it too: an element there with
+    /// `fx-overlay` and `fx-surface="<id>"` does that to the overlay the
+    /// desktop knows by that id, which the app finds in what it is told of
+    /// the surfaces, by [`Listed::own`] and [`Surface::number`].
+    pub fn overlay<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Overlay, None, title, app)
+    }
+
+    /// A window of its own that floats over the others rather than taking a
+    /// place among them, for a program's dialog: it comes up over the middle
+    /// of the desktop with the focus, with a strip saying whose it is, and
+    /// the person can move it by its strip. It is tied to no other window,
+    /// and the others can be used while it is up. It is as big as the
+    /// element marked `fx-fit` in its HTML, within the room there is, and
+    /// otherwise as big as the window manager makes it.
+    pub fn dialog<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Dialog, None, title, app)
+    }
+
+    /// A live surface under everything, filling the desktop, for a part of
+    /// the shell: the wallpaper, and whatever a shell puts on the desktop
+    /// itself. It never has the focus and has no strip.
+    pub fn background<L: Live>(&mut self, title: &str, app: L) -> Arc<Surface<L>> {
+        self.live_as(Role::Background, None, title, app)
+    }
+
+    /// What a part of the shell may ask of the desktop, for the app itself to
+    /// keep. Asked by anything else, it is not done.
+    pub fn shell(&self) -> Shell {
+        Shell {
+            desk: self.desk.clone(),
+        }
+    }
+
+    fn live_as<L: Live>(
+        &mut self,
+        role: Role,
+        edge: Option<Edge>,
+        title: &str,
+        app: L,
+    ) -> Arc<Surface<L>> {
+        let number = self.number();
+        let surface = Surface::new(app, number, self.desk.clone());
+        let socket = format!("/.live/{number}");
+        self.router = std::mem::take(&mut self.router).route(&socket, surface.socket());
+        let asked = surface.clone();
+        let closing = Box::new(move || asked.closing());
+        let asking = Asking {
+            title: title.into(),
+            role,
+            edge,
+            drawn: Drawn::Live { socket },
+            closing,
+        };
+        self.surfaces.insert(number, asking);
+        surface
+    }
+
+    /// A window that is a page of the app's own, at `path` among what it
+    /// serves, scripts and all. This is the exception. Whatever such a page
+    /// holds is the browser's to lose: none of it reaches another device, or
+    /// outlasts the tab. The page is kept apart from everything else, so it
+    /// has no cookies and no storage, and a worker has to be started from a
+    /// blob. Use it for what cannot be drawn from here, and nothing else.
+    ///
+    /// The desktop cannot hear a key pressed in such a page, so the page
+    /// includes the desktop's script for passing on the chords that are the
+    /// desktop's, from `.fx/keys.js` under the app's own paths, as a module:
+    /// `<script type="module" src="../.fx/keys.js">` from a page at `/raw/`.
+    /// A page without it is one the person cannot leave by the keyboard, and
+    /// the desktop says so on its window.
+    ///
+    /// The person closing the window lets it go without asking. What comes
+    /// back lets it go from the process's side, as when what the page was
+    /// showing has ended.
+    pub fn raw_page(&mut self, title: &str, path: &str) -> Closer {
+        let number = self.number();
+        let drawn = Drawn::Raw { path: path.into() };
+        let asking = Asking {
+            title: title.into(),
+            role: Role::Window,
+            edge: None,
+            drawn,
+            closing: Box::new(|| true),
+        };
+        self.surfaces.insert(number, asking);
+        Closer::new(number, self.desk.clone())
+    }
+
+    /// For a part of the shell: `told` hears every surface the session has,
+    /// now and whenever any changes. Nothing else is ever told, and asking
+    /// here does not make a program part of the shell. The desktop knows its
+    /// shell by having started it.
+    ///
+    /// What a shell's surface shows of other surfaces, it shows through the
+    /// HTML. An element with `fx-surface="<id>"` is about that surface, and
+    /// the page marks it `data-fx-focused` and `data-fx-visible`, `true` or
+    /// `false`, as that is on the device showing it. One with `fx-focus="<id>"`
+    /// gives the surface the focus when clicked, and one with several ids,
+    /// spaces between, the one after whichever of them has the focus, so
+    /// that pressing it again goes through them. Both are between the pages,
+    /// on one device: which surface has the focus differs from device to
+    /// device, and is never this process's to know. So is which workspace a
+    /// device is showing: an element with `fx-workspace="2"` is marked
+    /// `data-fx-current` as that is on the device, and shows workspace 2
+    /// there when clicked. Which workspace each window is on is the
+    /// session's, and comes with the surfaces ([`Listed::workspace`]).
+    ///
+    /// A shell's surface may also claim chords for the whole desktop. An
+    /// element with `fx-global-key="Ctrl+Space"` is clicked when that is
+    /// pressed wherever the keyboard is, another app's window included. The
+    /// chord has to have Ctrl, Alt or Meta in it.
+    pub fn surfaces(&mut self, told: impl FnMut(Vec<Listed>) + Send + 'static) {
+        self.told = Some(Box::new(told));
+    }
+
+    fn number(&self) -> u64 {
+        self.surfaces.keys().next_back().map_or(1, |last| last + 1)
+    }
+
+    /// Goes onto the desktop, and stays until the last surface has gone or
+    /// the desktop has.
+    pub fn run(self) -> io::Result<()> {
+        let App {
+            desk,
+            router,
+            styles,
+            surfaces,
+            mut told,
+        } = self;
+        let runtime = tokio::runtime::Runtime::new()?;
+        let socket = desk.display.serve()?;
+        runtime.spawn(async move {
+            if let Err(e) = display::answer(socket, router).await {
+                eprintln!("gxwi: serving: {e}");
+            }
+        });
+        // Asked for only once there is something answering for them.
+        for (&number, asking) in &surfaces {
+            desk.open
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(number);
+            match &asking.drawn {
+                Drawn::Live { socket } => desk.display.create_live(
+                    number,
+                    &asking.title,
+                    asking.role,
+                    asking.edge,
+                    socket,
+                    &styles,
+                )?,
+                Drawn::Raw { path } => desk.display.create_raw(number, &asking.title, path)?,
+            }
+        }
+        if surfaces.is_empty() {
+            return Ok(());
+        }
+        while let Some(asked) = desk.display.asked()? {
+            match asked {
+                Asked::Close(number) => {
+                    if surfaces
+                        .get(&number)
+                        .is_some_and(|asking| (asking.closing)())
+                    {
+                        desk.let_go(number);
+                    }
+                }
+                Asked::Surfaces(listed) => {
+                    if let Some(told) = &mut told {
+                        told(listed);
+                    }
+                }
+                Asked::Other => {}
+            }
+        }
+        Ok(())
+    }
+}

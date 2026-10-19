@@ -134,7 +134,13 @@ impl Fields {
     /// Sets a field from the process's side, which every page obeys, the one
     /// the person is typing in included.
     pub fn set(&mut self, name: &str, value: &str) {
-        self.0.insert(name.into(), Field { value: value.into(), by: 0 });
+        self.0.insert(
+            name.into(),
+            Field {
+                value: value.into(),
+                by: 0,
+            },
+        );
     }
 }
 
@@ -157,6 +163,7 @@ enum FromPage {
 /// let hold a file's worth of text, for an app that edits one.
 pub const MAX_FIELD_BYTES: usize = 1024 * 1024;
 const MAX_FIELDS: usize = 256;
+const MAX_FIELD_NAME_BYTES: usize = 256;
 const MAX_FIELDS_BYTES: usize = 4 * MAX_FIELD_BYTES;
 
 pub struct Surface<L> {
@@ -193,7 +200,14 @@ impl<L: Live> Surface<L> {
     /// Looks at the app and its fields without changing them.
     pub fn look<T>(&self, at: impl FnOnce(&L, &Fields, &Facts) -> T) -> T {
         let state = self.state.lock().unwrap_or_else(|e| e.into_inner());
-        at(&state.0, &state.1, &Facts { views: self.views.load(Ordering::Relaxed), fields: &state.1 })
+        at(
+            &state.0,
+            &state.1,
+            &Facts {
+                views: self.views.load(Ordering::Relaxed),
+                fields: &state.1,
+            },
+        )
     }
 
     /// Calls the surface something else than it was made as: what is on its
@@ -218,7 +232,10 @@ impl<L: Live> Surface<L> {
     /// Something that can let the surface go, for the app itself to keep: an
     /// app cannot hold its own surface, which holds it.
     pub fn closer(&self) -> Closer {
-        Closer { number: self.number, desk: self.desk.clone() }
+        Closer {
+            number: self.number,
+            desk: self.desk.clone(),
+        }
     }
 
     pub(crate) fn closing(&self) -> bool {
@@ -249,7 +266,8 @@ impl<L: Live> Surface<L> {
             // Whatever rang before now is in the render about to be made.
             changed.borrow_and_update();
             let render = self.look(|app, fields, facts| {
-                json!({ "type": "render", "html": app.render(facts), "inputs": fields.0 }).to_string()
+                json!({ "type": "render", "html": app.render(facts), "inputs": fields.0 })
+                    .to_string()
             });
             if socket.send(Message::Text(render.into())).await.is_err() {
                 break;
@@ -274,13 +292,22 @@ impl<L: Live> Surface<L> {
             Ok(FromPage::Event { name, value }) => app.event(&name, &value, fields),
             Ok(FromPage::Input { name, value }) => {
                 let room = fields.0.len() < MAX_FIELDS || fields.0.contains_key(&name);
-                let others: usize = fields.0.iter().filter(|(other, _)| **other != name).map(|(_, field)| field.value.len()).sum();
-                if room && value.len() <= MAX_FIELD_BYTES && others + value.len() <= MAX_FIELDS_BYTES && name.len() <= 256 {
+                let others: usize = fields
+                    .0
+                    .iter()
+                    .filter(|(other, _)| **other != name)
+                    .map(|(_, field)| field.value.len())
+                    .sum();
+                if room
+                    && value.len() <= MAX_FIELD_BYTES
+                    && others + value.len() <= MAX_FIELDS_BYTES
+                    && name.len() <= MAX_FIELD_NAME_BYTES
+                {
                     fields.0.insert(name.clone(), Field { value, by: page });
                     app.input(&name, fields);
                 }
             }
-            Err(e) => eprintln!("libgxwi: a page sent something that is not a message: {e}"),
+            Err(e) => eprintln!("gxwi: a page sent something that is not a message: {e}"),
         }
         self.changed.send_replace(());
     }
@@ -310,7 +337,10 @@ impl Closer {
 
 /// Text as it may safely appear in HTML, between tags or in an attribute.
 pub fn escape(text: &str) -> String {
-    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 #[cfg(test)]
@@ -325,7 +355,13 @@ mod tests {
     #[test]
     fn what_the_process_sets_is_marked_as_the_processs() {
         let mut fields = Fields::default();
-        fields.0.insert("note".into(), Field { value: "typed".into(), by: 3 });
+        fields.0.insert(
+            "note".into(),
+            Field {
+                value: "typed".into(),
+                by: 3,
+            },
+        );
         assert_eq!(fields.get("note"), "typed");
         fields.set("note", "");
         assert_eq!(fields.0["note"].by, 0);

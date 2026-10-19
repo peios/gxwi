@@ -7,7 +7,7 @@
 //! carries the name:
 //!
 //! ```ignore
-//! libgxwi::icon!(b"dev.peios.gxwi.hello");
+//! gxwi::icon!(b"dev.peios.gxwi.hello");
 //! ```
 //!
 //! A consumer, which on a Fenestra desktop is Fenestra for every page there
@@ -35,7 +35,7 @@ pub const SECTION: &str = ".pgss.icon";
 /// The last resort, which the base theme has.
 pub const GENERIC: &str = "generic";
 /// The longest name there is. Longer is no name.
-pub const MAX_ID_BYTES: usize = 255;
+pub const MAX_ID_BYTES: usize = gxwi_abi::MAX_ICON_ID_BYTES;
 
 /// Puts an icon's name in this program, where a consumer looks for it.
 /// `$id` is a byte string: `icon!(b"dev.peios.gxwi.hello")`.
@@ -51,11 +51,7 @@ macro_rules! icon {
 /// Whether `text` is a name an icon may have: lowercase ASCII letters,
 /// digits, `.`, `_` and `-`, beginning with a letter or digit.
 pub fn is_id(text: &str) -> bool {
-    let mut chars = text.bytes();
-    !text.is_empty()
-        && text.len() <= MAX_ID_BYTES
-        && chars.next().is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
-        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'.' || c == b'_' || c == b'-')
+    gxwi_abi::is_icon_id(text)
 }
 
 /// Where a live surface's HTML finds the icon named `id`: the page is at
@@ -76,7 +72,12 @@ impl Themes {
         let mut names = named();
         names.retain(|name| name != BASE);
         names.push(BASE.into());
-        Themes::of(names.iter().map(|name| Path::new(THEMES).join(name)).collect())
+        Themes::of(
+            names
+                .iter()
+                .map(|name| Path::new(THEMES).join(name))
+                .collect(),
+        )
     }
 
     /// A chain of these directories, as given.
@@ -89,7 +90,10 @@ impl Themes {
         if !is_id(id) {
             return None;
         }
-        self.directories.iter().map(|directory| directory.join(format!("{id}.svg"))).find(|file| file.is_file())
+        self.directories
+            .iter()
+            .map(|directory| directory.join(format!("{id}.svg")))
+            .find(|file| file.is_file())
     }
 
     pub fn has(&self, id: &str) -> bool {
@@ -131,31 +135,50 @@ fn named() -> Vec<String> {
 /// specification that says more about a kind of file is applied before
 /// this, by whoever implements it.
 pub fn identify(path: &Path, themes: &Themes) -> String {
-    identify_named(path, path.file_name().and_then(|name| name.to_str()).unwrap_or_default(), themes)
+    identify_named(
+        path,
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default(),
+        themes,
+    )
 }
 
 /// [`identify`] for a file whose name is not the path's last part: a
 /// running program, reached through `/proc/<pid>/exe`, which is the program
 /// whether or not the path it was started from is still there.
 pub fn identify_named(path: &Path, name: &str, themes: &Themes) -> String {
-    let Ok(metadata) = std::fs::metadata(path) else { return GENERIC.into() };
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return GENERIC.into();
+    };
     let mut candidates = Vec::new();
     if let Some(said) = xattr(path) {
         candidates.push(said);
     }
-    if metadata.is_file() {
-        if let Some(carried) = section(path) {
-            candidates.push(carried);
-        }
+    if metadata.is_file()
+        && let Some(carried) = section(path)
+    {
+        candidates.push(carried);
     }
-    let named = format!("{}-{}", if metadata.is_dir() { "directory" } else { "file" }, name.to_ascii_lowercase());
+    let named = format!(
+        "{}-{}",
+        if metadata.is_dir() {
+            "directory"
+        } else {
+            "file"
+        },
+        name.to_ascii_lowercase()
+    );
     if is_id(&named) {
         candidates.push(named);
     }
     if let Some(media) = media_type(Path::new(name), &metadata) {
         candidates.extend(type_ids(&media));
     }
-    candidates.into_iter().find(|id| themes.has(id)).unwrap_or_else(|| GENERIC.into())
+    candidates
+        .into_iter()
+        .find(|id| themes.has(id))
+        .unwrap_or_else(|| GENERIC.into())
 }
 
 /// What the file's owner says it looks like, if that is a name.
@@ -165,11 +188,20 @@ fn xattr(path: &Path) -> Option<String> {
     let mut buf = [0u8; MAX_ID_BYTES + 1];
     // SAFETY: both strings are NUL-terminated and live for the call, and the
     // buffer is as long as it is said to be.
-    let got = unsafe { libc::getxattr(cpath.as_ptr(), name.as_ptr(), buf.as_mut_ptr().cast(), buf.len()) };
+    let got = unsafe {
+        libc::getxattr(
+            cpath.as_ptr(),
+            name.as_ptr(),
+            buf.as_mut_ptr().cast(),
+            buf.len(),
+        )
+    };
     if got <= 0 {
         return None;
     }
-    let text = std::str::from_utf8(&buf[..got as usize]).ok()?.trim_end_matches('\0');
+    let text = std::str::from_utf8(&buf[..got as usize])
+        .ok()?
+        .trim_end_matches('\0');
     is_id(text).then(|| text.to_string())
 }
 
@@ -184,7 +216,15 @@ fn section(path: &Path) -> Option<String> {
 /// The names a media type gives: the type itself, then its top-level type.
 fn type_ids(media: &str) -> Vec<String> {
     let id = |text: &str| -> String {
-        text.chars().map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' { c.to_ascii_lowercase() } else { '-' }).collect()
+        text.chars()
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' {
+                    c.to_ascii_lowercase()
+                } else {
+                    '-'
+                }
+            })
+            .collect()
     };
     let mut ids = vec![id(media)];
     if let Some((top, _)) = media.split_once('/') {
@@ -196,7 +236,7 @@ fn type_ids(media: &str) -> Vec<String> {
 
 /// The media type of a file, from what can be seen without reading it:
 /// whether it is a directory, its extension, and whether it may be run. How
-/// a type is found is no part of PGSS Icons; this is what libgxwi does, and
+/// a type is found is no part of PGSS Icons; this is what gxwi does, and
 /// an app that shows what a file is may show this until there is something
 /// that says it better.
 pub fn media_type(path: &Path, metadata: &std::fs::Metadata) -> Option<String> {
@@ -207,11 +247,19 @@ pub fn media_type(path: &Path, metadata: &std::fs::Metadata) -> Option<String> {
     if !metadata.is_file() {
         return None;
     }
-    let extension = path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase());
+    let extension = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase());
     let by_extension = extension.as_deref().and_then(|extension| {
-        BY_EXTENSION.iter().find(|(known, _)| *known == extension).map(|(_, media)| media.to_string())
+        BY_EXTENSION
+            .iter()
+            .find(|(known, _)| *known == extension)
+            .map(|(_, media)| media.to_string())
     });
-    by_extension.or_else(|| (metadata.permissions().mode() & 0o111 != 0).then(|| "application/x-executable".into()))
+    by_extension.or_else(|| {
+        (metadata.permissions().mode() & 0o111 != 0).then(|| "application/x-executable".into())
+    })
 }
 
 const BY_EXTENSION: &[(&str, &str)] = &[
@@ -264,7 +312,7 @@ mod elf {
     const MAX_NAMES_BYTES: u64 = 1 << 20;
 
     pub fn section(path: &Path, wanted: &str) -> Option<Vec<u8>> {
-        let mut file = std::fs::File::open(path).ok()?;
+        let mut file = crate::files::open_regular(path).ok()?;
         let mut ident = [0u8; 64];
         file.read_exact(&mut ident[..52]).ok()?;
         if &ident[..4] != b"\x7fELF" {
@@ -297,9 +345,19 @@ mod elf {
         // The section header table: where, how big an entry, how many, and
         // which entry names the rest.
         let (offset, entry, count, names) = if wide {
-            (at(&ident[40..48]), at(&ident[58..60]), at(&ident[60..62]), at(&ident[62..64]))
+            (
+                at(&ident[40..48]),
+                at(&ident[58..60]),
+                at(&ident[60..62]),
+                at(&ident[62..64]),
+            )
         } else {
-            (at(&ident[32..36]), at(&ident[46..48]), at(&ident[48..50]), at(&ident[50..52]))
+            (
+                at(&ident[32..36]),
+                at(&ident[46..48]),
+                at(&ident[48..50]),
+                at(&ident[50..52]),
+            )
         };
         let needed = if wide { 64 } else { 40 };
         if offset == 0 || entry < needed || count == 0 || count > MAX_SECTIONS || names >= count {
@@ -307,7 +365,10 @@ mod elf {
         }
         let header = |file: &mut std::fs::File, index: u64| -> Option<(u64, u64, u64)> {
             let mut raw = [0u8; 64];
-            file.seek(SeekFrom::Start(offset.checked_add(index.checked_mul(entry)?)?)).ok()?;
+            file.seek(SeekFrom::Start(
+                offset.checked_add(index.checked_mul(entry)?)?,
+            ))
+            .ok()?;
             file.read_exact(&mut raw[..needed as usize]).ok()?;
             // The name's offset into the names, and the section's offset and size.
             Some(if wide {
@@ -342,86 +403,4 @@ mod elf {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    // This very test program carries a name, as an app would.
-    crate::icon!(b"dev.peios.gxwi.test");
-
-    fn theme(dir: &Path, ids: &[&str]) {
-        std::fs::create_dir_all(dir).unwrap();
-        for id in ids {
-            std::fs::write(dir.join(format!("{id}.svg")), "<svg/>").unwrap();
-        }
-    }
-
-    #[test]
-    fn a_name_is_lowercase_and_plain() {
-        assert!(is_id("dev.peios.gxwi.hello"));
-        assert!(is_id("directory-node_modules"));
-        assert!(is_id("file-.gitignore"));
-        assert!(!is_id("Documents"));
-        assert!(!is_id("my photos"));
-        assert!(!is_id(""));
-        assert!(!is_id("-x"));
-        assert!(!is_id(&"a".repeat(MAX_ID_BYTES + 1)));
-    }
-
-    #[test]
-    fn a_media_type_names_itself_and_then_its_family() {
-        assert_eq!(type_ids("text/x-python"), ["text-x-python", "text"]);
-        assert_eq!(type_ids("image/svg+xml"), ["image-svg-xml", "image"]);
-        assert_eq!(type_ids("inode/directory"), ["inode-directory", "inode"]);
-    }
-
-    #[test]
-    fn the_program_says_what_it_looks_like_and_the_owner_overrules_it() {
-        let root = std::env::temp_dir().join(format!("libgxwi-icons-{}", std::process::id()));
-        let base = root.join("base");
-        theme(&base, &["generic", "dev.peios.gxwi.test", "application-x-executable", "text", "inode-directory", "directory-documents", "file-makefile", "file-.gitignore"]);
-        let themes = Themes::of(vec![base.clone()]);
-
-        // The test binary itself, which carries a name in its section, by
-        // its path and as a running program is reached.
-        let me = std::env::current_exe().unwrap();
-        assert_eq!(identify(&me, &themes), "dev.peios.gxwi.test");
-        let name = me.file_name().unwrap().to_str().unwrap();
-        assert_eq!(identify_named(Path::new("/proc/self/exe"), name, &themes), "dev.peios.gxwi.test");
-        // Without that icon in the chain, it is a program like any other.
-        std::fs::remove_file(base.join("dev.peios.gxwi.test.svg")).unwrap();
-        assert_eq!(identify(&me, &themes), "application-x-executable");
-
-        // Files by name and by type, and a directory by name.
-        std::fs::write(root.join("notes.py"), "").unwrap();
-        assert_eq!(identify(&root.join("notes.py"), &themes), "text");
-        std::fs::write(root.join("Makefile"), "").unwrap();
-        assert_eq!(identify(&root.join("Makefile"), &themes), "file-makefile");
-        std::fs::write(root.join(".gitignore"), "").unwrap();
-        assert_eq!(identify(&root.join(".gitignore"), &themes), "file-.gitignore");
-        std::fs::create_dir(root.join("Documents")).unwrap();
-        assert_eq!(identify(&root.join("Documents"), &themes), "directory-documents");
-        std::fs::create_dir(root.join("My Photos")).unwrap();
-        assert_eq!(identify(&root.join("My Photos"), &themes), "inode-directory");
-        std::fs::write(root.join("thing.xyz"), "").unwrap();
-        assert_eq!(identify(&root.join("thing.xyz"), &themes), "generic");
-        assert_eq!(identify(&root.join("nowhere"), &themes), "generic");
-
-        // The owner's word, where the filesystem keeps one.
-        let cpath = std::ffi::CString::new(root.join("Documents").to_str().unwrap()).unwrap();
-        let name = std::ffi::CString::new(XATTR).unwrap();
-        let said = b"text";
-        let set = unsafe { libc::setxattr(cpath.as_ptr(), name.as_ptr(), said.as_ptr().cast(), said.len(), 0) };
-        if set == 0 {
-            assert_eq!(identify(&root.join("Documents"), &themes), "text");
-        }
-
-        // A theme ahead of the base overrides it, and the base is still there.
-        let dark = root.join("dark");
-        theme(&dark, &["text"]);
-        let chain = Themes::of(vec![dark.clone(), base.clone()]);
-        assert_eq!(chain.find("text").unwrap(), dark.join("text.svg"));
-        assert_eq!(chain.find("generic").unwrap(), base.join("generic.svg"));
-        assert!(chain.find("../etc/passwd").is_none());
-        std::fs::remove_dir_all(&root).unwrap();
-    }
-}
+mod tests;

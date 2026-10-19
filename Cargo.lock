@@ -57,6 +57,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "auth-core"
+version = "0.0.24"
+source = "git+https://github.com/peios/authd.git?rev=a014fa4c74f17ce4f67ba964eefce33a1a3dbdfa#a014fa4c74f17ce4f67ba964eefce33a1a3dbdfa"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -394,10 +402,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "gxwi"
+version = "0.0.7"
+dependencies = [
+ "axum",
+ "gxwi-abi",
+ "hyper",
+ "hyper-util",
+ "libc",
+ "peios",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+]
+
+[[package]]
+name = "gxwi-abi"
+version = "0.0.7"
+
+[[package]]
 name = "gxwi-channel"
 version = "0.0.7"
 dependencies = [
- "libauthd",
+ "auth-core",
 ]
 
 [[package]]
@@ -413,11 +441,11 @@ dependencies = [
 name = "gxwi-server"
 version = "0.0.7"
 dependencies = [
+ "auth-core",
  "axum",
  "gxwi-channel",
  "hyper",
  "hyper-util",
- "libauthd",
  "libc",
  "rcgen",
  "rustls",
@@ -432,15 +460,15 @@ dependencies = [
 name = "gxwid"
 version = "0.0.7"
 dependencies = [
+ "auth-core",
  "gxwi-channel",
- "libauthd",
  "libc",
- "libsession",
  "peios",
  "rcgen",
  "ring",
  "rustls-pki-types",
  "serde_json",
+ "session-preferences",
  "sha2",
  "time",
 ]
@@ -584,14 +612,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
-name = "libauthd"
-version = "0.0.23"
-source = "git+https://github.com/peios/authd.git?rev=90471e3d4db127528862fb325b04edb3d4f0fc30#90471e3d4db127528862fb325b04edb3d4f0fc30"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -601,15 +621,10 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 name = "libgxwi"
 version = "0.0.7"
 dependencies = [
- "axum",
- "hyper",
- "hyper-util",
+ "gxwi-abi",
  "libc",
  "peios",
- "serde",
  "serde_json",
- "tokio",
- "toml",
 ]
 
 [[package]]
@@ -620,14 +635,6 @@ checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
 dependencies = [
  "cfg-if",
  "windows-link",
-]
-
-[[package]]
-name = "libsession"
-version = "0.0.23"
-source = "git+https://github.com/peios/authd.git?rev=90471e3d4db127528862fb325b04edb3d4f0fc30#90471e3d4db127528862fb325b04edb3d4f0fc30"
-dependencies = [
- "peios",
 ]
 
 [[package]]
@@ -1041,6 +1048,14 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "session-preferences"
+version = "0.0.24"
+source = "git+https://github.com/peios/authd.git?rev=a014fa4c74f17ce4f67ba964eefce33a1a3dbdfa#a014fa4c74f17ce4f67ba964eefce33a1a3dbdfa"
+dependencies = [
+ "peios",
 ]
 
 [[package]]

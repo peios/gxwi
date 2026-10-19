@@ -1,0 +1,67 @@
+/* Made from the theme's tokens, which the desktop's page for a live surface
+   brings with it. A page of the app's own has no theme to draw on, so every
+   token is given something to fall back to. */
+body {
+    margin: 0;
+    padding: var(--space-3, 14px);
+    background: var(--surface-1, Canvas);
+    color: var(--text-primary, CanvasText);
+    font: 500 14px/1.6 var(--font-text, system-ui, sans-serif);
+    color-scheme: light dark;
+}
+h1 {
+    margin: 0 0 var(--space-2, 9px);
+    font: 700 22px/1.3 var(--font-display, system-ui, sans-serif);
+    overflow-wrap: anywhere;
+}
+p {
+    margin: 0 0 var(--space-2, 9px);
+}
+#facts {
+    color: var(--text-muted, GrayText);
+    font-size: 12px;
+}
+#found {
+    margin: 0;
+    color: var(--text-muted, GrayText);
+    font: 400 11px/1.5 var(--font-mono, ui-monospace, monospace);
+    white-space: pre-wrap;
+}
+label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary, GrayText);
+}
+button,
+input {
+    height: var(--control-sm, 30px);
+    padding: 0 var(--space-3, 14px);
+    font: inherit;
+    color: var(--text-primary, CanvasText);
+    background: none;
+    border: 1px solid var(--border-strong, GrayText);
+    border-radius: var(--radius-sm, 9px);
+}
+button {
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 120ms ease;
+}
+button:hover {
+    border-color: var(--accent-solid, Highlight);
+}
+input {
+    background: var(--bg-sunken, Field);
+    font-weight: 500;
+}
+:is(button, input):focus-visible {
+    outline: 2px solid var(--accent-solid, Highlight);
+    outline-offset: 2px;
+}
+/* What the desktop's page says about the surface, which is the app's to show. */
+.fx-busy {
+    opacity: 0.6;
+}
+#fx-root[data-connected="false"] {
+    opacity: 0.5;
+}
