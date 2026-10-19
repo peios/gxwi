@@ -1,0 +1,35 @@
+--- field object.certificate.digest-previous
+type: bin
+
+SHA-256 digest of the preceding certificate's DER encoding, as 32 bytes.
+
+Compare this field with `object.certificate.digest` to identify the
+certificate that a renewal replaced.
+
+--- event gxwid.certificate.renewed
+tier: essential
+gating: none (every completed certificate renewal is recorded)
+cardinality: once per renewal
+
+The machine's GXWI certificate was renewed for its existing key.
+
+GXWI checks certificates at startup, every 24 hours, and on service reload.
+It renews a certificate with fewer than 30 days remaining or a validity
+interval outside the accepted policy. Initial creation is not renewal.
+
+The replacement has a different fingerprint. Users who trusted the
+preceding certificate need to verify and trust its replacement according
+to their browser's policy. The public certificate is
+`/var/state/gxwi/certificate.pem`; its fingerprint is
+`/var/state/gxwi/certificate.sha256`.
+
+Existing TLS connections continue. Subsequent connections use the
+replacement certificate after handover to the network worker.
+
+The event has no subject because gxwid renews its own certificate.
+
+field: object.certificate.digest            required
+  SHA-256 digest of the replacement certificate.
+field: object.certificate.digest-previous   required
+field: object.certificate.name              required
+  Certificate subject, with the machine name as `CN` and `Peios` as `O`.

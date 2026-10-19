@@ -1,12 +1,11 @@
 --- machine\software\gxwi
 canonical: Machine\Software\GXWI
 
-GXWI's settings: where it listens, what a session runs, what stands in front
-of logon, and what its logon pages say.
+Listener, compositor, machine overlay, and public sign-in settings.
 
 gxwid reads this subtree. gxwi-server, the half that faces the network, runs
-under a token that can open nothing, the registry included: what it needs
-from here gxwid reads for it and tells it as it starts.
+under a restricted token. gxwid reads the required configuration and passes
+it to the worker at startup.
 
 Every value is optional and has a compiled default. A value of the wrong
 type, or one that makes no sense, is ignored and never mended: gxwid logs the
@@ -40,36 +39,36 @@ under `Machine\System\Network\Rules\Flow` as well as this.
 --- machine\software\gxwi compositor
 canonical: Machine\Software\GXWI Compositor
 type: REG_SZ
-default: (absent — `gxwi-hello`, the stand-in beside gxwid)
+default: (absent: `gxwi-hello`, the stand-in beside gxwid)
 valid: an absolute path
-applies: next session
+applies: live (for new sessions)
 
 The program a session runs.
 
-gxwid starts it as a job carrying the token of whoever logged on, and hands
+gxwid starts it as a job carrying the token of whoever signed in, and hands
 it the session's socket. It is read as each session starts: a change needs no
-restart, and reaches nobody who is already logged on until they log off.
+restart, and reaches nobody who is already signed in until they sign out.
 
 This chooses what runs as everyone who logs on. Treat write access to it as
 you would write access to the program itself.
 
 A path that is not there is not refused here. The session fails to start,
-and the person who logged on is told so.
+and the person who signed in is told so.
 
 --- machine\software\gxwi overlaysession
 canonical: Machine\Software\GXWI OverlaySession
 type: REG_SZ
-default: (absent — no overlay)
+default: (absent: no overlay)
 valid: an absolute path
 applies: live
 
 A program that everyone who reaches GXWI is sent to, in place of the logon
 pages and of any session: the overlay.
 
-It is for a machine that is not, for now, something to log on to: one
+It is for a machine that is not, something to sign in to: one
 running an installer, one still being set up, one that is starting.
 
-While it is set, nobody is asked to log on and nobody reaches a session,
+While it is set, nobody is asked to sign in and nobody reaches a session,
 their own included. Every request goes to the overlay, except for the few
 paths under `/.gxwi/` that are GXWI's own. Sessions that were running go on
 running behind it, and are there again when the value is removed.
@@ -89,10 +88,10 @@ restart. An overlay that exits is started again.
 An overlay that is set and cannot run is not replaced by the logon pages.
 Whoever set it meant people to be kept from what is behind it, so they are
 shown a page saying the machine is not ready yet, which asks again by itself.
-gxwid keeps trying, a second later at first and then less often, up to every
-thirty seconds, and its log says why. This covers a program that is not
+gxwid keeps trying, 1 second later at first and then less often, up to every
+30 seconds, and its log says why. This covers a program that is not
 there, an `OverlayUsername` that is missing, and an account the authority
-will not log on without a credential.
+will not sign in without a credential.
 
 Only a value that makes no sense in itself is ignored as other settings are,
 and then there is no overlay.
@@ -100,14 +99,14 @@ and then there is no overlay.
 --- machine\software\gxwi overlayusername
 canonical: Machine\Software\GXWI OverlayUsername
 type: REG_SZ
-default: (absent — an overlay cannot run)
+default: (absent: an overlay cannot run)
 valid: an account's name, as it would be given at a logon page; at most 1024 bytes, no control characters
 applies: live
 
 The account the overlay runs as.
 
-gxwid logs this account on itself, through the authority, with the kind of
-logon a person at a browser gets (Remote Interactive), and tells the
+gxwid authenticates this account through the authority, using the same
+logon type as a browser user (Remote Interactive), and tells the
 authority that no credential can be collected. The authority therefore
 grants the logon only for an account that needs no credential. An account
 with a password or a key is refused and the overlay does not start, so an
@@ -124,7 +123,7 @@ run: there is no account an overlay runs as by default.
 --- machine\software\gxwi\logon
 canonical: Machine\Software\GXWI\Logon
 
-What the logon pages say beyond the logon itself.
+Public machine labels and notices on the sign-in pages.
 
 Both values are shown to anyone who can reach the port, before they have
 said who they are. Put nothing here that is not for everyone to read.
@@ -132,26 +131,26 @@ said who they are. Put nothing here that is not for everyone to read.
 --- machine\software\gxwi\logon name
 canonical: Machine\Software\GXWI\Logon Name
 type: REG_SZ
-default: (absent — nothing is shown)
+default: (absent: nothing is shown)
 valid: 1 to 64 characters, none of them control characters
 applies: restart
 
-What this machine is called, shown under the heading of every logon page.
+Public machine label shown under the heading of each sign-in page.
 
-For someone with more than one machine to log on to, deciding whether this
+For someone with more than one machine to sign in to, deciding whether this
 is the one they meant. It is a label and not the host name: nothing resolves
 it.
 
 --- machine\software\gxwi\logon notice
 canonical: Machine\Software\GXWI\Logon Notice
 type: REG_MULTI_SZ
-default: (absent — nothing is shown)
+default: (absent: nothing is shown)
 valid: at most 8 entries and 2000 characters in all, none of them control characters
 applies: restart
 
 A notice shown on the first logon page, above where the username is asked
 for, a paragraph to each entry.
 
-For the words an organisation needs read before a logon: who may use the
+For the words an organization needs read before a logon: who can use the
 machine, and that use is monitored. It is text and is shown as text. Markup
 in it is shown as written.

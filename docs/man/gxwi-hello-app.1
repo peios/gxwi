@@ -1,0 +1,31 @@
+.TH GXWI-HELLO-APP 1 2026-10-19 "Peios gxwi 0.0.7"
+.SH NAME
+gxwi-hello-app \- demonstrate live and custom GXWI application pages
+.SH SYNOPSIS
+.B gxwi-hello-app
+.RB [ --raw ]
+.RI [ greeting ...]
+.SH DESCRIPTION
+.B gxwi-hello-app
+connects to the display in its environment and opens a demonstration window.
+The live window shares a counter and note between browser views.
+Greeting arguments replace the default greeting.
+.SH OPTIONS
+.TP
+.B --raw
+When supplied as the first argument, open the scripted diagnostic page instead of a live surface.
+The page probes the compositor's raw-page isolation and resource behavior.
+.SH EXIT STATUS
+.TP
+.B 0
+The desktop loop ended after its surfaces or connection closed.
+.TP
+.B 1
+Connecting to or running on the desktop failed.
+.SH ENVIRONMENT
+.TP
+.B GXWI_DISPLAY
+Display socket supplied by the compositor when starting an application.
+.SH SEE ALSO
+.BR gxwi-hello (1),
+.BR libgxwi (3)

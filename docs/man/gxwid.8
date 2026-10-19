@@ -1,0 +1,143 @@
+.TH GXWID 8 2026-10-19 "Peios gxwi 0.0.7"
+.SH NAME
+gxwid \- manage GXWI network workers and desktop sessions
+.SH SYNOPSIS
+.B gxwid
+.RB [ --unrestricted ]
+.br
+.B gxwid --print-capability-sid
+.SH DESCRIPTION
+.B gxwid
+owns the GXWI listener, machine certificate state, and session jobs.
+It starts the restricted
+.BR gxwi-server (8)
+worker to parse network traffic and serve HTTPS.
+It authenticates accounts through authd for Remote Interactive logons and asks peinit to start the configured compositor with the resulting token.
+.PP
+The listener survives network worker restarts.
+Worker retries start at 1 second and increase to at most 30 seconds.
+A worker that runs for at least 60 seconds resets the delay.
+Session and overlay connections have a 10-second startup bound.
+A timeout reconnecting to an existing session does not remove or restart it.
+.PP
+The browser-facing transport uses HTTP/1.1 over TLS.
+Plain HTTP receives a redirect to HTTPS, without desktop content.
+Internal session connections use HTTP/2 over local sockets.
+.SH OPTIONS
+.TP
+.B --print-capability-sid
+Print the network worker capability security identifier and exit successfully.
+This takes precedence over normal service startup.
+.TP
+.B --unrestricted
+Run the network worker without Peios token restriction, for development on a host without KACS.
+Use environment listener and state-directory values instead of native registry and protected state setup.
+Native authentication sessions are unavailable in this mode.
+This does not qualify the service's native security behavior.
+.SH CONFIGURATION
+.B Machine\eSoftware\eGXWI
+controls the listener, compositor, shared machine overlay, and public sign-in labels.
+See
+.BR regman (1)
+for each value's type, validation, default, and application time.
+.PP
+An overlay replaces browser access to ordinary sign-in and desktops.
+It runs with the authority of its configured credential-free account.
+A configured overlay that cannot start presents a not-ready page rather than normal sign-in.
+.PP
+Session locale values come from
+.B Machine\eSystem\eLocale
+and the authenticated user's
+.B Users\e<SID>\eLocale
+preferences, with a
+.B C.UTF-8
+fallback.
+Existing sessions retain their environment when rejoined.
+.SH SECURITY
+Normal service execution uses SYSTEM authority and retains
+.B SeImpersonatePrivilege
+to transfer authenticated tokens to peinit through
+.BR KACS_SCM_TOKEN .
+The daemon does not mint principal tokens.
+The network worker receives a restricted token and only the descriptors required for its work.
+.PP
+Write access to the compositor and overlay registry values determines which programs run with session or overlay authority.
+Protect those values and the program files.
+Verify an unfamiliar certificate's SHA-256 fingerprint through a trusted channel before entering credentials.
+.SH EXIT STATUS
+.TP
+.B 0
+The capability identifier was printed successfully.
+.TP
+.B 1
+Required startup, configuration, key, or worker-management setup failed.
+Normal service operation continues until a signal or process failure ends it.
+.SH ENVIRONMENT
+.TP
+.B GXWI_LISTEN
+Listener address in unrestricted mode; the default is
+.BR 127.0.0.1:7780 .
+.TP
+.B GXWI_STATE
+Certificate directory in unrestricted mode; the default is
+.B gxwi-state
+relative to the working directory.
+.TP
+.B GXWI_SERVER
+Path to the network worker; otherwise the daemon uses
+.B gxwi-server
+beside its own executable.
+.TP
+.B GXWI_RUN
+Session socket directory; the default is
+.BR /run/gxwi .
+.TP
+.B GXWI_RUNTIME
+Per-user runtime root; the default is
+.BR /run/gxwi-user .
+.TP
+.B GXWI_LOGON_SOCKET
+Override for the authd logon socket.
+.TP
+.B GXWI_JOBS_SOCKET
+Override for the peinit jobs socket; the default is
+.BR /run/services/peinit/jobs.sock .
+.SH FILES
+.TP
+.B /var/state/gxwi/key.pem
+Private ECDSA P-256 key, readable by SYSTEM.
+An unreadable existing key fails startup rather than being replaced.
+.TP
+.B /var/state/gxwi/certificate.pem
+Public self-signed certificate.
+Its names include the hostname at creation, localhost, and the loopback addresses.
+.TP
+.B /var/state/gxwi/certificate.sha256
+Public SHA-256 fingerprint, written as colon-separated uppercase hexadecimal byte pairs.
+.SH SIGNALS
+.TP
+.B SIGHUP
+Check the certificate and renew it if required, without restarting desktop sessions.
+Checks also occur at startup and every 24 hours.
+A generated certificate expires 365 days after creation and is backdated by 1 day.
+Renewal begins with fewer than 30 days remaining, or when the validity interval violates the accepted policy.
+.SH EVENTS
+.B gxwid.certificate.renewed
+records the preceding and replacement fingerprints and the replacement subject.
+See
+.BR evman (1)
+for field definitions.
+Existing TLS connections continue; subsequent connections receive the replacement certificate.
+.SH NOTES
+The first logon supplies the compositor's HOME, SHELL, PATH, GXWI_RUNTIME_DIR, and GXWI_DISPLAY_NAME values.
+Rejoining a running session does not replace its environment.
+.PP
+The browser waiting page requires a working service worker under the browser's certificate and origin policy.
+It caches its own assets, not an offline desktop.
+Installation completing does not prove that a certificate was retained; verify the installed system independently.
+.SH SEE ALSO
+.BR gxwi-server (8),
+.BR gxwi-hello (1),
+.BR libgxwi (3),
+.BR regman (1),
+.BR evman (1)

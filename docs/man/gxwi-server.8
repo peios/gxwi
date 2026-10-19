@@ -1,0 +1,56 @@
+.TH GXWI-SERVER 8 2026-10-19 "Peios gxwi 0.0.7"
+.SH NAME
+gxwi-server \- serve browser traffic under a restricted GXWI token
+.SH SYNOPSIS
+.B gxwi-server
+.BI --listener-fd " fd"
+.BI --channel-fd " fd"
+.BI --overlay-fd " fd"
+.BI --tls-fd " fd"
+.RB [ --unrestricted ]
+.RB [ --logon-name " name" ]
+.RB [ --logon-notice " paragraph" ]
+.SH DESCRIPTION
+.B gxwi-server
+is the network-facing worker started by
+.BR gxwid (8).
+The daemon supplies open descriptors and an initial certificate before the worker accepts browser traffic.
+Do not start the worker directly.
+.PP
+The worker relays authenticated requests to session sockets, keeps GXWI cookies out of application requests, and prevents application responses from replacing those cookies.
+It also routes machine overlays and isolated application origins.
+.SH OPTIONS
+.TP
+.BI --channel-fd " fd"
+Inherited control channel to gxwid.
+.TP
+.BI --listener-fd " fd"
+Inherited network listening socket.
+.TP
+.BI --logon-name " name"
+Plain-text public machine label supplied by the daemon.
+.TP
+.BI --logon-notice " paragraph"
+Plain-text public notice paragraph.
+The option can be repeated in display order.
+.TP
+.BI --overlay-fd " fd"
+Inherited overlay-state channel.
+.TP
+.BI --tls-fd " fd"
+Inherited channel carrying the initial key and certificate and later certificate replacements.
+.TP
+.B --unrestricted
+Skip the native sandbox probe for development runs controlled by gxwid.
+.SH SECURITY
+Normal execution requires the restricted token supplied by gxwid.
+The worker refuses normal startup if it can list the filesystem root.
+The probe is a startup check, not a replacement for the kernel's access checks.
+TLS keys arrive on a private channel rather than through direct key-file access.
+.SH EXIT STATUS
+.TP
+.B 1
+Required descriptors, initial certificate, overlay state, sandbox checks, or service startup failed.
+Otherwise the worker serves until stopped or its service loop ends.
+.SH SEE ALSO
+.BR gxwid (8)

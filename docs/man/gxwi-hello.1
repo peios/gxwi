@@ -1,0 +1,32 @@
+.TH GXWI-HELLO 1 2026-10-19 "Peios gxwi 0.0.7"
+.SH NAME
+gxwi-hello \- display a diagnostic GXWI session
+.SH SYNOPSIS
+.B gxwi-hello
+.SH DESCRIPTION
+.B gxwi-hello
+is a diagnostic compositor started by gxwid when no compositor path is configured.
+It receives a session listener from peinit and displays the identity and token properties of its process.
+It also provides a WebSocket echo endpoint and an action that ends the session.
+.PP
+This program verifies the session transport and identity path.
+It is not a desktop shell or application launcher.
+.SH SECURITY
+The inherited session listener is protected for the daemon's use.
+The program restamps the listener with its own identity before serving.
+Displayed identity comes from the process token rather than browser-provided input.
+.SH EXIT STATUS
+.TP
+.B 0
+The diagnostic sign-out action ended the process or the service loop completed.
+.TP
+.B 1
+No listener was supplied, or listener setup or serving failed.
+.SH ENVIRONMENT
+.TP
+.B LISTEN_FDS
+Must name at least one inherited descriptor.
+The first listener is descriptor 3.
+.SH SEE ALSO
+.BR gxwid (8),
+.BR gxwi-hello-app (1)

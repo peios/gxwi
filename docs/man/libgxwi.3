@@ -1,0 +1,121 @@
+.TH LIBGXWI 3 2026-10-19 "Peios gxwi 0.0.7"
+.SH NAME
+libgxwi \- connect C applications to a GXWI desktop
+.SH SYNOPSIS
+.nf
+.B #include <peios/gxwi.h>
+.PP
+.B cc application.c -lgxwi
+.fi
+.SH DESCRIPTION
+.B libgxwi
+provides the C application binary interface for desktop connections, surface requests, shell requests, and received events.
+Its shared-library SONAME is
+.BR libgxwi.so.1 .
+The header defines ABI version 1 as
+.BR PEIOS_GXWI_ABI_VERSION .
+HTTP serving, HTML rendering, and settings helpers belong to the Rust
+.B gxwi
+framework, not this library.
+.SS Connection and serving
+.B peios_gxwi_connect
+connects to GXWI_DISPLAY and returns an owned opaque display handle.
+It sets Identification before connecting.
+.B peios_gxwi_display_destroy
+releases the handle.
+.PP
+.B peios_gxwi_serve
+returns a close-on-exec stream descriptor owned by the caller and sends its peer to the desktop.
+The caller serves HTTP/2 on that descriptor and closes it when finished.
+.SS Surface requests
+.B peios_gxwi_create_live
+sends a live surface identifier, title, role, edge, socket path, and stylesheet paths.
+.B peios_gxwi_create_raw
+sends a raw window identifier, title, and page path.
+.B peios_gxwi_title
+changes a surface title, and
+.B peios_gxwi_destroy
+requests removal of the application's surface.
+.PP
+Roles are WINDOW, PANEL, OVERLAY, BACKGROUND, and DIALOG constants from the header.
+Edges are DEFAULT, TOP, BOTTOM, LEFT, and RIGHT.
+The compositor decides whether a request is valid for the connection.
+.SS Shell requests
+.B peios_gxwi_start
+requests program startup with an argument array.
+.B peios_gxwi_close
+requests closing a desktop surface, whose owning application decides how to handle it.
+.B peios_gxwi_log_off
+requests ending the desktop session.
+These functions report request transmission, not compositor authorization or completion.
+.SS Events
+.B peios_gxwi_receive
+blocks for the next packet and returns an independently owned immutable event.
+.B peios_gxwi_event_kind
+identifies CLOSE, SURFACES, or OTHER events.
+.B peios_gxwi_event_close
+reads the close surface identifier.
+.B peios_gxwi_event_surface_count
+and
+.B peios_gxwi_event_surface
+read the surface list.
+Unknown, malformed, or truncated messages produce OTHER; entries with unknown roles are omitted from lists.
+Truncated descriptor control data is rejected rather than accepting a partial message.
+.PP
+Listed entries contain desktop identifiers, title, role, icon, application and workspace identifiers, and optional own-surface or application declarations.
+Test the HAS_OWN and HAS_APPLICATION flags before reading the corresponding optional fields.
+.B peios_gxwi_event_destroy
+releases an event and invalidates its borrowed string views.
+Destroying a display does not invalidate an event.
+.SS Memory and concurrency
+Text uses UTF-8 spans with explicit byte lengths, without a required terminator.
+Embedded NUL bytes are supported.
+A NULL span or array pointer is valid only when its length is zero.
+Input storage is borrowed until the call returns.
+Output parameters must be writable and must not alias inputs.
+.PP
+Display operations can run concurrently.
+Concurrent receive calls consume separate packets in an unspecified completion order.
+.B peios_gxwi_stop_listening
+wakes receivers with end of file while leaving sending available.
+No display operation can overlap destruction of that display.
+.PP
+Events can be read concurrently but cannot be read while being destroyed.
+NULL destruction is a no-op.
+Invalid non-NULL pointers, double destruction, and use after destruction are caller errors.
+No callbacks are invoked.
+.SH SECURITY
+Connecting or sending shell requests does not grant shell authority.
+The compositor remains responsible for deciding which connections can perform shell operations.
+Validate application data and enforce backend authorization independently of displayed controls.
+.SH RETURN VALUE
+Ordinary operations return 0 on success and -1 with errno on failure.
+Output parameters remain unchanged on failure.
+.B peios_gxwi_receive
+returns 1 with an event, 0 at end of file with a NULL event, or -1 on failure.
+.B peios_gxwi_abi_version
+returns the supported ABI version.
+Destruction functions return no value.
+.SH ERRORS
+.TP
+.B EINVAL
+Invalid UTF-8, unknown role or edge, wrong event kind, or another invalid argument.
+.TP
+.B ERANGE
+A surface-list index is out of range.
+.TP
+.B ENOENT
+GXWI_DISPLAY is absent, or a required filesystem object cannot be found.
+.TP
+.B EIO
+An operation failed without a more specific operating-system error.
+.PP
+System-call errors are preserved, including connection, allocation, and descriptor errors where applicable.
+.SH ENVIRONMENT
+.TP
+.B GXWI_DISPLAY
+Path of the desktop socket to connect to.
+The API does not adopt arbitrary caller-supplied descriptors as displays.
+.SH SEE ALSO
+.BR gxwid (8),
+.BR gxwi-hello-app (1)
