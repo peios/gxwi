@@ -1,0 +1,18 @@
+{
+    "package": {
+        "version": "0.0.7-1",
+        "architecture": "noarch",
+        "license_class": "free",
+        "homepage": "https://github.com/peios/gxwi",
+        "name": "dev.peios.gxwi-sdk",
+        "description": "Rust helpers for the GXWI shared client library",
+        "license": "MIT"
+    },
+    "files": {
+        "source:LICENSE": "usr/share/licenses/dev.peios.gxwi-sdk/LICENSE",
+        "stage:usr/share/cargo/gxwi/**": "usr/share/cargo/gxwi"
+    },
+    "dependencies": {
+        "dev.peios.libgxwi-devel": "= 0.0.7-1"
+    }
+}

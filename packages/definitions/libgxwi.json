@@ -1,0 +1,21 @@
+{
+    "package": {
+        "version": "0.0.7-1",
+        "architecture": "x86_64",
+        "license_class": "free",
+        "homepage": "https://github.com/peios/gxwi",
+        "name": "dev.peios.libgxwi",
+        "description": "GXWI desktop client shared library",
+        "license": "((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND MIT AND (MIT OR Unlicense)"
+    },
+    "dependencies": {
+        "dev.peios.libpeios": ">= 0.5.8-1",
+        "org.gnu.glibc": "*",
+        "org.gnu.gcc-libgcc": "*"
+    },
+    "files": {
+        "stage:usr/lib/x86_64-linux-peios/libgxwi.so.1": "usr/lib/x86_64-linux-peios/libgxwi.so.1",
+        "source:LICENSE": "usr/share/licenses/dev.peios.libgxwi/LICENSE",
+        "stage:licenses-libgxwi/**": "usr/share/licenses/dev.peios.libgxwi/third-party"
+    }
+}

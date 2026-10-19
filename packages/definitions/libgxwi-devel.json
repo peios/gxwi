@@ -1,0 +1,22 @@
+{
+    "package": {
+        "version": "0.0.7-1",
+        "architecture": "x86_64",
+        "license_class": "free",
+        "homepage": "https://github.com/peios/gxwi",
+        "name": "dev.peios.libgxwi-devel",
+        "description": "C headers and linker metadata for GXWI",
+        "license": "((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND MIT AND (MIT OR Unlicense)"
+    },
+    "dependencies": {
+        "dev.peios.libgxwi": "= 0.0.7-1"
+    },
+    "files": {
+        "stage:usr/include/**": "usr/include",
+        "stage:usr/lib/x86_64-linux-peios/libgxwi.so": "usr/lib/x86_64-linux-peios/libgxwi.so",
+        "stage:usr/lib/x86_64-linux-peios/pkgconfig/gxwi.pc": "usr/lib/x86_64-linux-peios/pkgconfig/gxwi.pc",
+        "stage:usr/share/man/man3/**": "usr/share/man/man3",
+        "source:LICENSE": "usr/share/licenses/dev.peios.libgxwi-devel/LICENSE",
+        "stage:licenses-libgxwi/**": "usr/share/licenses/dev.peios.libgxwi-devel/third-party"
+    }
+}

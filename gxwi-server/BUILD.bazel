@@ -1,0 +1,74 @@
+load("@crates//:crates.bzl", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
+load("//build:checks.bzl", "host_test")
+load("//build:musl.bzl", "musl_artifact", "musl_test")
+load("//build:version.bzl", "VERSION")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "BUILD.bazel",
+    "Cargo.toml",
+])
+
+filegroup(
+    name = "sources",
+    srcs = glob(["src/**"]),
+)
+
+rust_binary(
+    name = "worker",
+    srcs = glob(["src/**/*.rs"]),
+    compile_data = glob(
+        [
+            "src/**/*.css",
+            "src/**/*.js",
+            "src/**/*.woff2",
+            "src/**/*.txt",
+            "src/**/*.html",
+            "src/**/*.svg",
+        ],
+        allow_empty = True,
+    ),
+    crate_root = "src/main.rs",
+    edition = "2024",
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    version = VERSION,
+    deps = ["//gxwi-channel"] + all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "tests",
+    size = "small",
+    crate = ":worker",
+    deps = all_crate_deps(normal_dev = True),
+)
+
+musl_artifact(
+    name = "gxwi-server",
+    binary = ":worker",
+)
+
+musl_test(
+    name = "static-tests",
+    size = "small",
+    binary = ":tests",
+)
+
+host_test(
+    name = "service-worker-test",
+    size = "small",
+    command = "exec node --test gxwi-server/src/sw.test.mjs",
+    data = [
+        "src/sw.js",
+        "src/sw.test.mjs",
+    ],
+    tags = [
+        "external",
+        "no-remote",
+    ],
+    target_compatible_with = select({
+        "//build:native": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)

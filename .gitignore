@@ -3,3 +3,10 @@
 /fuzz/corpus
 /fuzz/artifacts
 /out
+
+/bazel-*
+/.ci-sdk
+/.trail-cache
+**/__pycache__/
+/.ruff_cache
+/docs/learn/dist/

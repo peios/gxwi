@@ -1,0 +1,20 @@
+{
+    "package": {
+        "version": "0.0.7-1",
+        "architecture": "x86_64",
+        "license_class": "free",
+        "homepage": "https://github.com/peios/gxwi",
+        "name": "dev.peios.gxwi-debugsource",
+        "description": "Debug sources for the GXWI runtime and desktop client library",
+        "license": "((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0 AND ISC) AND (Apache-2.0 OR BSD-2-Clause OR MIT) AND (Apache-2.0 OR BSL-1.0) AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND MIT AND (MIT AND BSD-3-Clause) AND (MIT OR Unlicense) AND OFL-1.1"
+    },
+    "dependencies": {
+        "dev.peios.gxwi": "= 0.0.7-1"
+    },
+    "files": {
+        "source:LICENSE": "usr/share/licenses/dev.peios.gxwi-debugsource/LICENSE",
+        "source:gxwi-server/src/fonts/*.LICENSE": "usr/share/licenses/dev.peios.gxwi-debugsource/fonts",
+        "stage:usr/src/debug/**": "usr/src/debug",
+        "stage:licenses-debugsource/**": "usr/share/licenses/dev.peios.gxwi-debugsource/third-party"
+    }
+}

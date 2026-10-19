@@ -1,0 +1,179 @@
+load("//build:checks.bzl", "host_test")
+load("//packages:package.bzl", "package_store")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "BUILD.bazel",
+    "Cargo.toml",
+    "Cargo.lock",
+])
+
+filegroup(
+    name = "artifacts",
+    srcs = [
+        "//gxwi:hello",
+        "//gxwi-hello",
+        "//gxwi-server",
+        "//gxwid",
+        "//libgxwi:shared",
+    ],
+)
+
+filegroup(
+    name = "rust-sources",
+    srcs = [
+        "//gxwi:sources",
+        "//gxwi-abi:sources",
+        "//gxwi-channel:sources",
+        "//gxwi-hello:sources",
+        "//gxwi-server:sources",
+        "//gxwid:sources",
+        "//libgxwi:sources",
+    ],
+)
+
+filegroup(
+    name = "build-files",
+    srcs = [
+        "BUILD.bazel",
+        "MODULE.bazel",
+        "//build:BUILD.bazel",
+        "//build:starlark",
+        "//packages:build-files",
+        "//tools:BUILD.bazel",
+        "//vendor/ppk:BUILD.bazel",
+    ] + ["//" + name + ":BUILD.bazel" for name in [
+        "gxwid",
+        "gxwi-server",
+        "gxwi-channel",
+        "gxwi-hello",
+        "gxwi",
+        "libgxwi",
+        "gxwi-abi",
+    ]],
+)
+
+genrule(
+    name = "build-format-check",
+    srcs = [":build-files"],
+    outs = ["build-format-check.stamp"],
+    cmd = "$(execpath @buildifier//file) -mode=check -lint=warn $(execpaths :build-files) && touch $@",
+    tools = ["@buildifier//file"],
+)
+
+host_test(
+    name = "vendor-test",
+    size = "small",
+    command = "exec python3 tools/test-bazel-vendor.py",
+    data = [
+        "//tools:bazel-vendor.py",
+        "//tools:test-bazel-vendor.py",
+    ],
+    tags = [
+        "external",
+        "no-remote",
+    ],
+)
+
+filegroup(
+    name = "package-data",
+    srcs = [
+        "Cargo.lock",
+        "Cargo.toml",
+        "LICENSE",
+        "//gxwi:sources",
+        "//gxwi-abi:sources",
+        "//gxwi-server:sources",
+        "//libgxwi:exports.txt",
+        "//libgxwi:headers",
+        "//packages:definitions",
+    ] + ["//" + name + ":Cargo.toml" for name in [
+        "gxwid",
+        "gxwi-server",
+        "gxwi-channel",
+        "gxwi-hello",
+        "gxwi",
+        "libgxwi",
+        "gxwi-abi",
+    ]] + glob([
+        "docs/*.regman",
+        "docs/*.evman",
+        "docs/man/*",
+        "registry.d/*.reg",
+        "third-party/*",
+    ]),
+)
+
+filegroup(
+    name = "package-sources",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "**/.*/**",
+            "**/.*",
+            ".git",
+            ".git/**",
+            "bazel-*",
+            "bazel-*/**",
+            "target/**",
+            "out/**",
+            "fuzz/target/**",
+            "fuzz/corpus/**",
+            "fuzz/artifacts/**",
+            ".ci-sdk/**",
+            "**/__pycache__/**",
+            "**/*.pyc",
+            "**/node_modules/**",
+            "docs/learn/dist/**",
+            "dev/browser/**/*.png",
+            "pekit.toml",
+            "packages.pekit/**",
+            "packaging/**",
+        ],
+    ) + glob(
+        [".github/**"],
+        allow_empty = True,
+    ) + [
+        ".bazelignore",
+        ".bazelrc",
+        ".bazelversion",
+        ".gitattributes",
+        ".gitignore",
+        "dev/browser/.gitignore",
+        ":package-data",
+        ":rust-sources",
+        "//build:sources",
+        "//packages:sources",
+        "//tools:sources",
+        "//vendor/ppk:sources",
+    ] + ["//" + name + ":BUILD.bazel" for name in [
+        "gxwid",
+        "gxwi-server",
+        "gxwi-channel",
+        "gxwi-hello",
+        "gxwi",
+        "libgxwi",
+        "gxwi-abi",
+    ]],
+)
+
+package_store(
+    name = "packages",
+    packages = ["//packages:all"],
+)
+
+host_test(
+    name = "shared-library-test",
+    size = "small",
+    command = "exec python3 tools/check-shared-library.py libgxwi/libgxwi_ffi.so",
+    data = [
+        "//libgxwi:exports.txt",
+        "//libgxwi:shared",
+        "//tools:check-shared-library.py",
+    ],
+    tags = [
+        "external",
+        "no-remote",
+    ],
+)

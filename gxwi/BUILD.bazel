@@ -1,0 +1,65 @@
+load("@crates//:crates.bzl", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+load("//build:checks.bzl", "shared_test")
+load("//build:version.bzl", "VERSION")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "BUILD.bazel",
+    "Cargo.toml",
+])
+
+filegroup(
+    name = "sources",
+    srcs = glob(
+        [
+            "src/**",
+            "tests/**",
+            "examples/**",
+        ],
+        allow_empty = True,
+    ) + [
+        "README.md",
+        "build.rs",
+    ],
+)
+
+rust_library(
+    name = "gxwi",
+    srcs = glob(["src/**/*.rs"]),
+    compile_data = glob(["src/**/*.css"]),
+    crate_name = "gxwi",
+    crate_root = "src/lib.rs",
+    edition = "2024",
+    link_deps = ["//libgxwi:link"],
+    version = VERSION,
+    deps = ["//gxwi-abi"] + all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "tests-binary",
+    size = "small",
+    crate = ":gxwi",
+    tags = ["manual"],
+)
+
+rust_binary(
+    name = "hello",
+    srcs = ["examples/hello/main.rs"],
+    compile_data = glob(["examples/hello/*"]),
+    crate_name = "gxwi_hello_app",
+    edition = "2024",
+    version = VERSION,
+    deps = [":gxwi"] + all_crate_deps(normal = True),
+)
+
+shared_test(
+    name = "tests",
+    size = "small",
+    binary = ":tests-binary",
+    libraries = [
+        "//libgxwi:soname",
+        "@peios_sdk//:library",
+    ],
+)

@@ -1,0 +1,43 @@
+load("@crates//:crates.bzl", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_test")
+load("//build:version.bzl", "VERSION")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "BUILD.bazel",
+    "Cargo.toml",
+])
+
+filegroup(
+    name = "sources",
+    srcs = glob(["src/**"]),
+)
+
+rust_binary(
+    name = "gxwi-hello",
+    srcs = glob(["src/**/*.rs"]),
+    compile_data = glob(
+        [
+            "src/**/*.css",
+            "src/**/*.js",
+            "src/**/*.woff2",
+            "src/**/*.txt",
+            "src/**/*.html",
+            "src/**/*.svg",
+        ],
+        allow_empty = True,
+    ),
+    crate_root = "src/main.rs",
+    edition = "2024",
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    version = VERSION,
+    deps = [] + all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "tests",
+    size = "small",
+    crate = ":gxwi-hello",
+    deps = all_crate_deps(normal_dev = True),
+)

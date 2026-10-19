@@ -1,0 +1,26 @@
+#!/bin/sh
+# Bazel owns production builds and tests; Cargo adds strict lint diagnostics.
+set -eu
+
+repo=$(CDPATH="" cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$repo"
+: "${PEIOS_SDK:?Set PEIOS_SDK to an explicit SDK from tools/prepare-dev-sdk}"
+python3 tools/style-check.py
+./bazel build //:build-format-check //:packages //libgxwi:soname
+./bazel test //...
+
+# Cargo supplements Bazel with Clippy and documentation-example checks.
+# Use the just-built shared library, not a library installed on the host.
+client_sdk=$(mktemp -d "${TMPDIR:-/tmp}/gxwi-check-sdk.XXXXXXXX")
+trap 'rm -rf -- "$client_sdk"' EXIT HUP INT TERM
+cp bazel-bin/libgxwi/libgxwi.so.1 "$client_sdk/libgxwi.so.1"
+ln -s libgxwi.so.1 "$client_sdk/libgxwi.so"
+export PEIOS_GXWI_LIB_DIR="$client_sdk"
+export PEIOS_LIB_DIR="$PEIOS_SDK/lib"
+export PEIOS_INCLUDE="$PEIOS_SDK/include"
+export PKM_UAPI="$PEIOS_SDK/include"
+export LD_LIBRARY_PATH="$PEIOS_GXWI_LIB_DIR:$PEIOS_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+gcc_include=$(gcc -print-file-name=include)
+export BINDGEN_EXTRA_CLANG_ARGS="-isystem $gcc_include${BINDGEN_EXTRA_CLANG_ARGS:+ $BINDGEN_EXTRA_CLANG_ARGS}"
+cargo +1.98.1 clippy --workspace --all-targets --locked -- -D warnings
+cargo +1.98.1 test --workspace --doc --locked

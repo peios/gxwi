@@ -1,0 +1,9 @@
+target
+out
+fuzz/target
+bazel-gxwi
+bazel-bin
+bazel-out
+bazel-testlogs
+.ci-sdk
+.trail-cache

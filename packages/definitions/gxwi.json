@@ -1,0 +1,42 @@
+{
+    "side_effects": ["man-db"],
+    "package": {
+        "version": "0.0.7-1",
+        "architecture": "x86_64",
+        "license_class": "free",
+        "homepage": "https://github.com/peios/gxwi",
+        "name": "dev.peios.gxwi",
+        "description": "Peios web display server and demonstration application",
+        "license": "((MIT OR Apache-2.0) AND Unicode-3.0) AND Apache-2.0 AND (Apache-2.0 AND ISC) AND (Apache-2.0 OR BSD-2-Clause OR MIT) AND (Apache-2.0 OR BSL-1.0) AND (Apache-2.0 OR ISC OR MIT) AND (Apache-2.0 OR MIT) AND BSD-3-Clause AND ISC AND MIT AND (MIT AND BSD-3-Clause) AND (MIT OR Unlicense) AND OFL-1.1"
+    },
+    "dependencies": {
+        "dev.peios.libpeios": ">= 0.5.8-1",
+        "org.gnu.glibc": "*",
+        "org.gnu.gcc-libgcc": "*",
+        "dev.peios.authd": ">= 0.0.22-1",
+        "dev.peios.peinit": ">= 0.0.9-1",
+        "dev.peios.libgxwi": "= 0.0.7-1"
+    },
+    "files": {
+        "source:LICENSE": "usr/share/licenses/dev.peios.gxwi/LICENSE",
+        "stage:licenses/**": "usr/share/licenses/dev.peios.gxwi/third-party",
+        "source:gxwi-server/src/fonts/*.LICENSE": "usr/share/licenses/dev.peios.gxwi/fonts",
+        "stage:usr/bin/**": "usr/bin",
+        "stage:usr/share/regim/**": "usr/share/regim",
+        "stage:usr/share/regman/**": "usr/share/regman",
+        "source:docs/gxwid.evman": "usr/share/evman/gxwid.evman",
+        "stage:usr/share/icons/**": "usr/share/icons",
+        "stage:usr/share/apps/**": "usr/share/apps",
+        "stage:usr/share/man/man1/**": "usr/share/man/man1",
+        "stage:usr/share/man/man8/**": "usr/share/man/man8"
+    },
+    "sd_overrides": {
+        "usr/bin/gxwi-server": "O:SYG:SYD:(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGX;;;WD)(A;;GRGX;;;S-1-15-3-165089264-3223449312-1247726440-2294222582-3667604814-1924088670-4213972040-4159405878)"
+    },
+    "executables": [
+        "usr/bin/gxwid",
+        "usr/bin/gxwi-server",
+        "usr/bin/gxwi-hello",
+        "usr/bin/gxwi-hello-app"
+    ]
+}
