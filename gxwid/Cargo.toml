@@ -6,9 +6,9 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-libsession = { git = "https://github.com/peios/authd.git", rev = "90471e3d4db127528862fb325b04edb3d4f0fc30" }
+session-preferences = { workspace = true }
 gxwi-channel = { workspace = true }
-libauthd = { workspace = true }
+auth-core = { workspace = true }
 libc = { workspace = true }
 peios = { workspace = true }
 rcgen = { workspace = true }

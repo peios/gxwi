@@ -34,9 +34,10 @@ impl Sessions {
     pub async fn adopt(self: &Arc<Self>, cookie: String, socket: UnixStream) -> io::Result<()> {
         socket.set_nonblocking(true)?;
         let socket = tokio::net::UnixStream::from_std(socket)?;
-        let (sender, connection) = hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(socket))
-            .await
-            .map_err(io::Error::other)?;
+        let (sender, connection) =
+            hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(socket))
+                .await
+                .map_err(io::Error::other)?;
         {
             let mut table = self.0.lock().unwrap_or_else(|e| e.into_inner());
             table.retain(|_, s| !s.is_closed());
@@ -49,8 +50,16 @@ impl Sessions {
         tokio::spawn(async move {
             // A compositor that exits takes the connection down with it, so an
             // error here is how most sessions end and not a fault.
-            let how = connection.await.err().map(|e| format!(" ({e})")).unwrap_or_default();
-            sessions.0.lock().unwrap_or_else(|e| e.into_inner()).remove(&cookie);
+            let how = connection
+                .await
+                .err()
+                .map(|e| format!(" ({e})"))
+                .unwrap_or_default();
+            sessions
+                .0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&cookie);
             eprintln!("gxwi-server: a session's connection closed{how}");
         });
         Ok(())
@@ -71,7 +80,11 @@ impl Sessions {
 /// Sends one request into a session and returns what comes back.
 pub async fn forward(mut session: SendRequest<Body>, request: Request<Body>) -> Response<Body> {
     let websocket = request.version() < Version::HTTP_2 && wants_websocket(request.headers());
-    let result = if websocket { upgrade(&mut session, request).await } else { plain(&mut session, request).await };
+    let result = if websocket {
+        upgrade(&mut session, request).await
+    } else {
+        plain(&mut session, request).await
+    };
     result.unwrap_or_else(|status| {
         let mut response = Response::new(Body::empty());
         *response.status_mut() = status;
@@ -79,7 +92,10 @@ pub async fn forward(mut session: SendRequest<Body>, request: Request<Body>) -> 
     })
 }
 
-async fn plain(session: &mut SendRequest<Body>, request: Request<Body>) -> Result<Response<Body>, StatusCode> {
+async fn plain(
+    session: &mut SendRequest<Body>,
+    request: Request<Body>,
+) -> Result<Response<Body>, StatusCode> {
     let (parts, body) = request.into_parts();
     let mut out = Request::new(body);
     *out.method_mut() = parts.method;
@@ -90,7 +106,10 @@ async fn plain(session: &mut SendRequest<Body>, request: Request<Body>) -> Resul
     }
     copy_headers(&parts.headers, out.headers_mut());
     label(&parts.extensions, out.headers_mut());
-    let response = session.send_request(out).await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let response = session
+        .send_request(out)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
     Ok(returned(response))
 }
 
@@ -103,7 +122,12 @@ fn returned(response: Response<hyper::body::Incoming>) -> Response<Body> {
         .headers
         .get_all(header::SET_COOKIE)
         .iter()
-        .filter(|v| !v.as_bytes().trim_ascii_start().to_ascii_lowercase().starts_with(b"gxwi-"))
+        .filter(|v| {
+            !v.as_bytes()
+                .trim_ascii_start()
+                .to_ascii_lowercase()
+                .starts_with(b"gxwi-")
+        })
         .cloned()
         .collect();
     parts.headers.remove(header::SET_COOKIE);
@@ -116,10 +140,19 @@ fn returned(response: Response<hyper::body::Incoming>) -> Response<Body> {
 /// A websocket opened the HTTP/1.1 way, carried into the session the HTTP/2
 /// way (RFC 8441). Only the opening differs: the frames that follow are the
 /// same bytes on both sides, and are passed through untouched.
-async fn upgrade(session: &mut SendRequest<Body>, mut request: Request<Body>) -> Result<Response<Body>, StatusCode> {
+async fn upgrade(
+    session: &mut SendRequest<Body>,
+    mut request: Request<Body>,
+) -> Result<Response<Body>, StatusCode> {
     let headers = request.headers();
-    let key = headers.get("sec-websocket-key").ok_or(StatusCode::BAD_REQUEST)?;
-    if request.method() != Method::GET || headers.get("sec-websocket-version").is_none_or(|v| v != "13") {
+    let key = headers
+        .get("sec-websocket-key")
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    if request.method() != Method::GET
+        || headers
+            .get("sec-websocket-version")
+            .is_none_or(|v| v != "13")
+    {
         return Err(StatusCode::BAD_REQUEST);
     }
     let accept = websocket_accept(key.as_bytes());
@@ -127,12 +160,16 @@ async fn upgrade(session: &mut SendRequest<Body>, mut request: Request<Body>) ->
     let mut out = Request::new(Body::empty());
     *out.method_mut() = Method::CONNECT;
     *out.uri_mut() = target(request.uri(), headers)?;
-    out.extensions_mut().insert(Protocol::from_static("websocket"));
+    out.extensions_mut()
+        .insert(Protocol::from_static("websocket"));
     copy_headers(headers, out.headers_mut());
     label(request.extensions(), out.headers_mut());
     out.headers_mut().remove("sec-websocket-key");
 
-    let mut response = session.send_request(out).await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let mut response = session
+        .send_request(out)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
     if response.status() != StatusCode::OK {
         return Ok(returned(response));
     }
@@ -142,7 +179,10 @@ async fn upgrade(session: &mut SendRequest<Body>, mut request: Request<Body>) ->
     let h = reply.headers_mut();
     h.insert(header::CONNECTION, HeaderValue::from_static("Upgrade"));
     h.insert(header::UPGRADE, HeaderValue::from_static("websocket"));
-    h.insert("sec-websocket-accept", HeaderValue::from_str(&accept).map_err(|_| StatusCode::BAD_GATEWAY)?);
+    h.insert(
+        "sec-websocket-accept",
+        HeaderValue::from_str(&accept).map_err(|_| StatusCode::BAD_GATEWAY)?,
+    );
     for name in ["sec-websocket-protocol", "sec-websocket-extensions"] {
         if let Some(value) = response.headers().get(name) {
             h.insert(HeaderName::from_static(name), value.clone());
@@ -152,14 +192,23 @@ async fn upgrade(session: &mut SendRequest<Body>, mut request: Request<Body>) ->
     let browser = hyper::upgrade::on(&mut request);
     let compositor = hyper::upgrade::on(&mut response);
     tokio::spawn(async move {
-        let (Ok(browser), Ok(compositor)) = (browser.await, compositor.await) else { return };
-        let _ = tokio::io::copy_bidirectional(&mut TokioIo::new(browser), &mut TokioIo::new(compositor)).await;
+        let (Ok(browser), Ok(compositor)) = (browser.await, compositor.await) else {
+            return;
+        };
+        let _ = tokio::io::copy_bidirectional(
+            &mut TokioIo::new(browser),
+            &mut TokioIo::new(compositor),
+        )
+        .await;
     });
     Ok(reply)
 }
 
 fn wants_websocket(headers: &HeaderMap) -> bool {
-    headers.get(header::UPGRADE).and_then(|v| v.to_str().ok()).is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
+    headers
+        .get(header::UPGRADE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.eq_ignore_ascii_case("websocket"))
 }
 
 /// HTTP/2 wants a whole address. The session is the socket, so the host is
@@ -171,7 +220,12 @@ fn target(uri: &Uri, headers: &HeaderMap) -> Result<Uri, StatusCode> {
         .or_else(|| headers.get(header::HOST)?.to_str().ok())
         .unwrap_or("gxwi");
     let path = uri.path_and_query().map_or("/", |p| p.as_str());
-    Uri::builder().scheme("http").authority(host).path_and_query(path).build().map_err(|_| StatusCode::BAD_REQUEST)
+    Uri::builder()
+        .scheme("http")
+        .authority(host)
+        .path_and_query(path)
+        .build()
+        .map_err(|_| StatusCode::BAD_REQUEST)
 }
 
 /// Everything the browser sent, less what belongs to this hop and less GXWI's
@@ -193,12 +247,18 @@ fn copy_headers(from: &HeaderMap, to: &mut HeaderMap) {
         .filter_map(|v| v.to_str().ok())
         .flat_map(|v| v.split(';'))
         .map(str::trim)
-        .filter(|pair| !pair.is_empty() && !pair.split('=').next().is_some_and(|n| n.starts_with("gxwi-")))
+        .filter(|pair| {
+            !pair.is_empty()
+                && !pair
+                    .split('=')
+                    .next()
+                    .is_some_and(|n| n.starts_with("gxwi-"))
+        })
         .collect();
-    if let Ok(value) = HeaderValue::from_str(&cookies.join("; ")) {
-        if !cookies.is_empty() {
-            to.insert(header::COOKIE, value);
-        }
+    if let Ok(value) = HeaderValue::from_str(&cookies.join("; "))
+        && !cookies.is_empty()
+    {
+        to.insert(header::COOKIE, value);
     }
 }
 
@@ -220,7 +280,15 @@ fn strip_hop_by_hop(headers: &mut HeaderMap) {
     for name in named {
         headers.remove(name);
     }
-    for name in ["connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade", "te", "trailer"] {
+    for name in [
+        "connection",
+        "keep-alive",
+        "proxy-connection",
+        "transfer-encoding",
+        "upgrade",
+        "te",
+        "trailer",
+    ] {
         headers.remove(name);
     }
 }
@@ -240,7 +308,11 @@ pub fn base64(bytes: &[u8]) -> String {
     for chunk in bytes.chunks(3) {
         let n = chunk.iter().fold(0u32, |n, b| n << 8 | *b as u32) << (8 * (3 - chunk.len()));
         for i in 0..4 {
-            out.push(if i <= chunk.len() { ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char } else { '=' });
+            out.push(if i <= chunk.len() {
+                ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char
+            } else {
+                '='
+            });
         }
     }
     out
@@ -252,7 +324,10 @@ mod tests {
 
     #[test]
     fn the_accept_value_is_the_one_the_standard_works_through() {
-        assert_eq!(websocket_accept(b"dGhlIHNhbXBsZSBub25jZQ=="), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+        assert_eq!(
+            websocket_accept(b"dGhlIHNhbXBsZSBub25jZQ=="),
+            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+        );
     }
 
     #[test]
@@ -267,9 +342,18 @@ mod tests {
     #[test]
     fn a_session_never_sees_gxwis_cookies_or_this_hops_headers() {
         let mut from = HeaderMap::new();
-        from.append(header::COOKIE, HeaderValue::from_static("a=1; gxwi-session=secret"));
-        from.append(header::COOKIE, HeaderValue::from_static("gxwi-logon=other; b=2"));
-        from.insert(header::CONNECTION, HeaderValue::from_static("keep-alive, x-private"));
+        from.append(
+            header::COOKIE,
+            HeaderValue::from_static("a=1; gxwi-session=secret"),
+        );
+        from.append(
+            header::COOKIE,
+            HeaderValue::from_static("gxwi-logon=other; b=2"),
+        );
+        from.insert(
+            header::CONNECTION,
+            HeaderValue::from_static("keep-alive, x-private"),
+        );
         from.insert("x-private", HeaderValue::from_static("1"));
         from.insert("x-kept", HeaderValue::from_static("1"));
         from.insert(header::HOST, HeaderValue::from_static("box"));
@@ -297,7 +381,10 @@ mod tests {
     #[test]
     fn only_gxwis_cookies_means_no_cookie_header() {
         let mut from = HeaderMap::new();
-        from.insert(header::COOKIE, HeaderValue::from_static("gxwi-session=secret"));
+        from.insert(
+            header::COOKIE,
+            HeaderValue::from_static("gxwi-session=secret"),
+        );
         let mut to = HeaderMap::new();
         copy_headers(&from, &mut to);
         assert!(to.get(header::COOKIE).is_none());

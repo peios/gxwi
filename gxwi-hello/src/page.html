@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>gxwi-hello</title>
+        <style>
+            body {
+                margin: 2rem;
+                font:
+                    14px/1.6 system-ui,
+                    sans-serif;
+                color-scheme: light dark;
+            }
+            pre {
+                padding: 1rem;
+                border: 1px solid #8884;
+                border-radius: 8px;
+                overflow: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>A session</h1>
+        <p>
+            This page came from a process running as you, reached through gxwi-server and one
+            socket. You asked for <code>{path}</code>.
+        </p>
+        <pre>{identity}</pre>
+        <p>Websocket: <span id="ws">not tried</span></p>
+        <form method="post" action="/.hello/logoff"><button>Log off</button></form>
+        <script>
+            const out = document.getElementById("ws");
+            const ws = new WebSocket(
+                (location.protocol === "https:" ? "wss://" : "ws://") +
+                    location.host +
+                    "/.hello/echo",
+            );
+            const sent = "echo " + Math.random();
+            ws.onopen = () => {
+                out.textContent = "open, sending";
+                ws.send(sent);
+            };
+            ws.onmessage = (m) => {
+                out.textContent = m.data === sent ? "echoed" : "answered wrongly";
+            };
+            ws.onerror = () => {
+                out.textContent = "failed";
+            };
+        </script>
+    </body>
+</html>

@@ -21,8 +21,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use gxwi_channel::{MSG_OVERLAY, MSG_OVERLAY_NONE, MSG_OVERLAY_UNAVAILABLE};
-use libauthd::transport::{recv_message_with_fd, send_message, send_message_with_fd};
-use libauthd::wire::{self, IdentifierType, LogonStart, Profile};
+use auth_core::transport::{recv_message_with_fd, send_message, send_message_with_fd};
+use auth_core::wire::{self, IdentifierType, LogonStart, Profile};
 use peios::registry::{Key, WatchEventType};
 
 use crate::session::{Running, Sessions};
@@ -65,8 +65,18 @@ impl Overlay {
     /// that is not up yet is one that is not available.
     pub fn new(sessions: Option<Arc<Sessions>>) -> Arc<Overlay> {
         let asked = sessions.is_some() && settings::overlay().0.is_some();
-        let standing = if asked { Standing::Unavailable } else { Standing::None };
-        Arc::new(Overlay { sessions, told: Mutex::new(Told { standing, server: None }) })
+        let standing = if asked {
+            Standing::Unavailable
+        } else {
+            Standing::None
+        };
+        Arc::new(Overlay {
+            sessions,
+            told: Mutex::new(Told {
+                standing,
+                server: None,
+            }),
+        })
     }
 
     /// Takes gxwid's end of a new gxwi-server's overlay channel, and writes
@@ -74,7 +84,10 @@ impl Overlay {
     /// it is the first thing the server reads.
     pub fn serve(&self, channel: UnixStream) {
         let mut told = self.told.lock().unwrap_or_else(|e| e.into_inner());
-        told.server = self.tell(&channel, told.standing).is_ok().then_some(channel);
+        told.server = self
+            .tell(&channel, told.standing)
+            .is_ok()
+            .then_some(channel);
     }
 
     /// Says where the overlay now stands, to the running gxwi-server and to
@@ -98,8 +111,14 @@ impl Overlay {
             Standing::Unavailable => send_message(channel, &message(MSG_OVERLAY_UNAVAILABLE)),
             // Each server gets a connection of its own. An overlay that will
             // not take one is not available, whatever else is true of it.
-            Standing::Up => match self.sessions.as_ref().map(|sessions| sessions.connect_overlay()) {
-                Some(Ok(connection)) => send_message_with_fd(channel, &message(MSG_OVERLAY), connection.as_fd()),
+            Standing::Up => match self
+                .sessions
+                .as_ref()
+                .map(|sessions| sessions.connect_overlay())
+            {
+                Some(Ok(connection)) => {
+                    send_message_with_fd(channel, &message(MSG_OVERLAY), connection.as_fd())
+                }
                 _ => send_message(channel, &message(MSG_OVERLAY_UNAVAILABLE)),
             },
         }
@@ -109,7 +128,9 @@ impl Overlay {
     /// runs: started when it is set, started again when it goes, ended when
     /// it is changed or taken away.
     pub fn keep(self: Arc<Self>) {
-        let Some(sessions) = self.sessions.clone() else { return };
+        let Some(sessions) = self.sessions.clone() else {
+            return;
+        };
         sessions.end_left_over_overlay();
 
         let mut watch = settings::watch();
@@ -127,30 +148,49 @@ impl Overlay {
             let was = running.as_ref().map(|(was, ..)| was);
             if step(wanted.as_ref(), was) == Step::End {
                 // Said first: nobody is sent to an overlay that is being ended.
-                self.say(if wanted.is_some() { Standing::Unavailable } else { Standing::None });
+                self.say(if wanted.is_some() {
+                    Standing::Unavailable
+                } else {
+                    Standing::None
+                });
                 if let Some((was, run, _)) = running.take() {
-                    let why = if wanted.is_some() { "asks for another now" } else { "no longer asks for one" };
-                    eprintln!("gxwid: ending the overlay {}: the registry {why}", was.session.display());
+                    let why = if wanted.is_some() {
+                        "asks for another now"
+                    } else {
+                        "no longer asks for one"
+                    };
+                    eprintln!(
+                        "gxwid: ending the overlay {}: the registry {why}",
+                        was.session.display()
+                    );
                     sessions.end_overlay(&run.job);
                 }
                 (retry, said_failed) = (Retry::default(), String::new());
             }
             match step(wanted.as_ref(), running.as_ref().map(|(was, ..)| was)) {
-                Step::Start if retry.due() => match start(&sessions, wanted.as_ref().expect("an overlay to start")) {
-                    Ok(run) => {
-                        running = Some((wanted.clone().expect("an overlay to start"), run, Instant::now()));
-                        said_failed.clear();
-                        self.say(Standing::Up);
-                    }
-                    Err(why) => {
-                        self.say(Standing::Unavailable);
-                        retry.failed();
-                        if why != said_failed {
-                            eprintln!("gxwid: the overlay could not be started: {why}; still trying");
-                            said_failed = why;
+                Step::Start if retry.due() => {
+                    match start(&sessions, wanted.as_ref().expect("an overlay to start")) {
+                        Ok(run) => {
+                            running = Some((
+                                wanted.clone().expect("an overlay to start"),
+                                run,
+                                Instant::now(),
+                            ));
+                            said_failed.clear();
+                            self.say(Standing::Up);
+                        }
+                        Err(why) => {
+                            self.say(Standing::Unavailable);
+                            retry.failed();
+                            if why != said_failed {
+                                eprintln!(
+                                    "gxwid: the overlay could not be started: {why}; still trying"
+                                );
+                                said_failed = why;
+                            }
                         }
                     }
-                },
+                }
                 Step::Start => self.say(Standing::Unavailable),
                 Step::End | Step::Nothing if wanted.is_none() => self.say(Standing::None),
                 Step::End | Step::Nothing => {}
@@ -164,9 +204,16 @@ impl Overlay {
                 (false, false) => Some(LOOK_AGAIN),
                 (true, false) => None,
             };
-            let (changed, gone) = wait_for(watch.as_ref(), running.as_ref().map(|(_, run, _)| &run.process), wait);
+            let (changed, gone) = wait_for(
+                watch.as_ref(),
+                running.as_ref().map(|(_, run, _)| &run.process),
+                wait,
+            );
             if gone && let Some((was, run, since)) = running.take() {
-                eprintln!("gxwid: the overlay {} has gone; starting it again", was.session.display());
+                eprintln!(
+                    "gxwid: the overlay {} has gone; starting it again",
+                    was.session.display()
+                );
                 self.say(Standing::Unavailable);
                 sessions.end_overlay(&run.job);
                 // One that keeps going as it starts is tried less and less often.
@@ -215,7 +262,10 @@ struct Retry {
 
 impl Default for Retry {
     fn default() -> Retry {
-        Retry { delay: RETRY_MIN, at: Instant::now() }
+        Retry {
+            delay: RETRY_MIN,
+            at: Instant::now(),
+        }
     }
 }
 
@@ -235,9 +285,14 @@ impl Retry {
 }
 
 fn start(sessions: &Sessions, wanted: &settings::Overlay) -> Result<Running, String> {
-    let username = wanted.username.as_deref().ok_or("OverlayUsername does not say who it runs as")?;
+    let username = wanted
+        .username
+        .as_deref()
+        .ok_or("OverlayUsername does not say who it runs as")?;
     let (token, profile) = logon(username)?;
-    sessions.start_overlay(token, &profile, &wanted.session).map_err(|e| e.to_string())
+    sessions
+        .start_overlay(token, &profile, &wanted.session)
+        .map_err(|e| e.to_string())
 }
 
 /// Logs `username` on with the authority, as a logon that can collect no
@@ -248,9 +303,13 @@ fn logon(username: &str) -> Result<(OwnedFd, Profile), String> {
     let start = wire::encode_logon_start(&asking_for(username))
         .map_err(|_| format!("{username:?} is not a name the authority can be asked about"))?;
     send_message(&authority, &start).map_err(unreachable)?;
-    let (answer, descriptor) = recv_message_with_fd(&wire::FRAMING, &authority).map_err(unreachable)?;
+    let (answer, descriptor) =
+        recv_message_with_fd(&wire::FRAMING, &authority).map_err(unreachable)?;
     let profile = granted(username, answer.expose(), descriptor.is_some())?;
-    Ok((descriptor.expect("a grant that was checked for its token"), profile))
+    Ok((
+        descriptor.expect("a grant that was checked for its token"),
+        profile,
+    ))
 }
 
 /// What the authority is asked: the same kind of logon a person at a browser
@@ -277,18 +336,22 @@ fn asking_for(username: &str) -> LogonStart {
 fn granted(username: &str, answer: &[u8], descriptor: bool) -> Result<Profile, String> {
     let unreadable = || "the authority's answer could not be read".to_string();
     match wire::decode_header(answer).map_err(|_| unreadable())?.0 {
-        wire::MSG_ACCESS_GRANTED if descriptor => {
-            Ok(wire::decode_access_granted(answer).map_err(|_| unreadable())?.profile)
-        }
+        wire::MSG_ACCESS_GRANTED if descriptor => Ok(wire::decode_access_granted(answer)
+            .map_err(|_| unreadable())?
+            .profile),
         // PGSS: a grant with no descriptor is a failed logon.
         wire::MSG_ACCESS_GRANTED => Err("the authority granted the logon and sent no token".into()),
         // It was told nothing can be collected, and asked all the same.
-        wire::MSG_CREDENTIAL_REQUEST => {
-            Err(format!("{username} has a credential, and an overlay runs only as an account that has none"))
-        }
+        wire::MSG_CREDENTIAL_REQUEST => Err(format!(
+            "{username} has a credential, and an overlay runs only as an account that has none"
+        )),
         wire::MSG_ACCESS_DENIED => {
             let denied = wire::decode_access_denied(answer).map_err(|_| unreadable())?;
-            let reason = if denied.reason.is_empty() { String::new() } else { format!(": {}", denied.reason) };
+            let reason = if denied.reason.is_empty() {
+                String::new()
+            } else {
+                format!(": {}", denied.reason)
+            };
             Err(format!(
                 "the authority would not log {username} on without a credential ({:?}{reason})",
                 denied.denial
@@ -300,10 +363,21 @@ fn granted(username: &str, answer: &[u8], descriptor: bool) -> Result<Profile, S
 
 /// Waits until the registry key changes, the overlay's process goes, or
 /// `wait` has passed, and says which of the first two happened.
-fn wait_for(watch: Option<&Key>, process: Option<&OwnedFd>, wait: Option<Duration>) -> (bool, bool) {
-    let entry = |fd: Option<i32>| libc::pollfd { fd: fd.unwrap_or(-1), events: libc::POLLIN, revents: 0 };
+fn wait_for(
+    watch: Option<&Key>,
+    process: Option<&OwnedFd>,
+    wait: Option<Duration>,
+) -> (bool, bool) {
+    let entry = |fd: Option<i32>| libc::pollfd {
+        fd: fd.unwrap_or(-1),
+        events: libc::POLLIN,
+        revents: 0,
+    };
     // A negative descriptor is one poll leaves alone.
-    let mut fds = [entry(watch.map(|key| key.as_raw_fd())), entry(process.map(|fd| fd.as_raw_fd()))];
+    let mut fds = [
+        entry(watch.map(|key| key.as_raw_fd())),
+        entry(process.map(|fd| fd.as_raw_fd())),
+    ];
     let millis = wait.map_or(-1, |wait| wait.as_millis().min(i32::MAX as u128) as i32);
     // SAFETY: `fds` is ours, and its length is passed with it.
     let ready = unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, millis) };
@@ -325,7 +399,13 @@ fn still_watching(watch: Option<&Key>) -> bool {
     loop {
         match watch.read_watch_events(&mut buffer) {
             Ok(events) if events.is_empty() => return true,
-            Ok(events) if events.iter().any(|event| event.event_type == WatchEventType::KeyDeleted) => return false,
+            Ok(events)
+                if events
+                    .iter()
+                    .any(|event| event.event_type == WatchEventType::KeyDeleted) =>
+            {
+                return false;
+            }
             Ok(_) => {}
             Err(_) => return false,
         }
@@ -335,11 +415,16 @@ fn still_watching(watch: Option<&Key>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libauthd::wire::{AccessDenied, AccessGranted, CredentialRequest, CredentialType, Denial, Prompt};
+    use auth_core::wire::{
+        AccessDenied, AccessGranted, CredentialRequest, CredentialType, Denial, Prompt,
+    };
     use std::path::PathBuf;
 
     fn asked(session: &str, username: Option<&str>) -> settings::Overlay {
-        settings::Overlay { session: PathBuf::from(session), username: username.map(str::to_string) }
+        settings::Overlay {
+            session: PathBuf::from(session),
+            username: username.map(str::to_string),
+        }
     }
 
     #[test]
@@ -354,16 +439,34 @@ mod tests {
     #[test]
     fn a_changed_program_or_account_ends_what_is_running() {
         let installer = asked("/usr/bin/installer", Some("peios"));
-        assert_eq!(step(Some(&asked("/usr/bin/other", Some("peios"))), Some(&installer)), Step::End);
-        assert_eq!(step(Some(&asked("/usr/bin/installer", Some("alice"))), Some(&installer)), Step::End);
-        assert_eq!(step(Some(&asked("/usr/bin/installer", None)), Some(&installer)), Step::End);
+        assert_eq!(
+            step(
+                Some(&asked("/usr/bin/other", Some("peios"))),
+                Some(&installer)
+            ),
+            Step::End
+        );
+        assert_eq!(
+            step(
+                Some(&asked("/usr/bin/installer", Some("alice"))),
+                Some(&installer)
+            ),
+            Step::End
+        );
+        assert_eq!(
+            step(Some(&asked("/usr/bin/installer", None)), Some(&installer)),
+            Step::End
+        );
     }
 
     #[test]
     fn an_overlay_with_nobody_to_run_as_is_still_asked_for() {
         // It cannot start, and that is for `start` to say each time it is
         // tried: what matters here is that it is not taken for no overlay.
-        assert_eq!(step(Some(&asked("/usr/bin/installer", None)), None), Step::Start);
+        assert_eq!(
+            step(Some(&asked("/usr/bin/installer", None)), None),
+            Step::Start
+        );
     }
 
     #[test]
@@ -383,14 +486,21 @@ mod tests {
     fn grant() -> Vec<u8> {
         wire::encode_access_granted(&AccessGranted {
             session_id: 7,
-            profile: Profile { home: "/home/peios".into(), shell: "/bin/sh".into(), display_name: "Peios".into() },
+            profile: Profile {
+                home: "/home/peios".into(),
+                shell: "/bin/sh".into(),
+                display_name: "Peios".into(),
+            },
         })
         .unwrap()
     }
 
     #[test]
     fn a_grant_with_its_token_is_a_logon() {
-        assert_eq!(granted("peios", &grant(), true).unwrap().home, "/home/peios");
+        assert_eq!(
+            granted("peios", &grant(), true).unwrap().home,
+            "/home/peios"
+        );
     }
 
     #[test]
@@ -410,14 +520,21 @@ mod tests {
             }],
         })
         .unwrap();
-        assert!(granted("alice", &prompt, false).unwrap_err().contains("has a credential"));
+        assert!(
+            granted("alice", &prompt, false)
+                .unwrap_err()
+                .contains("has a credential")
+        );
         let denied = wire::encode_access_denied(&AccessDenied {
             denial: Denial::AuthenticationFailed,
             reason: "Authentication failed.".into(),
         })
         .unwrap();
         let why = granted("alice", &denied, false).unwrap_err();
-        assert!(why.contains("AuthenticationFailed") && why.contains("Authentication failed."), "{why}");
+        assert!(
+            why.contains("AuthenticationFailed") && why.contains("Authentication failed."),
+            "{why}"
+        );
     }
 
     #[test]
@@ -429,7 +546,9 @@ mod tests {
 
     #[test]
     fn the_logon_asked_for_offers_nothing_to_collect() {
-        let sent = wire::decode_logon_start(&wire::encode_logon_start(&asking_for("peios")).unwrap()).unwrap();
+        let sent =
+            wire::decode_logon_start(&wire::encode_logon_start(&asking_for("peios")).unwrap())
+                .unwrap();
         assert!(sent.supported_credential_types.is_empty());
         assert_eq!(sent.required_credential_type, None);
         assert_eq!(sent.logon_type, wire::LogonType::RemoteInteractive);

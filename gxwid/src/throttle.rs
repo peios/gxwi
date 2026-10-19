@@ -63,7 +63,10 @@ impl Throttle {
 }
 
 fn expire(starts: &mut VecDeque<Instant>, now: Instant) {
-    while starts.front().is_some_and(|&t| now.duration_since(t) >= WINDOW) {
+    while starts
+        .front()
+        .is_some_and(|&t| now.duration_since(t) >= WINDOW)
+    {
         starts.pop_front();
     }
 }

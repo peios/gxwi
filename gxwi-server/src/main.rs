@@ -40,8 +40,10 @@ async fn main() {
     };
     // The key and certificate in force, before anything is served; then each
     // renewal, for as long as gxwid has one to give.
-    let handed = serve::message(&mut keys).unwrap_or_else(|e| die(&format!("descriptor {tls_fd}: {e}")));
-    let (acceptor, certificate) = serve::acceptor(&handed).unwrap_or_else(|e| die(&format!("TLS: {e}")));
+    let handed =
+        serve::message(&mut keys).unwrap_or_else(|e| die(&format!("descriptor {tls_fd}: {e}")));
+    let (acceptor, certificate) =
+        serve::acceptor(&handed).unwrap_or_else(|e| die(&format!("TLS: {e}")));
     drop(handed);
     std::thread::Builder::new()
         .name("certificate".into())
@@ -55,9 +57,11 @@ async fn main() {
             }
         })
         .unwrap_or_else(|e| die(&format!("certificate thread: {e}")));
-    listener
-        .set_nonblocking(true)
-        .unwrap_or_else(|e| die(&format!("descriptor {listener_fd} is not a listening socket: {e}")));
+    listener.set_nonblocking(true).unwrap_or_else(|e| {
+        die(&format!(
+            "descriptor {listener_fd} is not a listening socket: {e}"
+        ))
+    });
     let listener = tokio::net::TcpListener::from_std(listener)
         .unwrap_or_else(|e| die(&format!("listener: {e}")));
 
@@ -108,7 +112,9 @@ fn fd_arg(name: &str) -> RawFd {
                 .unwrap_or_else(|| die(&format!("{name} needs a descriptor number")));
         }
     }
-    die(&format!("missing {name}: gxwi-server is started by gxwid, not by hand"))
+    die(&format!(
+        "missing {name}: gxwi-server is started by gxwid, not by hand"
+    ))
 }
 
 fn die(msg: &str) -> ! {

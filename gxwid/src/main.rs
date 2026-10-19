@@ -7,7 +7,7 @@ use std::net::TcpListener;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -34,6 +34,8 @@ const SERVER_LISTENER_FD: RawFd = 3;
 const SERVER_CHANNEL_FD: RawFd = 4;
 const SERVER_OVERLAY_FD: RawFd = 5;
 const SERVER_TLS_FD: RawFd = 6;
+// Sources must stay above every inherited descriptor during the dup2 sequence.
+const FIRST_DUPLICATE_FD: RawFd = 10;
 
 const RESTART_DELAY_MIN: Duration = Duration::from_secs(1);
 const RESTART_DELAY_MAX: Duration = Duration::from_secs(30);
@@ -43,7 +45,8 @@ const RESTART_DELAY_RESET: Duration = Duration::from_secs(60);
 fn main() {
     // For whatever must grant the server access: a package, or a dev mount.
     if std::env::args().any(|a| a == "--print-capability-sid") {
-        let sid = sandbox::net_capability_sid().unwrap_or_else(|e| die(&format!("capability SID: {e}")));
+        let sid =
+            sandbox::net_capability_sid().unwrap_or_else(|e| die(&format!("capability SID: {e}")));
         println!("{sid}");
         return;
     }
@@ -52,7 +55,10 @@ fn main() {
     if unrestricted {
         eprintln!("gxwid: --unrestricted: gxwi-server runs as this process's own identity");
     } else {
-        eprintln!("gxwid: gxwi-server is restricted to the capability {}", sandbox::NET_CAPABILITY);
+        eprintln!(
+            "gxwid: gxwi-server is restricted to the capability {}",
+            sandbox::NET_CAPABILITY
+        );
     }
 
     // A host without KACS has no registry either, and says it here instead.
@@ -67,12 +73,22 @@ fn main() {
     // A host without KACS keeps it where it is told to, and sets no
     // descriptors on it.
     let keys = if unrestricted {
-        let path = std::env::var_os("GXWI_STATE").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("gxwi-state"));
-        tls::StateDirectory { path, protect: false }
+        let path = std::env::var_os("GXWI_STATE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("gxwi-state"));
+        tls::StateDirectory {
+            path,
+            protect: false,
+        }
     } else {
-        tls::StateDirectory { path: PathBuf::from(tls::DIRECTORY), protect: true }
+        tls::StateDirectory {
+            path: PathBuf::from(tls::DIRECTORY),
+            protect: true,
+        }
     };
-    let credentials = keys.credentials().unwrap_or_else(|e| die(&format!("this machine's key: {e}")));
+    let credentials = keys
+        .credentials()
+        .unwrap_or_else(|e| die(&format!("this machine's key: {e}")));
     // Caught before anything else can be asked for: SIGHUP would otherwise
     // end gxwid.
     let hangups = hangup::Hangups::catch().unwrap_or_else(|e| die(&format!("SIGHUP: {e}")));
@@ -88,9 +104,14 @@ fn main() {
 
     // Bound once and kept across restarts, so connections made while the
     // server is down queue in the kernel instead of being refused.
-    let listener = TcpListener::bind(&listen).unwrap_or_else(|e| die(&format!("bind {listen}: {e}")));
-    let listener = dup_high(listener.as_raw_fd()).unwrap_or_else(|e| die(&format!("dup listener: {e}")));
-    eprintln!("gxwid: listening on https://{listen}, server is {}", server.display());
+    let listener =
+        TcpListener::bind(&listen).unwrap_or_else(|e| die(&format!("bind {listen}: {e}")));
+    let listener =
+        dup_high(listener.as_raw_fd()).unwrap_or_else(|e| die(&format!("dup listener: {e}")));
+    eprintln!(
+        "gxwid: listening on https://{listen}, server is {}",
+        server.display()
+    );
     eprintln!(
         "gxwid: the certificate's SHA-256 is {} ({})",
         handover.fingerprint(),
@@ -104,8 +125,13 @@ fn main() {
         None
     } else {
         let stand_in = beside("gxwi-hello", None);
-        eprintln!("gxwid: sessions run {}", settings::compositor(&stand_in).display());
-        Some(Arc::new(session::Sessions::new(stand_in).unwrap_or_else(|e| die(&format!("sessions: {e}")))))
+        eprintln!(
+            "gxwid: sessions run {}",
+            settings::compositor(&stand_in).display()
+        );
+        Some(Arc::new(
+            session::Sessions::new(stand_in).unwrap_or_else(|e| die(&format!("sessions: {e}"))),
+        ))
     };
 
     // The overlay, if the registry asks for one, is kept on a thread of its
@@ -125,7 +151,14 @@ fn main() {
     let mut delay = RESTART_DELAY_MIN;
     loop {
         let started = Instant::now();
-        match run_server(&server, &listener, unrestricted, &logons, &overlay, &handover) {
+        match run_server(
+            &server,
+            &listener,
+            unrestricted,
+            &logons,
+            &overlay,
+            &handover,
+        ) {
             Ok(status) => eprintln!("gxwid: gxwi-server exited: {status}"),
             Err(e) => eprintln!("gxwid: gxwi-server did not start: {e}"),
         }
@@ -140,7 +173,7 @@ fn main() {
 
 /// Runs one gxwi-server to completion.
 fn run_server(
-    server: &PathBuf,
+    server: &Path,
     listener: &OwnedFd,
     unrestricted: bool,
     logons: &Arc<logon::Logons>,
@@ -163,26 +196,68 @@ fn run_server(
     let token = if unrestricted {
         None
     } else {
-        Some(sandbox::server_token().map_err(|e| io::Error::other(format!("restricted token: {e}")))?)
+        Some(
+            sandbox::server_token()
+                .map_err(|e| io::Error::other(format!("restricted token: {e}")))?,
+        )
     };
     // The server can open nothing, the registry included, so what its pages
     // are to say is read here and told to it as it starts.
-    let page = if unrestricted { settings::LogonPage::default() } else { settings::logon_page() };
-    let mut child = spawn_server(server, listener, &theirs, &overlay_theirs, &keys, token, &page)?;
+    let page = if unrestricted {
+        settings::LogonPage::default()
+    } else {
+        settings::logon_page()
+    };
+    let child = ServerChild(spawn_server(
+        server,
+        listener,
+        &theirs,
+        &overlay_theirs,
+        &keys,
+        token,
+        &page,
+    )?);
     // Only the server holds its ends now, so its death reads as EOF on ours,
     // which is what ends the control thread.
     drop(theirs);
     drop(overlay_theirs);
     drop(keys);
     let logons = Arc::clone(logons);
-    std::thread::Builder::new()
-        .name("control".into())
-        .spawn(move || logon::serve_control(ours, logons))?;
-    child.wait()
+    wait_for_server(child, || {
+        std::thread::Builder::new()
+            .name("control".into())
+            .spawn(move || logon::serve_control(ours, logons))
+            .map(drop)
+    })
+}
+
+/// Owns the worker until it has been reaped, including failed control setup.
+struct ServerChild(Child);
+
+impl Drop for ServerChild {
+    fn drop(&mut self) {
+        if matches!(self.0.try_wait(), Ok(Some(_))) {
+            return;
+        }
+        if let Err(error) = self.0.kill() {
+            eprintln!("gxwid: could not stop gxwi-server during cleanup: {error}");
+        }
+        if let Err(error) = self.0.wait() {
+            eprintln!("gxwid: could not reap gxwi-server during cleanup: {error}");
+        }
+    }
+}
+
+fn wait_for_server(
+    mut child: ServerChild,
+    start_control: impl FnOnce() -> io::Result<()>,
+) -> io::Result<std::process::ExitStatus> {
+    start_control()?;
+    child.0.wait()
 }
 
 fn spawn_server(
-    server: &PathBuf,
+    server: &Path,
     listener: &OwnedFd,
     channel: &OwnedFd,
     overlay: &OwnedFd,
@@ -190,8 +265,12 @@ fn spawn_server(
     token: Option<peios::token::Token>,
     page: &settings::LogonPage,
 ) -> io::Result<Child> {
-    let (listener, channel, overlay, keys) =
-        (listener.as_raw_fd(), channel.as_raw_fd(), overlay.as_raw_fd(), keys.as_raw_fd());
+    let (listener, channel, overlay, keys) = (
+        listener.as_raw_fd(),
+        channel.as_raw_fd(),
+        overlay.as_raw_fd(),
+        keys.as_raw_fd(),
+    );
     let parent = std::process::id() as libc::pid_t;
 
     let mut cmd = Command::new(server);
@@ -250,7 +329,7 @@ fn spawn_server(
 /// the numbers the server is handed.
 fn dup_high(fd: RawFd) -> io::Result<OwnedFd> {
     // SAFETY: F_DUPFD_CLOEXEC returns a new descriptor we own, or -1.
-    let new = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 10) };
+    let new = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, FIRST_DUPLICATE_FD) };
     if new == -1 {
         return Err(io::Error::last_os_error());
     }
@@ -271,4 +350,57 @@ fn beside(name: &str, variable: Option<&str>) -> PathBuf {
 fn die(msg: &str) -> ! {
     eprintln!("gxwid: {msg}");
     std::process::exit(1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_worker_is_reaped_when_control_startup_fails() {
+        const CHILD: &str = "GXWI_TEST_WORKER_CHILD";
+        if std::env::var_os(CHILD).is_some() {
+            std::thread::sleep(Duration::from_secs(30));
+            return;
+        }
+        let child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "tests::a_worker_is_reaped_when_control_startup_fails",
+            ])
+            .env(CHILD, "1")
+            .spawn()
+            .unwrap();
+        let pid = child.id() as libc::pid_t;
+        let error = wait_for_server(ServerChild(child), || {
+            Err(io::Error::other("control thread unavailable"))
+        })
+        .unwrap_err();
+        assert_eq!(error.to_string(), "control thread unavailable");
+        // SAFETY: waitpid receives a valid local status pointer. The child has
+        // already been reaped; this verifies cleanup without signalling any PID.
+        let mut status = 0;
+        assert_eq!(
+            unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) },
+            -1
+        );
+        assert_eq!(
+            io::Error::last_os_error().raw_os_error(),
+            Some(libc::ECHILD)
+        );
+    }
+
+    #[test]
+    fn a_workers_exit_status_is_preserved() {
+        let child = Command::new("/bin/sh")
+            .args(["-c", "exit 7"])
+            .spawn()
+            .unwrap();
+        assert_eq!(
+            wait_for_server(ServerChild(child), || Ok(()))
+                .unwrap()
+                .code(),
+            Some(7)
+        );
+    }
 }

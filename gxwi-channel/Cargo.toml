@@ -7,4 +7,4 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-libauthd = { workspace = true }
+auth-core = { workspace = true }

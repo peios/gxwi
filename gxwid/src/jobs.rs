@@ -32,7 +32,10 @@ impl Jobs {
         let mut addr: libc::sockaddr_un = unsafe { std::mem::zeroed() };
         addr.sun_family = libc::AF_UNIX as libc::sa_family_t;
         if path.len() >= addr.sun_path.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "jobs socket path too long"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "jobs socket path too long",
+            ));
         }
         for (to, from) in addr.sun_path.iter_mut().zip(path.bytes()) {
             *to = from as libc::c_char;
@@ -45,7 +48,8 @@ impl Jobs {
                 return Err(io::Error::last_os_error());
             }
             let sock = OwnedFd::from_raw_fd(fd);
-            let len = (std::mem::size_of::<libc::sa_family_t>() + path.len() + 1) as libc::socklen_t;
+            let len =
+                (std::mem::size_of::<libc::sa_family_t>() + path.len() + 1) as libc::socklen_t;
             if libc::connect(fd, (&raw const addr).cast(), len) < 0 {
                 return Err(io::Error::last_os_error());
             }
@@ -94,10 +98,16 @@ impl Jobs {
         if got.len == 0 || got.truncated {
             return Err(io::Error::other("peinit's answer could not be read"));
         }
-        let mut answer: Value = serde_json::from_slice(&buf[..got.len]).map_err(io::Error::other)?;
+        let mut answer: Value =
+            serde_json::from_slice(&buf[..got.len]).map_err(io::Error::other)?;
         if answer["status"] != "ok" {
-            let (code, message) = (answer["code"].as_str().unwrap_or("?"), answer["message"].as_str().unwrap_or(""));
-            return Err(io::Error::other(format!("peinit {refused}: {code}: {message}")));
+            let (code, message) = (
+                answer["code"].as_str().unwrap_or("?"),
+                answer["message"].as_str().unwrap_or(""),
+            );
+            return Err(io::Error::other(format!(
+                "peinit {refused}: {code}: {message}"
+            )));
         }
         Ok((answer["job"].take(), got.fds))
     }

@@ -16,7 +16,7 @@
 //! from the registry by gxwid.
 //!
 //! A **conversation socket** carries exactly one logon, and speaks PGSS Logon
-//! unchanged (`libauthd::wire`), with gxwid in the authority's role. No message
+//! unchanged (`auth_core::wire`), with gxwid in the authority's role. No message
 //! anywhere names a conversation: as in PGSS, the connection is the
 //! conversation's identity, so there is no identifier to forge or confuse.
 //!
@@ -26,11 +26,12 @@
 //! - gxwid reads only `identifier` and `remote_host` from `LogonStart`. It
 //!   chooses the logon type and the supported credential types itself, whatever
 //!   the message says.
-//! - `AccessGranted` arrives with no descriptor. The token stays in gxwid. Its
-//!   `session_id` is zero and its profile carries a display name and nothing
-//!   else.
+//! - `AccessGranted` can carry a socket to the session, never the token, which
+//!   stays in gxwid. A grant without a socket means the authenticated session
+//!   could not be reached. Its `session_id` is zero and its profile carries
+//!   only a display name.
 
-use libauthd::frame::{self, Framing, WireError};
+use auth_core::frame::{self, Framing, WireError};
 
 /// The control channel's framing: PGSS's header layout under its own magic, so
 /// a control message can never be mistaken for a logon message or the reverse.
@@ -91,14 +92,17 @@ mod tests {
     #[test]
     fn where_the_overlay_stands_round_trips() {
         for standing in [MSG_OVERLAY_NONE, MSG_OVERLAY_UNAVAILABLE, MSG_OVERLAY] {
-            assert_eq!(control_message_type(&control_message(standing)), Ok(standing));
+            assert_eq!(
+                control_message_type(&control_message(standing)),
+                Ok(standing)
+            );
         }
     }
 
     #[test]
     fn a_logon_message_is_not_a_control_message() {
-        let denied = libauthd::wire::encode_access_denied(&libauthd::wire::AccessDenied {
-            denial: libauthd::wire::Denial::Internal,
+        let denied = auth_core::wire::encode_access_denied(&auth_core::wire::AccessDenied {
+            denial: auth_core::wire::Denial::Internal,
             reason: String::new(),
         })
         .unwrap();

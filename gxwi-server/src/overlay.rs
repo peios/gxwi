@@ -18,10 +18,11 @@ use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
 
 use axum::body::Body;
-use gxwi_channel::{CONTROL, MSG_OVERLAY, MSG_OVERLAY_NONE, MSG_OVERLAY_UNAVAILABLE};
 use hyper::client::conn::http2::SendRequest;
 use hyper_util::rt::{TokioExecutor, TokioIo};
-use libauthd::transport::recv_message_with_fd;
+
+use gxwi_channel::{CONTROL, MSG_OVERLAY, MSG_OVERLAY_NONE, MSG_OVERLAY_UNAVAILABLE};
+use auth_core::transport::recv_message_with_fd;
 
 pub struct Overlay(Mutex<Standing>);
 
@@ -56,12 +57,14 @@ impl Overlay {
         overlay.told(message.expose(), descriptor).await;
 
         let (listening, runtime) = (overlay.clone(), tokio::runtime::Handle::current());
-        std::thread::Builder::new().name("overlay".into()).spawn(move || {
-            // Ends when gxwid does, which ends this process too.
-            while let Ok((message, descriptor)) = recv_message_with_fd(&CONTROL, &channel) {
-                runtime.block_on(listening.told(message.expose(), descriptor));
-            }
-        })?;
+        std::thread::Builder::new()
+            .name("overlay".into())
+            .spawn(move || {
+                // Ends when gxwid does, which ends this process too.
+                while let Ok((message, descriptor)) = recv_message_with_fd(&CONTROL, &channel) {
+                    runtime.block_on(listening.told(message.expose(), descriptor));
+                }
+            })?;
         Ok(overlay)
     }
 
@@ -80,7 +83,9 @@ impl Overlay {
                 }
             },
             _ => {
-                eprintln!("gxwi-server: gxwid said something about the overlay that could not be read");
+                eprintln!(
+                    "gxwi-server: gxwid said something about the overlay that could not be read"
+                );
                 Standing::Unavailable
             }
         };
@@ -118,11 +123,16 @@ impl Standing {
 async fn open(socket: UnixStream) -> io::Result<SendRequest<Body>> {
     socket.set_nonblocking(true)?;
     let socket = tokio::net::UnixStream::from_std(socket)?;
-    let (sender, connection) = hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(socket))
-        .await
-        .map_err(io::Error::other)?;
+    let (sender, connection) =
+        hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(socket))
+            .await
+            .map_err(io::Error::other)?;
     tokio::spawn(async move {
-        let how = connection.await.err().map(|e| format!(" ({e})")).unwrap_or_default();
+        let how = connection
+            .await
+            .err()
+            .map(|e| format!(" ({e})"))
+            .unwrap_or_default();
         eprintln!("gxwi-server: the overlay's connection closed{how}");
     });
     Ok(sender)
@@ -147,7 +157,9 @@ mod tests {
         assert_eq!(is(overlay.route()), "unavailable");
         overlay.told(&control_message(MSG_OVERLAY_NONE), None).await;
         assert_eq!(is(overlay.route()), "behind");
-        overlay.told(&control_message(MSG_OVERLAY_UNAVAILABLE), None).await;
+        overlay
+            .told(&control_message(MSG_OVERLAY_UNAVAILABLE), None)
+            .await;
         assert_eq!(is(overlay.route()), "unavailable");
     }
 
@@ -159,7 +171,9 @@ mod tests {
         assert_eq!(is(overlay.route()), "unavailable");
 
         let overlay = Overlay::standing(Standing::None);
-        overlay.told(&control_message(gxwi_channel::MSG_CONVERSATION), None).await;
+        overlay
+            .told(&control_message(gxwi_channel::MSG_CONVERSATION), None)
+            .await;
         assert_eq!(is(overlay.route()), "unavailable");
 
         let overlay = Overlay::standing(Standing::None);
@@ -175,18 +189,27 @@ mod tests {
         theirs.set_nonblocking(true).unwrap();
         let theirs = tokio::net::UnixStream::from_std(theirs).unwrap();
         let serving = tokio::spawn(async move {
-            let service = hyper::service::service_fn(|_request: hyper::Request<hyper::body::Incoming>| async {
-                Ok::<_, std::convert::Infallible>(hyper::Response::new(Body::from("overlay")))
-            });
+            let service = hyper::service::service_fn(
+                |_request: hyper::Request<hyper::body::Incoming>| async {
+                    Ok::<_, std::convert::Infallible>(hyper::Response::new(Body::from("overlay")))
+                },
+            );
             let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
                 .serve_connection(TokioIo::new(theirs), service)
                 .await;
         });
 
         let overlay = Overlay::standing(Standing::None);
-        overlay.told(&control_message(MSG_OVERLAY), Some(OwnedFd::from(ours))).await;
-        let Route::Overlay(mut sender) = overlay.route() else { panic!("the overlay should be up") };
-        let request = hyper::Request::builder().uri("http://gxwi/").body(Body::empty()).unwrap();
+        overlay
+            .told(&control_message(MSG_OVERLAY), Some(OwnedFd::from(ours)))
+            .await;
+        let Route::Overlay(mut sender) = overlay.route() else {
+            panic!("the overlay should be up")
+        };
+        let request = hyper::Request::builder()
+            .uri("http://gxwi/")
+            .body(Body::empty())
+            .unwrap();
         assert_eq!(sender.send_request(request).await.unwrap().status(), 200);
 
         serving.abort();

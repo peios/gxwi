@@ -8,7 +8,7 @@
 
 use std::sync::OnceLock;
 
-use libauthd::wire::{CredentialRequest, CredentialType, Denial, MessageSeverity};
+use auth_core::wire::{CredentialRequest, CredentialType, Denial, MessageSeverity};
 
 pub const STYLESHEET: &str = include_str!("logon.css");
 /// Inlined into every page, and the one script their policy lets run: the
@@ -90,7 +90,10 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
     // (client obligation 11). It stands until the protocol can say who is
     // logging on in a field of its own, and anything else is shown as sent.
     let named = request.messages.iter().position(|m| {
-        m.severity == MessageSeverity::Info && m.text.strip_prefix(WHO_PREFIX).is_some_and(|name| !name.is_empty())
+        m.severity == MessageSeverity::Info
+            && m.text
+                .strip_prefix(WHO_PREFIX)
+                .is_some_and(|name| !name.is_empty())
     });
     let who = named.map_or(username, |i| &request.messages[i].text[WHO_PREFIX.len()..]);
 
@@ -113,7 +116,11 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
     // Shown, and never read back: it is here so a password manager files the
     // password under the right name. The initial is of a name given before
     // anything was checked, so it says nothing about whether the account exists.
-    let initial: String = who.chars().next().map(|c| c.to_uppercase().collect()).unwrap_or_default();
+    let initial: String = who
+        .chars()
+        .next()
+        .map(|c| c.to_uppercase().collect())
+        .unwrap_or_default();
     body.push_str(&format!(
         "<label for=\"who\">Logging on as</label>\
          <div class=\"who\"><span class=\"initial\" aria-hidden=\"true\">{}</span>\
@@ -127,7 +134,11 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
         let (kind, autocomplete) = match prompt.credential_type {
             // PGSS: a password is collected without echo.
             CredentialType::Password => ("password", "current-password"),
-            CredentialType::SshPublicKey => return self::username(Some("This sign-in method is not supported by this client.")),
+            CredentialType::SshPublicKey => {
+                return self::username(Some(
+                    "This sign-in method is not supported by this client.",
+                ));
+            }
         };
         // The button to show what was typed stays hidden unless the script
         // runs, since without the script it would do nothing.
@@ -141,8 +152,14 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
             if i == 0 { " autofocus" } else { "" },
         ));
     }
-    let button = if request.prompts.is_empty() { "Continue" } else { "Sign in" };
-    body.push_str(&format!("<button class=\"primary\" type=\"submit\">{button}</button></form>"));
+    let button = if request.prompts.is_empty() {
+        "Continue"
+    } else {
+        "Sign in"
+    };
+    body.push_str(&format!(
+        "<button class=\"primary\" type=\"submit\">{button}</button></form>"
+    ));
     page("Sign in", &card(&body))
 }
 
@@ -165,7 +182,9 @@ pub fn denied(denial: Denial, reason: &str) -> String {
         _ if !reason.is_empty() => reason,
         Denial::AccountRestricted => "That account cannot sign in here.",
         Denial::LogonTypeNotPermitted => "That account cannot sign in this way.",
-        Denial::ConversationLimit => "Too many sign-in attempts, or too slow. Wait a minute and try again.",
+        Denial::ConversationLimit => {
+            "Too many sign-in attempts, or too slow. Wait a minute and try again."
+        }
         Denial::AuthorityUnavailable => "Sign-in is unavailable right now.",
         _ => "Sign-in failed.",
     };
@@ -173,7 +192,10 @@ pub fn denied(denial: Denial, reason: &str) -> String {
 }
 
 pub fn unavailable(why: &str) -> String {
-    let body = format!("{}<a class=\"primary\" href=\"\">Try again</a>", message("error", why));
+    let body = format!(
+        "{}<a class=\"primary\" href=\"\">Try again</a>",
+        message("error", why)
+    );
     page("Cannot sign in", &card(&body))
 }
 
@@ -183,7 +205,10 @@ pub fn unavailable(why: &str) -> String {
 pub fn overlay_unavailable() -> String {
     let body = format!(
         "{}<a class=\"primary\" href=\"\">Try again</a>",
-        message("info", "This machine is not ready to be used yet. This page tries again by itself.")
+        message(
+            "info",
+            "This machine is not ready to be used yet. This page tries again by itself."
+        )
     );
     page("Not available yet", &card(&body))
 }
@@ -240,13 +265,16 @@ const ICON_EYE: &str = "<svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"curren
     stroke-width=\"1.25\" stroke-linejoin=\"round\" aria-hidden=\"true\">\
     <path d=\"M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z\"/>\
     <circle cx=\"8\" cy=\"8\" r=\"2\"/></svg>";
-const ICON_CHECK: &str ="<svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" \
+const ICON_CHECK: &str = "<svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" \
     stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\
     <path d=\"M3.5 8.5l3 3 6-6.5\"/></svg>";
 
 fn message(class: &str, text: &str) -> String {
     let icon = if class == "error" { ICON_ALERT } else { "" };
-    format!("<p class=\"message {class}\">{icon}<span>{}</span></p>", escape(text))
+    format!(
+        "<p class=\"message {class}\">{icon}<span>{}</span></p>",
+        escape(text)
+    )
 }
 
 fn card(body: &str) -> String {
@@ -293,7 +321,7 @@ fn escape(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libauthd::wire::{Message, Prompt};
+    use auth_core::wire::{Message, Prompt};
 
     #[test]
     fn what_the_authority_says_cannot_become_markup() {
@@ -303,7 +331,7 @@ mod tests {
                 text: "<script>alert(1)</script>".into(),
             }],
             prompts: vec![Prompt {
-            parameters: Vec::new(),
+                parameters: Vec::new(),
                 credential_ref: 7,
                 credential_type: CredentialType::Password,
                 credential_name: "\"><img src=x>".into(),
@@ -322,7 +350,10 @@ mod tests {
     #[test]
     fn the_authoritys_naming_of_the_user_goes_in_the_pill() {
         let say = |text: &str| CredentialRequest {
-            messages: vec![Message { severity: MessageSeverity::Info, text: text.into() }],
+            messages: vec![Message {
+                severity: MessageSeverity::Info,
+                text: text.into(),
+            }],
             prompts: vec![],
         };
         let html = ask("alice", "tok", &say("Logging in as alice@corp"));
@@ -330,7 +361,11 @@ mod tests {
         assert!(!html.contains("class=\"message"));
 
         // Anything else is shown as it was sent, beside what was typed.
-        for other in ["Logging in as ", "You are logging in as alice", "Password expires soon"] {
+        for other in [
+            "Logging in as ",
+            "You are logging in as alice",
+            "Password expires soon",
+        ] {
             let html = ask("alice", "tok", &say(other));
             assert!(html.contains("value=\"alice\""));
             assert!(html.contains("class=\"message info\""));
@@ -346,10 +381,15 @@ mod tests {
 
     #[test]
     fn what_the_administrator_says_cannot_become_markup_either() {
-        let said = Said { name: Some("<b>build</b>".into()), notice: vec!["Authorised use only.".into(), "<script>".into()] };
+        let said = Said {
+            name: Some("<b>build</b>".into()),
+            notice: vec!["Authorised use only.".into(), "<script>".into()],
+        };
         let html = username_under(Some(&said), None);
         assert!(html.contains("<p class=\"machine\">&lt;b&gt;build&lt;/b&gt;</p>"));
-        assert!(html.contains("<div class=\"notice\"><p>Authorised use only.</p><p>&lt;script&gt;</p></div>"));
+        assert!(html.contains(
+            "<div class=\"notice\"><p>Authorised use only.</p><p>&lt;script&gt;</p></div>"
+        ));
         // The notice comes before the form it is about.
         assert!(html.find("class=\"notice\"").unwrap() < html.find("<form").unwrap());
 
@@ -361,8 +401,18 @@ mod tests {
     /// the next changes only what the page says.
     #[test]
     fn every_page_stands_on_the_same_ground() {
-        let request = CredentialRequest { messages: vec![], prompts: vec![] };
-        for html in [username(None), ask("alice", "tok", &request), granted("alice"), unavailable("No."), overlay_unavailable(), away()] {
+        let request = CredentialRequest {
+            messages: vec![],
+            prompts: vec![],
+        };
+        for html in [
+            username(None),
+            ask("alice", "tok", &request),
+            granted("alice"),
+            unavailable("No."),
+            overlay_unavailable(),
+            away(),
+        ] {
             assert!(html.contains(&format!("<script>{SCRIPT}</script>")));
             assert_eq!(html.matches("<script").count(), 1);
             assert!(html.contains(BACKDROP) && html.contains(LOCKUP));
@@ -386,7 +436,10 @@ mod tests {
 
     #[test]
     fn a_round_with_no_prompts_offers_to_continue() {
-        let request = CredentialRequest { messages: vec![], prompts: vec![] };
+        let request = CredentialRequest {
+            messages: vec![],
+            prompts: vec![],
+        };
         assert!(ask("alice", "tok", &request).contains(">Continue<"));
     }
 }

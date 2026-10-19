@@ -10,7 +10,7 @@
 //! `LogonStart` — who is logging on, and where the server says they are — and
 //! settles the rest itself. It never lets a token descriptor pass.
 
-use libauthd::wire::{
+use auth_core::wire::{
     self, AccessDenied, AccessGranted, CredentialType, Denial, IdentifierType, LogonStart,
     LogonType, Profile,
 };
@@ -27,7 +27,10 @@ pub enum Action {
     /// Send this to the server, then read from the server.
     SendServer(Vec<u8>),
     /// Send this to the server and stop. The conversation is over.
-    Finish { to_server: Vec<u8>, outcome: Outcome },
+    Finish {
+        to_server: Vec<u8>,
+        outcome: Outcome,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,7 +62,12 @@ pub struct Relay {
 
 impl Relay {
     pub fn new(logon_type: LogonType) -> Self {
-        Relay { state: State::AwaitStart, logon_type, claimed_address: None, identifier: String::new() }
+        Relay {
+            state: State::AwaitStart,
+            logon_type,
+            claimed_address: None,
+            identifier: String::new(),
+        }
     }
 
     /// Where gxwi-server says the user is, once a `LogonStart` has said so.
@@ -81,7 +89,7 @@ impl Relay {
     /// A message from the authority. `descriptor` says whether one came with it.
     pub fn on_authority(&mut self, message: &[u8], descriptor: bool) -> Action {
         match std::mem::replace(&mut self.state, State::Done) {
-            State::AwaitAuthority => self.from_authority(message, descriptor),
+            State::AwaitAuthority => self.authority_reply(message, descriptor),
             _ => deny(Denial::Internal),
         }
     }
@@ -142,7 +150,7 @@ impl Relay {
         Action::ForwardToAuthority
     }
 
-    fn from_authority(&mut self, message: &[u8], descriptor: bool) -> Action {
+    fn authority_reply(&mut self, message: &[u8], descriptor: bool) -> Action {
         let Ok((msg_type, _)) = wire::decode_header(message) else {
             return deny(Denial::AuthorityUnavailable);
         };
@@ -185,9 +193,10 @@ impl Relay {
                     profile.display_name = std::mem::take(&mut self.identifier);
                 }
                 match wire::encode_access_granted(&shown) {
-                    Ok(to_server) => {
-                        Action::Finish { to_server, outcome: Outcome::Granted(profile) }
-                    }
+                    Ok(to_server) => Action::Finish {
+                        to_server,
+                        outcome: Outcome::Granted(profile),
+                    },
                     Err(_) => deny(Denial::Internal),
                 }
             }
@@ -196,9 +205,10 @@ impl Relay {
                     return deny(Denial::AuthorityUnavailable);
                 };
                 match wire::encode_access_denied(&denied) {
-                    Ok(to_server) => {
-                        Action::Finish { to_server, outcome: Outcome::Denied(denied.denial) }
-                    }
+                    Ok(to_server) => Action::Finish {
+                        to_server,
+                        outcome: Outcome::Denied(denied.denial),
+                    },
                     Err(_) => deny(Denial::Internal),
                 }
             }
@@ -210,16 +220,22 @@ impl Relay {
 /// A denial that is the relay's own. It carries no reason: a reason is for the
 /// user to read, and these are not the user's doing.
 pub fn deny(denial: Denial) -> Action {
-    let to_server = wire::encode_access_denied(&AccessDenied { denial, reason: String::new() })
-        .expect("an access denial with no reason always encodes");
-    Action::Finish { to_server, outcome: Outcome::Denied(denial) }
+    let to_server = wire::encode_access_denied(&AccessDenied {
+        denial,
+        reason: String::new(),
+    })
+    .expect("an access denial with no reason always encodes");
+    Action::Finish {
+        to_server,
+        outcome: Outcome::Denied(denial),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libauthd::Secret;
-    use libauthd::wire::{Answer, CredentialRequest, CredentialResponse, Prompt};
+    use auth_core::Secret;
+    use auth_core::wire::{Answer, CredentialRequest, CredentialResponse, Prompt};
 
     const TYPE: LogonType = LogonType::RemoteInteractive;
 
@@ -244,7 +260,7 @@ mod tests {
             prompts: refs
                 .iter()
                 .map(|&credential_ref| Prompt {
-            parameters: Vec::new(),
+                    parameters: Vec::new(),
                     credential_ref,
                     credential_type: CredentialType::Password,
                     credential_name: "Password".into(),
@@ -258,7 +274,10 @@ mod tests {
         wire::encode_credential_response(&CredentialResponse {
             answers: refs
                 .iter()
-                .map(|&credential_ref| Answer { credential_ref, data: Secret::from_slice(b"pw") })
+                .map(|&credential_ref| Answer {
+                    credential_ref,
+                    data: Secret::from_slice(b"pw"),
+                })
                 .collect(),
         })
         .unwrap()
@@ -278,7 +297,10 @@ mod tests {
 
     fn denied_with(action: Action) -> Denial {
         match action {
-            Action::Finish { outcome: Outcome::Denied(d), .. } => d,
+            Action::Finish {
+                outcome: Outcome::Denied(d),
+                ..
+            } => d,
             other => panic!("expected a denial, got {other:?}"),
         }
     }
@@ -286,11 +308,16 @@ mod tests {
     #[test]
     fn the_relay_settles_everything_the_server_may_not_choose() {
         let mut relay = Relay::new(TYPE);
-        let Action::SendAuthority(bytes) = relay.on_server(&start("alice")) else { panic!() };
+        let Action::SendAuthority(bytes) = relay.on_server(&start("alice")) else {
+            panic!()
+        };
         let sent = wire::decode_logon_start(&bytes).unwrap();
         assert_eq!(sent.logon_type, TYPE);
         assert_eq!(sent.tty, None);
-        assert_eq!(sent.supported_credential_types, vec![CredentialType::Password]);
+        assert_eq!(
+            sent.supported_credential_types,
+            vec![CredentialType::Password]
+        );
         assert_eq!(sent.identifier, b"alice");
         assert_eq!(sent.remote_host.as_deref(), Some("203.0.113.7"));
     }
@@ -299,8 +326,12 @@ mod tests {
     fn a_grant_reaches_the_server_stripped() {
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("alice"));
-        let Action::SendServer(_) = relay.on_authority(&request(&[1]), false) else { panic!() };
-        let Action::ForwardToAuthority = relay.on_server(response(&[1]).expose()) else { panic!() };
+        let Action::SendServer(_) = relay.on_authority(&request(&[1]), false) else {
+            panic!()
+        };
+        let Action::ForwardToAuthority = relay.on_server(response(&[1]).expose()) else {
+            panic!()
+        };
         let Action::Finish { to_server, outcome } = relay.on_authority(&granted(), true) else {
             panic!()
         };
@@ -316,19 +347,33 @@ mod tests {
     fn an_account_with_no_display_name_is_called_what_it_logged_on_as() {
         let unnamed = wire::encode_access_granted(&AccessGranted {
             session_id: 1003,
-            profile: Profile { home: "/home/jack".into(), shell: "/bin/sh".into(), display_name: String::new() },
+            profile: Profile {
+                home: "/home/jack".into(),
+                shell: "/bin/sh".into(),
+                display_name: String::new(),
+            },
         })
         .unwrap();
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("jack"));
-        let Action::Finish { to_server, outcome } = relay.on_authority(&unnamed, true) else { panic!() };
+        let Action::Finish { to_server, outcome } = relay.on_authority(&unnamed, true) else {
+            panic!()
+        };
         assert!(matches!(outcome, Outcome::Granted(p) if p.display_name == "jack"));
         // The server is told only what the authority said.
-        assert_eq!(wire::decode_access_granted(&to_server).unwrap().profile.display_name, "");
+        assert_eq!(
+            wire::decode_access_granted(&to_server)
+                .unwrap()
+                .profile
+                .display_name,
+            ""
+        );
 
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("alice"));
-        let Action::Finish { outcome, .. } = relay.on_authority(&granted(), true) else { panic!() };
+        let Action::Finish { outcome, .. } = relay.on_authority(&granted(), true) else {
+            panic!()
+        };
         assert!(matches!(outcome, Outcome::Granted(p) if p.display_name == "Alice"));
     }
 
@@ -338,7 +383,10 @@ mod tests {
         relay.on_server(&start("peios"));
         assert!(matches!(
             relay.on_authority(&granted(), true),
-            Action::Finish { outcome: Outcome::Granted(_), .. }
+            Action::Finish {
+                outcome: Outcome::Granted(_),
+                ..
+            }
         ));
     }
 
@@ -346,7 +394,10 @@ mod tests {
     fn a_grant_with_no_descriptor_is_a_failed_logon() {
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("alice"));
-        assert_eq!(denied_with(relay.on_authority(&granted(), false)), Denial::AuthorityUnavailable);
+        assert_eq!(
+            denied_with(relay.on_authority(&granted(), false)),
+            Denial::AuthorityUnavailable
+        );
     }
 
     #[test]
@@ -354,7 +405,10 @@ mod tests {
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("alice"));
         relay.on_authority(&request(&[1]), false);
-        assert_eq!(denied_with(relay.on_server(response(&[2]).expose())), Denial::MalformedRequest);
+        assert_eq!(
+            denied_with(relay.on_server(response(&[2]).expose())),
+            Denial::MalformedRequest
+        );
     }
 
     #[test]
@@ -362,27 +416,42 @@ mod tests {
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("alice"));
         relay.on_authority(&request(&[1]), false);
-        assert_eq!(denied_with(relay.on_server(response(&[1, 1]).expose())), Denial::MalformedRequest);
+        assert_eq!(
+            denied_with(relay.on_server(response(&[1, 1]).expose())),
+            Denial::MalformedRequest
+        );
     }
 
     #[test]
     fn the_server_cannot_open_with_anything_but_a_start() {
         let mut relay = Relay::new(TYPE);
-        assert_eq!(denied_with(relay.on_server(response(&[1]).expose())), Denial::MalformedRequest);
+        assert_eq!(
+            denied_with(relay.on_server(response(&[1]).expose())),
+            Denial::MalformedRequest
+        );
     }
 
     #[test]
     fn a_logon_for_nobody_is_refused() {
         let mut relay = Relay::new(TYPE);
-        assert_eq!(denied_with(relay.on_server(&start(""))), Denial::MalformedRequest);
+        assert_eq!(
+            denied_with(relay.on_server(&start(""))),
+            Denial::MalformedRequest
+        );
     }
 
     #[test]
     fn a_finished_relay_refuses_everything() {
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start(""));
-        assert_eq!(denied_with(relay.on_server(&start("alice"))), Denial::Internal);
-        assert_eq!(denied_with(relay.on_authority(&granted(), true)), Denial::Internal);
+        assert_eq!(
+            denied_with(relay.on_server(&start("alice"))),
+            Denial::Internal
+        );
+        assert_eq!(
+            denied_with(relay.on_authority(&granted(), true)),
+            Denial::Internal
+        );
     }
 
     #[test]
@@ -398,6 +467,9 @@ mod tests {
             panic!()
         };
         assert_eq!(outcome, Outcome::Denied(Denial::AuthenticationFailed));
-        assert_eq!(wire::decode_access_denied(&to_server).unwrap().reason, "Authentication failed.");
+        assert_eq!(
+            wire::decode_access_denied(&to_server).unwrap().reason,
+            "Authentication failed."
+        );
     }
 }

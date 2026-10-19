@@ -10,15 +10,17 @@
 //!     cargo +nightly fuzz run relay
 #![no_main]
 
-use libauthd::wire::{self, CredentialType, LogonType};
 use libfuzzer_sys::fuzz_target;
 
-// gxwid is a binary, so the relay is taken by path. It needs only libauthd.
+use auth_core::wire::{self, CredentialType, LogonType};
+
+// gxwid is a binary, so the relay is taken by path. It needs only auth-core.
 #[allow(dead_code)]
 #[path = "../../gxwid/src/relay.rs"]
 mod relay;
 use relay::{Action, Outcome, Relay};
 
+const HEADER_BYTES: usize = auth_core::frame::COMMON_HEADER_BYTES;
 const TYPE: LogonType = LogonType::RemoteInteractive;
 
 const TYPES: [u16; 6] = [
@@ -42,11 +44,11 @@ fn events(mut data: &[u8]) -> Vec<(bool, bool, Vec<u8>)> {
         data = rest;
         let message = if flags & 4 != 0 {
             let msg_type = TYPES[(flags >> 3) as usize % TYPES.len()];
-            let mut m = Vec::with_capacity(12 + body.len());
+            let mut m = Vec::with_capacity(HEADER_BYTES + body.len());
             m.extend_from_slice(&wire::FRAMING.magic);
             m.extend_from_slice(&wire::FRAMING.version.to_le_bytes());
             m.extend_from_slice(&msg_type.to_le_bytes());
-            m.extend_from_slice(&((12 + body.len()) as u32).to_le_bytes());
+            m.extend_from_slice(&((HEADER_BYTES + body.len()) as u32).to_le_bytes());
             m.extend_from_slice(body);
             m
         } else {
@@ -72,7 +74,10 @@ fuzz_target!(|data: &[u8]| {
                 let start = wire::decode_logon_start(&bytes).expect("a LogonStart");
                 assert_eq!(start.logon_type, TYPE);
                 assert_eq!(start.tty, None);
-                assert_eq!(start.supported_credential_types, vec![CredentialType::Password]);
+                assert_eq!(
+                    start.supported_credential_types,
+                    vec![CredentialType::Password]
+                );
                 assert!(!start.identifier.is_empty());
             }
             Action::ForwardToAuthority => {

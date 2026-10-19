@@ -34,7 +34,7 @@
     --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
     --gutter: clamp(16px, 8vw, 128px);
-    --ease-out: cubic-bezier(.2, .7, .2, 1);
+    --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 @font-face {
@@ -58,9 +58,14 @@
     src: url("fonts/jetbrains-mono.woff2") format("woff2");
 }
 
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
-html { min-height: 100%; background: var(--void); }
+html {
+    min-height: 100%;
+    background: var(--void);
+}
 
 body {
     margin: 0;
@@ -75,36 +80,81 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-[hidden] { display: none !important; }
+[hidden] {
+    display: none !important;
+}
 
 /* ---- what the page stands on: three glows, the stars, a vignette ---- */
-.aurora { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.aurora {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
 .aurora i {
     position: absolute;
-    width: 95vmax; height: 95vmax;
+    width: 95vmax;
+    height: 95vmax;
     border-radius: 50%;
     translate: -50% -50%;
-    opacity: .8;
+    opacity: 0.8;
 }
-.aurora .blue   { left: 12%; top: 28%;  background: radial-gradient(closest-side, var(--glow-blue), transparent); animation: drift-a 38s ease-in-out infinite alternate; }
-.aurora .violet { left: 92%; top: 42%;  background: radial-gradient(closest-side, var(--glow-violet), transparent); animation: drift-b 44s ease-in-out infinite alternate; }
-.aurora .teal   { left: 62%; top: 105%; background: radial-gradient(closest-side, var(--glow-teal), transparent); animation: drift-c 50s ease-in-out infinite alternate; }
-@keyframes drift-a { to { transform: translate(8vmax, 6vmax) scale(1.12); } }
-@keyframes drift-b { to { transform: translate(-10vmax, -4vmax) scale(.9); } }
-@keyframes drift-c { to { transform: translate(-6vmax, -8vmax) scale(1.15); } }
+.aurora .blue {
+    left: 12%;
+    top: 28%;
+    background: radial-gradient(closest-side, var(--glow-blue), transparent);
+    animation: drift-a 38s ease-in-out infinite alternate;
+}
+.aurora .violet {
+    left: 92%;
+    top: 42%;
+    background: radial-gradient(closest-side, var(--glow-violet), transparent);
+    animation: drift-b 44s ease-in-out infinite alternate;
+}
+.aurora .teal {
+    left: 62%;
+    top: 105%;
+    background: radial-gradient(closest-side, var(--glow-teal), transparent);
+    animation: drift-c 50s ease-in-out infinite alternate;
+}
+@keyframes drift-a {
+    to {
+        transform: translate(8vmax, 6vmax) scale(1.12);
+    }
+}
+@keyframes drift-b {
+    to {
+        transform: translate(-10vmax, -4vmax) scale(0.9);
+    }
+}
+@keyframes drift-c {
+    to {
+        transform: translate(-6vmax, -8vmax) scale(1.15);
+    }
+}
 
-#field { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#field {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
 .vignette {
-    position: fixed; inset: 0; pointer-events: none;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
     background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgb(0 0 0 / 55%) 100%);
 }
 
 /* ---- the lockup, in the corner ---- */
 .top {
     position: absolute;
-    top: 28px; left: var(--gutter);
+    top: 28px;
+    left: var(--gutter);
     z-index: 2;
-    display: flex; align-items: center;
+    display: flex;
+    align-items: center;
 }
 .lockup {
     display: inline-flex;
@@ -113,16 +163,25 @@ body {
     line-height: 1;
     color: var(--text-primary);
 }
-.lockup-mark { display: block; flex: none; width: 1.35em; height: 1.35em; overflow: visible; color: var(--accent); }
+.lockup-mark {
+    display: block;
+    flex: none;
+    width: 1.35em;
+    height: 1.35em;
+    overflow: visible;
+    color: var(--accent);
+}
 .word {
     display: flex;
-    margin-left: .32em;
-    padding-block: .12em;
+    margin-left: 0.32em;
+    padding-block: 0.12em;
     font: 700 1em/1 var(--font-display);
-    letter-spacing: -.025em;
+    letter-spacing: -0.025em;
     white-space: nowrap;
 }
-.word span { display: inline-block; }
+.word span {
+    display: inline-block;
+}
 
 /* ---- the page: a heading, which machine this is, and a card ---- */
 main {
@@ -138,7 +197,7 @@ h1 {
     margin: 0 0 6px;
     color: var(--text-primary);
     font: 700 clamp(2rem, 4vw, 2.6rem)/1.05 var(--font-display);
-    letter-spacing: -.03em;
+    letter-spacing: -0.03em;
 }
 
 /* Which machine this is, when the administrator has said. */
@@ -158,14 +217,21 @@ h1 {
     backdrop-filter: blur(14px);
 }
 
-.card > :first-child, form > :first-child { margin-top: 0; }
+.card > :first-child,
+form > :first-child {
+    margin-top: 0;
+}
 /* A form that opens with what the page carries unseen still opens with its
    first label. */
-form > input[type="hidden"]:first-child + label { margin-top: 0; }
+form > input[type="hidden"]:first-child + label {
+    margin-top: 0;
+}
 
 /* From one logon page to the next, where the browser can, what changes
    crossfades rather than cutting; the stars carry on either way. */
-@view-transition { navigation: auto; }
+@view-transition {
+    navigation: auto;
+}
 
 label {
     display: block;
@@ -174,7 +240,8 @@ label {
     font: 500 13px/1.2 var(--font-text);
 }
 
-input[type="text"], input[type="password"] {
+input[type="text"],
+input[type="password"] {
     width: 100%;
     height: 44px;
     padding: 0 14px;
@@ -185,22 +252,30 @@ input[type="text"], input[type="password"] {
     font: 400 15px/1 var(--font-text);
 }
 
-input[type="text"]:focus-visible, input[type="password"]:focus-visible {
+input[type="text"]:focus-visible,
+input[type="password"]:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
 
-a:focus-visible, .who:has(input:focus-visible) {
+a:focus-visible,
+.who:has(input:focus-visible) {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
 
-.who input[type="text"]:focus-visible { outline: none; }
+.who input[type="text"]:focus-visible {
+    outline: none;
+}
 
 /* A field whose contents can be shown, where the script is there to do it. */
-.secret { position: relative; }
+.secret {
+    position: relative;
+}
 
-.secret input { padding-right: 48px; }
+.secret input {
+    padding-right: 48px;
+}
 
 .reveal {
     position: absolute;
@@ -218,9 +293,19 @@ a:focus-visible, .who:has(input:focus-visible) {
     cursor: pointer;
 }
 
-.reveal:hover, .reveal[aria-pressed="true"] { color: var(--text-primary); background: var(--surface-1); }
-.reveal:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
-.reveal svg { width: 18px; height: 18px; }
+.reveal:hover,
+.reveal[aria-pressed="true"] {
+    color: var(--text-primary);
+    background: var(--surface-1);
+}
+.reveal:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 0;
+}
+.reveal svg {
+    width: 18px;
+    height: 18px;
+}
 
 /* Who is logging on: an initial, the name as typed, and the way back. */
 .who {
@@ -264,10 +349,13 @@ a:focus-visible, .who:has(input:focus-visible) {
     text-decoration: none;
 }
 
-.who a:hover { background: var(--surface-1); }
+.who a:hover {
+    background: var(--surface-1);
+}
 
 /* One primary action a page: the glow stops meaning anything otherwise. */
-.primary, .secondary {
+.primary,
+.secondary {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -278,7 +366,11 @@ a:focus-visible, .who:has(input:focus-visible) {
     font: 600 15px/1 var(--font-display);
     text-decoration: none;
     cursor: pointer;
-    transition: background-color .2s, color .2s, box-shadow .3s, border-color .2s;
+    transition:
+        background-color 0.2s,
+        color 0.2s,
+        box-shadow 0.3s,
+        border-color 0.2s;
 }
 
 .primary {
@@ -287,7 +379,11 @@ a:focus-visible, .who:has(input:focus-visible) {
     border: 1px solid var(--accent);
 }
 
-.primary:hover { box-shadow: 0 0 0 4px rgb(98 210 255 / 18%), 0 10px 32px -8px var(--accent-glow); }
+.primary:hover {
+    box-shadow:
+        0 0 0 4px rgb(98 210 255 / 18%),
+        0 10px 32px -8px var(--accent-glow);
+}
 
 .secondary {
     color: var(--text-secondary);
@@ -295,9 +391,13 @@ a:focus-visible, .who:has(input:focus-visible) {
     border: 1px solid var(--border-default);
 }
 
-.secondary:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.secondary:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+}
 
-.primary:focus-visible, .secondary:focus-visible {
+.primary:focus-visible,
+.secondary:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
 }
@@ -319,7 +419,12 @@ a:focus-visible, .who:has(input:focus-visible) {
     background: var(--danger-quiet);
 }
 
-.message svg { flex: none; width: 15px; height: 15px; margin-top: 3px; }
+.message svg {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    margin-top: 3px;
+}
 
 /* The administrator's notice, read before a name is given. */
 .notice {
@@ -331,10 +436,16 @@ a:focus-visible, .who:has(input:focus-visible) {
     overflow-wrap: anywhere;
 }
 
-.notice p { margin: 0; }
-.notice p + p { margin-top: 9px; }
+.notice p {
+    margin: 0;
+}
+.notice p + p {
+    margin-top: 9px;
+}
 
-.done { text-align: center; }
+.done {
+    text-align: center;
+}
 
 .done .mark {
     width: 44px;
@@ -348,33 +459,59 @@ a:focus-visible, .who:has(input:focus-visible) {
     border-radius: 50%;
 }
 
-.done .mark svg { width: 18px; height: 18px; }
+.done .mark svg {
+    width: 18px;
+    height: 18px;
+}
 
 h2 {
     margin: 0 0 4px;
     color: var(--text-primary);
     font: 600 16px/1.4 var(--font-display);
-    letter-spacing: -.02em;
+    letter-spacing: -0.02em;
     overflow-wrap: anywhere;
 }
 
-.done p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.done p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
 
 /* Arriving from a page that was not one of these, which handed over its
    stars as it went (first-boot setup, finishing): the lockup and the stars
    were there already, and the page's own parts rise into place under them. */
-.arriving main > * { animation: arrive .9s var(--ease-out) both; }
-.arriving main > :nth-child(2) { animation-delay: 90ms; }
-.arriving main > :nth-child(3) { animation-delay: 180ms; }
-.arriving main > :nth-child(n + 4) { animation-delay: 270ms; }
-@keyframes arrive { from { opacity: 0; transform: translateY(18px); } }
+.arriving main > * {
+    animation: arrive 0.9s var(--ease-out) both;
+}
+.arriving main > :nth-child(2) {
+    animation-delay: 90ms;
+}
+.arriving main > :nth-child(3) {
+    animation-delay: 180ms;
+}
+.arriving main > :nth-child(n + 4) {
+    animation-delay: 270ms;
+}
+@keyframes arrive {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+}
 
 /* Signing in: the page's own parts go while the answer is checked, the
    stars and the lockup staying for the desktop to take up. Quickly: a desktop
    arrives about a fifth of a second after the password is sent, and the
    browser stops drawing this page as it goes, so a slower fade was cut off
    with the card still most of the way there. */
-.leaving main { opacity: 0; transform: translateY(-6px); transition: opacity .14s ease-out, transform .2s var(--ease-out); }
+.leaving main {
+    opacity: 0;
+    transform: translateY(-6px);
+    transition:
+        opacity 0.14s ease-out,
+        transform 0.2s var(--ease-out);
+}
 
 /* And if the answer is slow in coming (logon.js says when), that it is being
    checked, in the middle, where the card was. */
@@ -391,7 +528,10 @@ h2 {
     pointer-events: none;
     opacity: 0;
 }
-.checking .signing-in { opacity: 1; transition: opacity .3s ease; }
+.checking .signing-in {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
 .spinner {
     flex: none;
     width: 14px;
@@ -399,9 +539,13 @@ h2 {
     border: 2px solid var(--accent-ring);
     border-top-color: var(--accent-quiet);
     border-radius: 50%;
-    animation: spin .8s linear infinite;
+    animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(1turn); } }
+@keyframes spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
 
 /* Waiting for the machine (pages::away, shown by the service worker): the
    mark in the middle, pulsing as a desktop's does while it waits for a
@@ -427,24 +571,56 @@ h2 {
     animation: away-heartbeat 2.4s ease-in-out infinite;
 }
 @keyframes away-heartbeat {
-    0%, 100% { opacity: .3; filter: drop-shadow(0 0 2px rgb(98 210 255 / 40%)); }
-    45% { opacity: .85; filter: drop-shadow(0 0 18px var(--accent)); }
+    0%,
+    100% {
+        opacity: 0.3;
+        filter: drop-shadow(0 0 2px rgb(98 210 255 / 40%));
+    }
+    45% {
+        opacity: 0.85;
+        filter: drop-shadow(0 0 18px var(--accent));
+    }
 }
-.away main p { margin: 0; font: 400 15px/1.5 var(--font-text); color: var(--text-secondary); }
+.away main p {
+    margin: 0;
+    font: 400 15px/1.5 var(--font-text);
+    color: var(--text-secondary);
+}
 
 @media (max-width: 520px) {
-    body { padding-top: 88px; }
-    .card { padding: 20px; }
+    body {
+        padding-top: 88px;
+    }
+    .card {
+        padding: 20px;
+    }
 }
 
 /* forced colours (Windows High Contrast and the like): the backdrop goes,
    and the card keeps an edge the system colours draw */
 @media (forced-colors: active) {
-    #field, .aurora, .vignette { display: none; }
-    .card, .who, .message { border: 1px solid CanvasText; }
+    #field,
+    .aurora,
+    .vignette {
+        display: none;
+    }
+    .card,
+    .who,
+    .message {
+        border: 1px solid CanvasText;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-delay: 0s !important; }
-    .arriving main > * { animation: none; }
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-delay: 0s !important;
+    }
+    .arriving main > * {
+        animation: none;
+    }
 }

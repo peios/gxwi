@@ -26,17 +26,33 @@ const LOOK_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// The credentials in force, and the socket to the server running now.
 pub struct Handover {
-    credentials: Mutex<Credentials>,
-    server: Mutex<Option<UnixStream>>,
+    // Initial publication, socket replacement, and renewal share one ordering.
+    // A new server must either start with a renewal or receive it afterward.
+    state: Mutex<HandoverState>,
+}
+
+struct HandoverState {
+    credentials: Credentials,
+    server: Option<UnixStream>,
 }
 
 impl Handover {
     pub fn new(credentials: Credentials) -> Arc<Handover> {
-        Arc::new(Handover { credentials: Mutex::new(credentials), server: Mutex::new(None) })
+        Arc::new(Handover {
+            state: Mutex::new(HandoverState {
+                credentials,
+                server: None,
+            }),
+        })
     }
 
     pub fn fingerprint(&self) -> String {
-        self.credentials.lock().unwrap_or_else(|e| e.into_inner()).fingerprint.clone()
+        self.state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .credentials
+            .fingerprint
+            .clone()
     }
 
     /// The server's end of a new socket, with the credentials in force
@@ -44,8 +60,9 @@ impl Handover {
     /// the next server's replaces it.
     pub fn for_server(&self) -> io::Result<OwnedFd> {
         let (mut ours, theirs) = UnixStream::pair()?;
-        ours.write_all(&message(&self.credentials.lock().unwrap_or_else(|e| e.into_inner())))?;
-        *self.server.lock().unwrap_or_else(|e| e.into_inner()) = Some(ours);
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        ours.write_all(&message(&state.credentials))?;
+        state.server = Some(ours);
         Ok(OwnedFd::from(theirs))
     }
 
@@ -54,11 +71,14 @@ impl Handover {
     /// handed these.
     fn renewed(&self, credentials: Credentials) {
         let message = message(&credentials);
-        *self.credentials.lock().unwrap_or_else(|e| e.into_inner()) = credentials;
-        if let Some(server) = self.server.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
-            if let Err(e) = server.write_all(&message) {
-                eprintln!("gxwid: could not give gxwi-server the new certificate ({e}); the next one starts with it");
-            }
+        let mut state = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        state.credentials = credentials;
+        if let Some(server) = state.server.as_mut()
+            && let Err(e) = server.write_all(&message)
+        {
+            eprintln!(
+                "gxwid: could not give gxwi-server the new certificate ({e}); the next one starts with it"
+            );
         }
     }
 }
@@ -94,14 +114,21 @@ pub fn renew_now(keys: &dyn KeySource, current: Credentials) -> Credentials {
 pub fn keep(keys: Box<dyn KeySource + Send>, handover: Arc<Handover>, hangups: Hangups) {
     loop {
         hangups.wait(LOOK_EVERY);
-        let current = handover.credentials.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let current = handover
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .credentials
+            .clone();
         match keys.renew(&current, tls::now()) {
             Ok(Some(renewed)) => {
                 said(&renewed);
                 handover.renewed(renewed.credentials);
             }
             Ok(None) => {}
-            Err(e) => eprintln!("gxwid: could not renew the certificate: {e}; trying again tomorrow"),
+            Err(e) => {
+                eprintln!("gxwid: could not renew the certificate: {e}; trying again tomorrow")
+            }
         }
     }
 }
@@ -116,12 +143,18 @@ fn said(renewed: &Renewed) {
     writer.write_map(1).write_str("object");
     writer.write_map(1).write_str("certificate");
     writer.write_map(3);
-    writer.write_str("digest").write_bin(&tls::digest(&renewed.credentials.certificate));
-    writer.write_str("digest-previous").write_bin(&tls::digest(&renewed.previous.certificate));
+    writer
+        .write_str("digest")
+        .write_bin(&tls::digest(&renewed.credentials.certificate));
+    writer
+        .write_str("digest-previous")
+        .write_bin(&tls::digest(&renewed.previous.certificate));
     writer.write_str("name").write_str(&renewed.subject);
     // Essential: renewing the certificate changes what everyone who connects
     // is shown, so it is never switched off, and the policy is not asked.
-    let recorded = writer.to_bytes().and_then(|payload| peios::event::emit("gxwid.certificate.renewed", &payload));
+    let recorded = writer
+        .to_bytes()
+        .and_then(|payload| peios::event::emit("gxwid.certificate.renewed", &payload));
     if let Err(e) = recorded {
         eprintln!("gxwid: could not record gxwid.certificate.renewed: {e}");
     }
@@ -133,7 +166,11 @@ mod tests {
     use std::io::Read;
 
     fn credentials(certificate: &[u8]) -> Credentials {
-        Credentials { certificate: certificate.to_vec(), key: b"key".to_vec(), fingerprint: String::new() }
+        Credentials {
+            certificate: certificate.to_vec(),
+            key: b"key".to_vec(),
+            fingerprint: String::new(),
+        }
     }
 
     #[test]
@@ -142,9 +179,13 @@ mod tests {
         let mut theirs = UnixStream::from(handover.for_server().unwrap());
         handover.renewed(credentials(b"second"));
         let mut read = Vec::new();
-        theirs.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        theirs
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
         let mut buf = [0u8; 256];
-        while read.len() < message(&credentials(b"first")).len() + message(&credentials(b"second")).len() {
+        while read.len()
+            < message(&credentials(b"first")).len() + message(&credentials(b"second")).len()
+        {
             let n = theirs.read(&mut buf).unwrap();
             read.extend_from_slice(&buf[..n]);
         }
@@ -156,5 +197,44 @@ mod tests {
         let mut first = vec![0u8; message(&credentials(b"second")).len()];
         next.read_exact(&mut first).unwrap();
         assert_eq!(first, message(&credentials(b"second")));
+    }
+    #[test]
+    fn a_concurrent_renewal_always_reaches_the_new_server() {
+        for _ in 0..256 {
+            let handover = Handover::new(credentials(b"first"));
+            let barrier = Arc::new(std::sync::Barrier::new(3));
+            let owner = Arc::clone(&handover);
+            let start = Arc::clone(&barrier);
+            let server = std::thread::spawn(move || {
+                start.wait();
+                owner.for_server().unwrap()
+            });
+            let owner = Arc::clone(&handover);
+            let start = Arc::clone(&barrier);
+            let renewal = std::thread::spawn(move || {
+                start.wait();
+                owner.renewed(credentials(b"second"));
+            });
+            barrier.wait();
+            let mut connection = UnixStream::from(server.join().unwrap());
+            renewal.join().unwrap();
+            connection
+                .set_read_timeout(Some(Duration::from_secs(1)))
+                .unwrap();
+            let mut received = read_credentials_message(&mut connection);
+            if received == message(&credentials(b"first")) {
+                received = read_credentials_message(&mut connection);
+            }
+            assert_eq!(received, message(&credentials(b"second")));
+        }
+    }
+
+    fn read_credentials_message(connection: &mut UnixStream) -> Vec<u8> {
+        let mut length = [0; 4];
+        connection.read_exact(&mut length).unwrap();
+        let mut message = length.to_vec();
+        message.resize(4 + u32::from_le_bytes(length) as usize, 0);
+        connection.read_exact(&mut message[4..]).unwrap();
+        message
     }
 }

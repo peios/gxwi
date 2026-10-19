@@ -9,6 +9,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
+name = "auth-core"
+version = "0.0.24"
+source = "git+https://github.com/peios/authd.git?rev=a014fa4c74f17ce4f67ba964eefce33a1a3dbdfa#a014fa4c74f17ce4f67ba964eefce33a1a3dbdfa"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -47,7 +55,7 @@ dependencies = [
 name = "gxwi-fuzz"
 version = "0.0.0"
 dependencies = [
- "libauthd",
+ "auth-core",
  "libfuzzer-sys",
 ]
 
@@ -58,14 +66,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c00acbd29eabad4a2392fa0e921c874934dbbf4194312ad20f04a0ed67a3cb3"
 dependencies = [
  "getrandom",
- "libc",
-]
-
-[[package]]
-name = "libauthd"
-version = "0.0.22"
-source = "git+https://github.com/peios/authd.git?rev=06f9750350ac727583738bf2e0b2b905464ebfa3#06f9750350ac727583738bf2e0b2b905464ebfa3"
-dependencies = [
  "libc",
 ]
 

@@ -8,14 +8,14 @@
 use std::io;
 use std::os::fd::{AsFd, OwnedFd};
 use std::os::unix::net::UnixStream;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gxwi_channel::{CONTROL, MSG_CONVERSATION, MSG_OPEN_CONVERSATION, MSG_REFUSED};
-use libauthd::Secret;
-use libauthd::transport::{recv_message, recv_message_with_fd, send_message, send_message_with_fd};
-use libauthd::wire::{self, Denial, LogonType};
+use auth_core::Secret;
+use auth_core::transport::{recv_message, recv_message_with_fd, send_message, send_message_with_fd};
+use auth_core::wire::{self, Denial, LogonType};
 
 use crate::relay::{self, Action, Outcome, Relay};
 use crate::session::Sessions;
@@ -50,7 +50,11 @@ pub struct Logons {
 
 impl Logons {
     pub fn new(sessions: Option<Arc<Sessions>>) -> Logons {
-        Logons { throttle: Throttle::default(), open: AtomicUsize::new(0), sessions }
+        Logons {
+            throttle: Throttle::default(),
+            open: AtomicUsize::new(0),
+            sessions,
+        }
     }
 }
 
@@ -58,7 +62,9 @@ impl Logons {
 pub fn serve_control(control: UnixStream, logons: Arc<Logons>) {
     loop {
         // Blocks until the server asks for something or dies.
-        let Ok(message) = recv_message(&CONTROL, &control) else { return };
+        let Ok(message) = recv_message(&CONTROL, &control) else {
+            return;
+        };
         let reply = match gxwi_channel::control_message_type(message.expose()) {
             Ok(MSG_OPEN_CONVERSATION) => open_conversation(&control, &logons),
             _ => {
@@ -78,11 +84,17 @@ fn open_conversation(control: &UnixStream, logons: &Arc<Logons>) -> io::Result<(
     };
     let (ours, theirs) = UnixStream::pair()?;
     let logons = Arc::clone(logons);
-    std::thread::Builder::new().name("conversation".into()).spawn(move || {
-        let _slot = slot;
-        converse(ours, &logons);
-    })?;
-    send_message_with_fd(control, &gxwi_channel::control_message(MSG_CONVERSATION), theirs.as_fd())
+    std::thread::Builder::new()
+        .name("conversation".into())
+        .spawn(move || {
+            let _slot = slot;
+            converse(ours, &logons);
+        })?;
+    send_message_with_fd(
+        control,
+        &gxwi_channel::control_message(MSG_CONVERSATION),
+        theirs.as_fd(),
+    )
 }
 
 /// One of the `MAX_CONVERSATIONS`, given back when it is dropped.
@@ -92,7 +104,9 @@ impl Slot {
     fn take(logons: &Arc<Logons>) -> Option<Slot> {
         logons
             .open
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| (n < MAX_CONVERSATIONS).then_some(n + 1))
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+                (n < MAX_CONVERSATIONS).then_some(n + 1)
+            })
             .ok()
             .map(|_| Slot(Arc::clone(logons)))
     }
@@ -117,13 +131,18 @@ fn converse(server: UnixStream, logons: &Logons) {
     // near the server's socket.
     let mut token: Option<OwnedFd> = None;
 
-    let Ok(mut from_server) = recv_message(&wire::FRAMING, &server) else { return };
+    let Ok(mut from_server) = recv_message(&wire::FRAMING, &server) else {
+        return;
+    };
     let mut action = relay.on_server(from_server.expose());
     loop {
         action = match action {
             Action::SendAuthority(bytes) => {
                 if authority.is_none() {
-                    if !logons.throttle.admit(relay.claimed_address(), Instant::now()) {
+                    if !logons
+                        .throttle
+                        .admit(relay.claimed_address(), Instant::now())
+                    {
                         action = relay::deny(Denial::ConversationLimit);
                         continue;
                     }
@@ -131,9 +150,12 @@ fn converse(server: UnixStream, logons: &Logons) {
                 }
                 exchange(authority.as_ref(), &bytes, &mut relay, &mut token)
             }
-            Action::ForwardToAuthority => {
-                exchange(authority.as_ref(), from_server.expose(), &mut relay, &mut token)
-            }
+            Action::ForwardToAuthority => exchange(
+                authority.as_ref(),
+                from_server.expose(),
+                &mut relay,
+                &mut token,
+            ),
             Action::SendServer(bytes) => {
                 if send_message(&server, &bytes).is_err() {
                     return;
@@ -145,7 +167,14 @@ fn converse(server: UnixStream, logons: &Logons) {
                 relay.on_server(from_server.expose())
             }
             Action::Finish { to_server, outcome } => {
-                finish(logons, &server, &to_server, outcome, relay.claimed_address(), token.take());
+                finish(
+                    logons,
+                    &server,
+                    &to_server,
+                    outcome,
+                    relay.claimed_address(),
+                    token.take(),
+                );
                 return;
             }
         };
@@ -171,15 +200,15 @@ fn exchange(
     else {
         return relay::deny(Denial::AuthorityUnavailable);
     };
-    if descriptor.is_some() {
-        *token = descriptor;
-    }
+    // PGSS grants carry their own descriptor. Never let an earlier reply's
+    // stray descriptor stand in for a missing token on the current message.
+    *token = descriptor;
     relay.on_authority(answer.expose(), token.is_some())
 }
 
 pub(crate) fn connect_authority() -> io::Result<UnixStream> {
     let path = std::env::var_os("GXWI_LOGON_SOCKET")
-        .unwrap_or_else(|| libauthd::LOGON_SOCKET_PATH.into());
+        .unwrap_or_else(|| auth_core::LOGON_SOCKET_PATH.into());
     let authority = UnixStream::connect(path)?;
     authority.set_read_timeout(Some(AUTHORITY_READ_TIMEOUT))?;
     authority.set_write_timeout(Some(WRITE_TIMEOUT))?;
@@ -200,6 +229,7 @@ fn finish(
         Outcome::Denied(denial) => {
             eprintln!("gxwid: logon denied ({denial:?}), claimed from {from}");
             std::thread::sleep(DENIAL_DELAY);
+            // This is the terminal reply; a closed peer has nothing left to finish.
             let _ = send_message(server, to_server);
             return;
         }
@@ -213,6 +243,7 @@ fn finish(
         (Some(sessions), Some(token)) => sessions.attach(token, &profile),
         _ => Err(io::Error::other("sessions are not available")),
     };
+    // Sending is best effort once logon finishes; a disconnect leaves the session running.
     let _ = match session {
         Ok(session) => send_message_with_fd(server, to_server, session.as_fd()),
         Err(e) => {
@@ -220,4 +251,91 @@ fn finish(
             send_message(server, to_server)
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use auth_core::wire::{
+        AccessGranted, CredentialRequest, CredentialResponse, IdentifierType, LogonStart, Profile,
+    };
+
+    fn started() -> Relay {
+        let mut relay = Relay::new(LOGON_TYPE);
+        let start = wire::encode_logon_start(&LogonStart {
+            required_credential_type: None,
+            ssh_binding: None,
+            logon_type: LOGON_TYPE,
+            identifier_type: IdentifierType::Username,
+            identifier: b"alice".to_vec(),
+            tty: None,
+            remote_host: None,
+            supported_credential_types: vec![wire::CredentialType::Password],
+        })
+        .unwrap();
+        assert!(matches!(relay.on_server(&start), Action::SendAuthority(_)));
+        relay
+    }
+
+    fn grant() -> Vec<u8> {
+        wire::encode_access_granted(&AccessGranted {
+            session_id: 1,
+            profile: Profile::default(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn a_grant_cannot_reuse_a_previous_replys_descriptor() {
+        let (authority, peer) = UnixStream::pair().unwrap();
+        let mut relay = started();
+        let mut token = None;
+        let request = wire::encode_credential_request(&CredentialRequest {
+            messages: vec![],
+            prompts: vec![],
+        })
+        .unwrap();
+        let stray = std::fs::File::open("/dev/null").unwrap();
+        send_message_with_fd(&peer, &request, stray.as_fd()).unwrap();
+        assert!(matches!(
+            exchange(Some(&authority), b"request", &mut relay, &mut token),
+            Action::SendServer(_)
+        ));
+        assert!(token.is_some());
+        let response =
+            wire::encode_credential_response(&CredentialResponse { answers: vec![] }).unwrap();
+        assert!(matches!(
+            relay.on_server(response.expose()),
+            Action::ForwardToAuthority
+        ));
+        send_message(&peer, &grant()).unwrap();
+        assert!(matches!(
+            exchange(Some(&authority), response.expose(), &mut relay, &mut token),
+            Action::Finish {
+                outcome: Outcome::Denied(Denial::AuthorityUnavailable),
+                ..
+            }
+        ));
+        assert!(
+            token.is_none(),
+            "the earlier descriptor must also be released"
+        );
+    }
+
+    #[test]
+    fn a_grant_with_its_own_descriptor_still_succeeds() {
+        let (authority, peer) = UnixStream::pair().unwrap();
+        let mut relay = started();
+        let mut token = None;
+        let descriptor = std::fs::File::open("/dev/null").unwrap();
+        send_message_with_fd(&peer, &grant(), descriptor.as_fd()).unwrap();
+        assert!(matches!(
+            exchange(Some(&authority), b"request", &mut relay, &mut token),
+            Action::Finish {
+                outcome: Outcome::Granted(_),
+                ..
+            }
+        ));
+        assert!(token.is_some());
+    }
 }

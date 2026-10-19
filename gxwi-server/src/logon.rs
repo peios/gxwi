@@ -19,9 +19,10 @@ use axum::extract::{ConnectInfo, State};
 use axum::http::header::{self, HeaderMap, HeaderName, HeaderValue};
 use axum::http::{Method, Request, Response, StatusCode, Uri};
 use axum::routing::get;
+
 use gxwi_channel::{CONTROL, MSG_CONVERSATION, MSG_OPEN_CONVERSATION};
-use libauthd::transport::{recv_message_with_fd, send_message};
-use libauthd::wire::{
+use auth_core::transport::{recv_message_with_fd, send_message};
+use auth_core::wire::{
     self, Answer, CredentialRequest, CredentialResponse, CredentialType, Denial, IdentifierType,
     LogonStart, LogonType,
 };
@@ -85,12 +86,27 @@ pub fn routes(control: UnixStream, overlay: Arc<Overlay>) -> Router {
         overlay,
     });
     Router::new()
-        .route("/.gxwi/logon.css", get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }))
-        .route("/.gxwi/fonts/manrope.woff2", get(|| async { font(pages::FONT_TEXT) }))
-        .route("/.gxwi/fonts/schibsted-grotesk.woff2", get(|| async { font(pages::FONT_DISPLAY) }))
-        .route("/.gxwi/fonts/jetbrains-mono.woff2", get(|| async { font(pages::FONT_MONO) }))
+        .route(
+            "/.gxwi/logon.css",
+            get(|| async { asset("text/css; charset=utf-8", pages::STYLESHEET.as_bytes()) }),
+        )
+        .route(
+            "/.gxwi/fonts/manrope.woff2",
+            get(|| async { font(pages::FONT_TEXT) }),
+        )
+        .route(
+            "/.gxwi/fonts/schibsted-grotesk.woff2",
+            get(|| async { font(pages::FONT_DISPLAY) }),
+        )
+        .route(
+            "/.gxwi/fonts/jetbrains-mono.woff2",
+            get(|| async { font(pages::FONT_MONO) }),
+        )
         .route("/.gxwi/sw.js", get(|| async { worker() }))
-        .route("/.gxwi/away", get(|| async { html(StatusCode::OK, pages::away(), None) }))
+        .route(
+            "/.gxwi/away",
+            get(|| async { html(StatusCode::OK, pages::away(), None) }),
+        )
         .fallback(anywhere)
         .with_state(logon)
 }
@@ -119,7 +135,9 @@ async fn anywhere(
             let cookie = cookie_named(request.headers(), session::COOKIE).unwrap_or_default();
             let alive = |cookie: &str| logon.sessions.named(cookie).is_some();
             return match logon.origins.secret(&cookie, label, alive) {
-                Ok(secret) if request.method() == Method::GET => origin::way_in(&secret, path, request.uri().query()),
+                Ok(secret) if request.method() == Method::GET => {
+                    origin::way_in(&secret, path, request.uri().query())
+                }
                 _ => status(StatusCode::BAD_REQUEST),
             };
         }
@@ -131,7 +149,11 @@ async fn anywhere(
     let here = here(request.uri());
     let cookie = cookie_named(request.headers(), COOKIE);
     let Some(form) = read_form(request.into_body()).await else {
-        return html(StatusCode::BAD_REQUEST, pages::username(Some("That form could not be read.")), None);
+        return html(
+            StatusCode::BAD_REQUEST,
+            pages::username(Some("That form could not be read.")),
+            None,
+        );
     };
     let result = if form.has(pages::FIELD_FORM_TOKEN) {
         answer(logon.clone(), cookie, form).await
@@ -151,7 +173,9 @@ async fn apart(logon: &Logon, mut request: Request<Body>) -> Response<Body> {
         Some((session, HeaderValue::from_str(&label).ok()?, asked))
     });
     // Not the logon page: nobody is looking at this, a frame is.
-    let Some((session, label, asked)) = found else { return status(StatusCode::NOT_FOUND) };
+    let Some((session, label, asked)) = found else {
+        return status(StatusCode::NOT_FOUND);
+    };
     if let Some(answer) = origin::asks_first(&request) {
         return answer;
     }
@@ -177,7 +201,11 @@ const OVERLAY_RETRY: &str = "5";
 /// The page asks again by itself: whoever is looking at it is waiting for a
 /// machine, and has nothing to do about it.
 fn overlay_unavailable() -> Response<Body> {
-    let mut response = html(StatusCode::SERVICE_UNAVAILABLE, pages::overlay_unavailable(), None);
+    let mut response = html(
+        StatusCode::SERVICE_UNAVAILABLE,
+        pages::overlay_unavailable(),
+        None,
+    );
     let headers = response.headers_mut();
     headers.insert(header::RETRY_AFTER, HeaderValue::from_static(OVERLAY_RETRY));
     headers.insert(header::REFRESH, HeaderValue::from_static(OVERLAY_RETRY));
@@ -199,7 +227,10 @@ fn asset(content_type: &'static str, bytes: &'static [u8]) -> Response<Body> {
     let headers = response.headers_mut();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
     harden(headers);
-    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=3600"));
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=3600"),
+    );
     response
 }
 
@@ -210,7 +241,10 @@ fn asset(content_type: &'static str, bytes: &'static [u8]) -> Response<Body> {
 /// nothing about anyone.
 fn font(bytes: &'static [u8]) -> Response<Body> {
     let mut response = asset("font/woff2", bytes);
-    response.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
     response
 }
 
@@ -221,11 +255,23 @@ fn font(bytes: &'static [u8]) -> Response<Body> {
 fn worker() -> Response<Body> {
     let mut response = Response::new(Body::from(pages::WORKER));
     let headers = response.headers_mut();
-    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/javascript; charset=utf-8"));
-    headers.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'self'"));
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/javascript; charset=utf-8"),
+    );
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("default-src 'self'"),
+    );
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-    headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
-    headers.insert(HeaderName::from_static("service-worker-allowed"), HeaderValue::from_static("/"));
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        HeaderName::from_static("service-worker-allowed"),
+        HeaderValue::from_static("/"),
+    );
     response
 }
 
@@ -256,7 +302,9 @@ async fn answer(logon: Arc<Logon>, cookie: Option<String>, mut form: Form) -> St
         };
         // Taken out of the table, so a second submission of the same page
         // finds nothing rather than racing the first.
-        let pending = logon.take(&cookie).ok_or_else(|| io::Error::other("no conversation"))?;
+        let pending = logon
+            .take(&cookie)
+            .ok_or_else(|| io::Error::other("no conversation"))?;
         let token = form.take_text(pages::FIELD_FORM_TOKEN).unwrap_or_default();
         if !same(token.as_bytes(), pending.form_token.as_bytes()) {
             return Err(io::Error::other("wrong form token"));
@@ -269,7 +317,10 @@ async fn answer(logon: Arc<Logon>, cookie: Option<String>, mut form: Form) -> St
             // authority's to say, not a reason to refuse the form.
             .filter_map(|prompt| {
                 let data = form.take(&pages::field_for_prompt(prompt.credential_ref))?;
-                Some(Answer { credential_ref: prompt.credential_ref, data })
+                Some(Answer {
+                    credential_ref: prompt.credential_ref,
+                    data,
+                })
             })
             .collect();
         let response = wire::encode_credential_response(&CredentialResponse { answers })
@@ -293,11 +344,16 @@ struct Page {
 
 async fn respond(logon: &Logon, result: Stepped, here: String) -> Response<Body> {
     match result {
-        Ok(Ok(Page { session: Some(socket), .. })) => match begin(logon, socket, &here).await {
+        Ok(Ok(Page {
+            session: Some(socket),
+            ..
+        })) => match begin(logon, socket, &here).await {
             Ok(response) => response,
             Err(e) => {
                 eprintln!("gxwi-server: session: {e}");
-                let page = pages::unavailable("You were signed in, but your session could not be reached.");
+                let page = pages::unavailable(
+                    "You were signed in, but your session could not be reached.",
+                );
                 html(StatusCode::BAD_GATEWAY, page, Some(None))
             }
         },
@@ -307,7 +363,11 @@ async fn respond(logon: &Logon, result: Stepped, here: String) -> Response<Body>
             let page = pages::unavailable("That sign-in could not be continued. Start again.");
             html(StatusCode::UNAUTHORIZED, page, Some(None))
         }
-        Err(_) => html(StatusCode::INTERNAL_SERVER_ERROR, pages::unavailable("Sign-in failed."), Some(None)),
+        Err(_) => html(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            pages::unavailable("Sign-in failed."),
+            Some(None),
+        ),
     }
 }
 
@@ -320,15 +380,27 @@ async fn begin(logon: &Logon, socket: UnixStream, here: &str) -> io::Result<Resp
     *response.status_mut() = StatusCode::SEE_OTHER;
     let headers = response.headers_mut();
     harden(headers);
-    headers.insert(header::LOCATION, HeaderValue::from_str(here).map_err(io::Error::other)?);
+    headers.insert(
+        header::LOCATION,
+        HeaderValue::from_str(here).map_err(io::Error::other)?,
+    );
     // Lax, where logon's own cookie is Strict: a link followed from another
     // site should land in the session, not on a logon page. Both `Secure`:
     // GXWI is served over TLS alone, and a browser is never to send either
     // in the clear, not even to be redirected.
-    let session = format!("{}={id}; Path=/; HttpOnly; Secure; SameSite=Lax", session::COOKIE);
-    headers.append(header::SET_COOKIE, HeaderValue::from_str(&session).map_err(io::Error::other)?);
+    let session = format!(
+        "{}={id}; Path=/; HttpOnly; Secure; SameSite=Lax",
+        session::COOKIE
+    );
+    headers.append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&session).map_err(io::Error::other)?,
+    );
     let spent = format!("{COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0");
-    headers.append(header::SET_COOKIE, HeaderValue::from_str(&spent).map_err(io::Error::other)?);
+    headers.append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&spent).map_err(io::Error::other)?,
+    );
     Ok(response)
 }
 
@@ -337,9 +409,15 @@ impl Logon {
     fn open(&self, username: &str, claimed_address: &str) -> io::Result<UnixStream> {
         let conversation = {
             let control = self.control.lock().unwrap_or_else(|e| e.into_inner());
-            send_message(&control, &gxwi_channel::control_message(MSG_OPEN_CONVERSATION))?;
+            send_message(
+                &control,
+                &gxwi_channel::control_message(MSG_OPEN_CONVERSATION),
+            )?;
             let (reply, descriptor) = recv_message_with_fd(&CONTROL, &control)?;
-            match (gxwi_channel::control_message_type(reply.expose()), descriptor) {
+            match (
+                gxwi_channel::control_message_type(reply.expose()),
+                descriptor,
+            ) {
                 (Ok(MSG_CONVERSATION), Some(descriptor)) => UnixStream::from(descriptor),
                 _ => return Err(io::Error::other("gxwid refused a conversation")),
             }
@@ -357,7 +435,8 @@ impl Logon {
             tty: None,
             remote_host: Some(claimed_address.to_string()),
         };
-        let start = wire::encode_logon_start(&start).map_err(|_| io::Error::other("bad username"))?;
+        let start =
+            wire::encode_logon_start(&start).map_err(|_| io::Error::other("bad username"))?;
         send_message(&conversation, &start)?;
         Ok(conversation)
     }
@@ -387,19 +466,31 @@ impl Logon {
             Step::Ask(asked) => {
                 let (id, form_token) = (random_token()?, random_token()?);
                 let html = pages::ask(&username, &form_token, &asked);
-                self.keep(id.clone(), Pending {
-                    conversation,
-                    form_token,
-                    username,
-                    asked,
-                    since: Instant::now(),
-                })?;
-                Page { status: StatusCode::UNAUTHORIZED, html, cookie: Some(Some(id)), session: None }
+                self.keep(
+                    id.clone(),
+                    Pending {
+                        conversation,
+                        form_token,
+                        username,
+                        asked,
+                        since: Instant::now(),
+                    },
+                )?;
+                Page {
+                    status: StatusCode::UNAUTHORIZED,
+                    html,
+                    cookie: Some(Some(id)),
+                    session: None,
+                }
             }
             // A grant with no socket is a logon that led nowhere, and the page
             // says so. With one, the page is never shown.
             Step::Granted(display_name) => {
-                let name = if display_name.is_empty() { username } else { display_name };
+                let name = if display_name.is_empty() {
+                    username
+                } else {
+                    display_name
+                };
                 Page {
                     status: StatusCode::OK,
                     html: pages::granted(&name),
@@ -435,7 +526,9 @@ impl Logon {
 }
 
 async fn read_form(body: Body) -> Option<Form> {
-    let body = axum::body::to_bytes(body, form::MAX_BODY_BYTES).await.ok()?;
+    let body = axum::body::to_bytes(body, form::MAX_BODY_BYTES)
+        .await
+        .ok()?;
     Form::parse(body)
 }
 
@@ -470,7 +563,10 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
     let mut response = Response::new(Body::from(page));
     *response.status_mut() = status;
     let headers = response.headers_mut();
-    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
     if let Some(cookie) = cookie {
         // `Secure`, as the session's is (`begin`).
         let value = match cookie {
@@ -490,17 +586,26 @@ fn html(status: StatusCode, page: String, cookie: Option<Option<String>>) -> Res
 /// It may register the service worker, and ask this address whether the
 /// machine is there, as the waiting page does.
 const POLICY: &str = "default-src 'none'; style-src 'self'; font-src 'self'; \
-    script-src 'sha256-HV3Ol8Z8htrv2p7QsSWnLYz0l8OY1TC6riqm00p5iyo='; \
+    script-src 'sha256-fIUdF2w0G6YhwJM3sr0nuJj7AFDHl8TV1jVbQdhcbVk='; \
     connect-src 'self'; worker-src 'self'; \
     form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
 /// One script, no framing, nothing kept: these pages take passwords.
 fn harden(headers: &mut HeaderMap) {
-    headers.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(POLICY));
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(POLICY),
+    );
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
     headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
-    headers.insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    headers.insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
+    );
 }
 
 #[cfg(test)]
@@ -517,21 +622,32 @@ mod tests {
             }
             // And no HSTS: with a certificate of the machine's own making, it
             // would leave a browser no way past its warning.
-            assert!(response.headers().get(header::STRICT_TRANSPORT_SECURITY).is_none());
+            assert!(
+                response
+                    .headers()
+                    .get(header::STRICT_TRANSPORT_SECURITY)
+                    .is_none()
+            );
         }
     }
 
     #[test]
     fn the_logon_cookie_is_found_among_others() {
         let mut headers = HeaderMap::new();
-        headers.insert(header::COOKIE, HeaderValue::from_static("a=1; gxwi-logon=abc123; b=2"));
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("a=1; gxwi-logon=abc123; b=2"),
+        );
         assert_eq!(cookie_named(&headers, COOKIE).as_deref(), Some("abc123"));
     }
 
     #[test]
     fn a_cookie_that_only_starts_the_same_is_not_ours() {
         let mut headers = HeaderMap::new();
-        headers.insert(header::COOKIE, HeaderValue::from_static("gxwi-logon-other=abc123"));
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("gxwi-logon-other=abc123"),
+        );
         assert_eq!(cookie_named(&headers, COOKIE), None);
     }
 
@@ -550,8 +666,14 @@ mod tests {
     fn the_policy_names_the_script_the_pages_carry() {
         use sha2::{Digest, Sha256};
         let hash = session::base64(&Sha256::digest(pages::SCRIPT.as_bytes()));
-        assert!(POLICY.contains(&format!("script-src 'sha256-{hash}';")), "the script is now sha256-{hash}");
-        assert!(!pages::SCRIPT.contains("</"), "the script is inlined, and must not close its own tag");
+        assert!(
+            POLICY.contains(&format!("script-src 'sha256-{hash}';")),
+            "the script is now sha256-{hash}"
+        );
+        assert!(
+            !pages::SCRIPT.contains("</"),
+            "the script is inlined, and must not close its own tag"
+        );
     }
 
     #[test]

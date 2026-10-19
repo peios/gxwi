@@ -105,7 +105,9 @@ pub fn message(from: &mut impl io::Read) -> io::Result<Vec<u8>> {
     from.read_exact(&mut length)?;
     let length = u32::from_le_bytes(length) as usize;
     if length > MOST_HANDED {
-        return Err(io::Error::other("gxwid sent more than a key and certificate"));
+        return Err(io::Error::other(
+            "gxwid sent more than a key and certificate",
+        ));
     }
     let mut message = vec![0u8; length];
     from.read_exact(&mut message)?;
@@ -137,7 +139,9 @@ async fn connection(tcp: TcpStream, peer: SocketAddr, acceptor: TlsAcceptor, app
         _ => return,
     }
     if first[0] != TLS_HANDSHAKE {
-        let service = hyper::service::service_fn(|request| async move { Ok::<_, std::convert::Infallible>(elsewhere(&request)) });
+        let service = hyper::service::service_fn(|request| async move {
+            Ok::<_, std::convert::Infallible>(elsewhere(&request))
+        });
         let plain = hyper::server::conn::http1::Builder::new()
             .keep_alive(false)
             .timer(TokioTimer::new())
@@ -146,7 +150,9 @@ async fn connection(tcp: TcpStream, peer: SocketAddr, acceptor: TlsAcceptor, app
         let _ = tokio::time::timeout(HANDSHAKE, plain).await;
         return;
     }
-    let Ok(Ok(tls)) = tokio::time::timeout(HANDSHAKE, acceptor.accept(tcp)).await else { return };
+    let Ok(Ok(tls)) = tokio::time::timeout(HANDSHAKE, acceptor.accept(tcp)).await else {
+        return;
+    };
     // The peer's address rides along with each request: gxwid throttles logons
     // on it.
     let app = app.layer(Extension(ConnectInfo(peer)));
@@ -196,7 +202,10 @@ mod tests {
             request = request.header(header::HOST, host);
         }
         let response = elsewhere(&request.body(()).unwrap());
-        let location = response.headers().get(header::LOCATION).map(|v| v.to_str().unwrap().to_string());
+        let location = response
+            .headers()
+            .get(header::LOCATION)
+            .map(|v| v.to_str().unwrap().to_string());
         (response.status(), location)
     }
 
@@ -204,25 +213,49 @@ mod tests {
     fn plain_http_is_sent_to_the_same_address_over_https() {
         assert_eq!(
             asked(Some("bedrock.lan:7780"), "/apps/terminal?tab=2"),
-            (StatusCode::MOVED_PERMANENTLY, Some("https://bedrock.lan:7780/apps/terminal?tab=2".into()))
+            (
+                StatusCode::MOVED_PERMANENTLY,
+                Some("https://bedrock.lan:7780/apps/terminal?tab=2".into())
+            )
         );
-        assert_eq!(asked(Some("10.0.2.15:7780"), "/"), (StatusCode::MOVED_PERMANENTLY, Some("https://10.0.2.15:7780/".into())));
-        assert_eq!(asked(Some("[fe80::1]:7780"), "/"), (StatusCode::MOVED_PERMANENTLY, Some("https://[fe80::1]:7780/".into())));
+        assert_eq!(
+            asked(Some("10.0.2.15:7780"), "/"),
+            (
+                StatusCode::MOVED_PERMANENTLY,
+                Some("https://10.0.2.15:7780/".into())
+            )
+        );
+        assert_eq!(
+            asked(Some("[fe80::1]:7780"), "/"),
+            (
+                StatusCode::MOVED_PERMANENTLY,
+                Some("https://[fe80::1]:7780/".into())
+            )
+        );
     }
 
     #[test]
     fn the_way_to_https_stays_on_this_machine() {
         // A path that opens `//` names no other machine once moved.
-        assert_eq!(asked(Some("box:7780"), "//evil.example/x").1.as_deref(), Some("https://box:7780/evil.example/x"));
+        assert_eq!(
+            asked(Some("box:7780"), "//evil.example/x").1.as_deref(),
+            Some("https://box:7780/evil.example/x")
+        );
         // Nor does a host with someone's name in front of it, or none at all.
-        assert_eq!(asked(Some("evil.example@box:7780"), "/").0, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            asked(Some("evil.example@box:7780"), "/").0,
+            StatusCode::BAD_REQUEST
+        );
         assert_eq!(asked(Some("box/evil"), "/").0, StatusCode::BAD_REQUEST);
         assert_eq!(asked(None, "/").0, StatusCode::BAD_REQUEST);
     }
 
     /// gxwid's message for a key and a certificate made for it.
     fn handed(key: &rcgen::KeyPair) -> (Vec<u8>, Vec<u8>) {
-        let certificate = rcgen::CertificateParams::new(vec!["bedrock".to_string()]).unwrap().self_signed(key).unwrap();
+        let certificate = rcgen::CertificateParams::new(vec!["bedrock".to_string()])
+            .unwrap()
+            .self_signed(key)
+            .unwrap();
         let mut message = Vec::new();
         for part in [certificate.der().to_vec(), key.serialize_der()] {
             message.extend_from_slice(&(part.len() as u32).to_le_bytes());

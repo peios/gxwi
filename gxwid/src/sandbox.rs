@@ -60,8 +60,10 @@ mod tests {
     fn sub_authorities_are_derived_from_the_name() {
         let hash = Sha256::digest(NET_CAPABILITY.as_bytes());
         let derived: Vec<u32> = hash
-            .chunks_exact(4)
-            .map(|c| u32::from_le_bytes(c.try_into().unwrap()))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|c| u32::from_le_bytes(*c))
             .collect();
         assert_eq!(derived, NET_CAPABILITY_SUB_AUTHORITIES);
     }

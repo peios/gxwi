@@ -9,7 +9,8 @@
 //! through, and TLS's beneath them, are out of reach.
 
 use axum::body::Bytes;
-use libauthd::Secret;
+
+use auth_core::Secret;
 
 /// The largest body a logon form may post: sixteen answers at PGSS's limit
 /// would not fit, but no page of ours asks for that, and a body past this is

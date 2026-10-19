@@ -65,7 +65,12 @@ struct Table {
 impl Origins {
     /// The secret for `label` in the session `cookie` names, made if this is
     /// the first time. `alive` says whether a cookie still names a session.
-    pub fn secret(&self, cookie: &str, label: &str, alive: impl Fn(&str) -> bool) -> io::Result<String> {
+    pub fn secret(
+        &self,
+        cookie: &str,
+        label: &str,
+        alive: impl Fn(&str) -> bool,
+    ) -> io::Result<String> {
         let mut table = self.0.lock().unwrap_or_else(|e| e.into_inner());
         let owner = (cookie.to_string(), label.to_string());
         if let Some(secret) = table.by_owner.get(&owner) {
@@ -86,14 +91,22 @@ impl Origins {
 
     /// The session's cookie and the label a secret stands for.
     pub fn of(&self, secret: &str) -> Option<(String, String)> {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).by_secret.get(secret).cloned()
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .by_secret
+            .get(secret)
+            .cloned()
     }
 }
 
 /// `/.gxwi/enter/<label>/<path>` as (label, path), if it is one.
 pub fn entering(uri: &Uri) -> Option<(&str, &str)> {
     let (label, path) = split(uri.path().strip_prefix(ENTER)?)?;
-    let plain = (8..=64).contains(&label.len()) && label.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit());
+    let plain = (8..=64).contains(&label.len())
+        && label
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit());
     (plain && !path.starts_with("//")).then_some((label, path))
 }
 
@@ -119,7 +132,10 @@ pub fn way_in(secret: &str, path: &str, query: Option<&str>) -> Response<Body> {
         headers.insert(header::LOCATION, to);
     }
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    headers.insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    headers.insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
+    );
     response
 }
 
@@ -139,7 +155,10 @@ pub fn asks_first(request: &Request<Body>) -> Option<Response<Body>> {
     if let Some(named) = headers.get(header::ACCESS_CONTROL_REQUEST_HEADERS) {
         out.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, named.clone());
     }
-    out.insert(header::ACCESS_CONTROL_MAX_AGE, HeaderValue::from_static("600"));
+    out.insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_static("600"),
+    );
     keep_apart(out);
     Some(response)
 }
@@ -147,9 +166,18 @@ pub fn asks_first(request: &Request<Body>) -> Option<Response<Body>> {
 /// Put on every answer from under a secret, after the compositor has had its
 /// say. Policies add up, so whatever the compositor sent still holds too.
 pub fn keep_apart(headers: &mut HeaderMap) {
-    headers.append(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static(SANDBOX));
-    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
-    headers.insert(header::REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    headers.append(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(SANDBOX),
+    );
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
+    headers.insert(
+        header::REFERRER_POLICY,
+        HeaderValue::from_static("no-referrer"),
+    );
 }
 
 /// The address a compositor is asked for: the page's own, with nothing of
@@ -167,10 +195,24 @@ mod tests {
 
     #[test]
     fn a_way_in_names_a_label_and_a_path() {
-        let of = |uri: &'static str| uri.parse::<Uri>().ok().and_then(|u| entering(&u).map(|(l, p)| (l.to_string(), p.to_string())));
-        assert_eq!(of("/.gxwi/enter/abcdef0123/editor/live?x=1"), Some(("abcdef0123".into(), "/editor/live".into())));
-        assert_eq!(of("/.gxwi/enter/abcdef0123/"), Some(("abcdef0123".into(), "/".into())));
-        assert_eq!(of("/.gxwi/enter/abcdef0123"), None, "nowhere for the page's own addresses to be relative to");
+        let of = |uri: &'static str| {
+            uri.parse::<Uri>()
+                .ok()
+                .and_then(|u| entering(&u).map(|(l, p)| (l.to_string(), p.to_string())))
+        };
+        assert_eq!(
+            of("/.gxwi/enter/abcdef0123/editor/live?x=1"),
+            Some(("abcdef0123".into(), "/editor/live".into()))
+        );
+        assert_eq!(
+            of("/.gxwi/enter/abcdef0123/"),
+            Some(("abcdef0123".into(), "/".into()))
+        );
+        assert_eq!(
+            of("/.gxwi/enter/abcdef0123"),
+            None,
+            "nowhere for the page's own addresses to be relative to"
+        );
         assert_eq!(of("/.gxwi/enter/short/"), None);
         assert_eq!(of("/.gxwi/enter/Not-Plain-Enough/"), None);
         assert_eq!(of("/.gxwi/enter/abcdef0123//elsewhere"), None);
@@ -181,7 +223,11 @@ mod tests {
     fn a_secret_is_one_label_in_one_session() {
         let origins = Origins::default();
         let a = origins.secret("cookie-1", "label-a", |_| true).unwrap();
-        assert_eq!(origins.secret("cookie-1", "label-a", |_| true).unwrap(), a, "the same place every time");
+        assert_eq!(
+            origins.secret("cookie-1", "label-a", |_| true).unwrap(),
+            a,
+            "the same place every time"
+        );
         assert_ne!(origins.secret("cookie-1", "label-b", |_| true).unwrap(), a);
         assert_ne!(origins.secret("cookie-2", "label-a", |_| true).unwrap(), a);
         assert_eq!(origins.of(&a), Some(("cookie-1".into(), "label-a".into())));
@@ -191,13 +237,31 @@ mod tests {
     #[test]
     fn what_is_served_under_a_secret_is_always_sandboxed() {
         let mut headers = HeaderMap::new();
-        headers.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'self'"));
-        headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("https://elsewhere.example"));
+        headers.insert(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static("default-src 'self'"),
+        );
+        headers.insert(
+            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+            HeaderValue::from_static("https://elsewhere.example"),
+        );
         keep_apart(&mut headers);
-        let policies: Vec<_> = headers.get_all(header::CONTENT_SECURITY_POLICY).iter().collect();
-        assert_eq!(policies.len(), 2, "the compositor's policy is kept, and GXWI's added");
+        let policies: Vec<_> = headers
+            .get_all(header::CONTENT_SECURITY_POLICY)
+            .iter()
+            .collect();
+        assert_eq!(
+            policies.len(),
+            2,
+            "the compositor's policy is kept, and GXWI's added"
+        );
         assert!(policies[1].to_str().unwrap().starts_with("sandbox "));
-        assert!(!SANDBOX.contains("allow-same-origin") && !SANDBOX.contains("allow-top-navigation"));
-        assert_eq!(headers.get(header::ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "*");
+        assert!(
+            !SANDBOX.contains("allow-same-origin") && !SANDBOX.contains("allow-top-navigation")
+        );
+        assert_eq!(
+            headers.get(header::ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(),
+            "*"
+        );
     }
 }
