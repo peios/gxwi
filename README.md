@@ -6,7 +6,7 @@ worker, diagnostic programs, the `libgxwi.so.1` C library, and the Rust
 `gxwi` application framework. Compositors, desktop shells, and desktop
 applications live in separate repositories.
 
-Read the [Learn documentation](docs/learn/peios.product) for browser access,
+Read the [Learn documentation](docs/learn/1--peios.shelf/peios.product) for browser access,
 certificate trust, service configuration, and application development.
 Command and C-library references are in [docs/man](docs/man). Registry and
 event definitions are [gxwi.regman](docs/gxwi.regman) and

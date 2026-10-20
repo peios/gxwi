@@ -5,7 +5,7 @@ The `gxwi` crate builds process-owned desktop applications above the
 fields, HTTP routes, settings controls, application declarations, and icon
 helpers.
 
-Start with the [application model](../docs/learn/peios.product/550--gxwi-development.shelf/100--gxwi-applications.topic/100--application-model.md)
+Start with the [application model](../docs/learn/1--peios.shelf/peios.product/550--gxwi-development.shelf/100--gxwi-applications.topic/100--application-model.md)
 and the [hello example](examples/hello/main.rs). The example implements a
 shared counter and note and also includes a raw-page diagnostic mode.
 

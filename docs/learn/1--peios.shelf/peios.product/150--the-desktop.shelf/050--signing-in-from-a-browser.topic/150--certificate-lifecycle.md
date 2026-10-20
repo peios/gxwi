@@ -32,6 +32,15 @@ It also replaces certificates outside the accepted lifetime policy.
 Renewal uses the machine's hostname at that time. Renaming the machine does
 not itself renew an otherwise acceptable certificate.
 
+An authorized operator can request the reload check with:
+
+```sh
+svctl reload gxwid
+```
+
+This requests the normal check; it does not force renewal of an otherwise
+acceptable certificate or end existing desktop sessions.
+
 Existing TLS connections continue. Subsequent connections receive the
 replacement certificate. A browser that trusted the preceding certificate
 can require verification and import again. See
