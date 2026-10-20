@@ -42,13 +42,13 @@ automatically. Inspect the certificate actually presented; importing it
 does not fix a name mismatch or expiry.
 
 Browser trust affects more than the warning page. The
-[waiting page](~peios/gxwi-service/reconnection) uses a service worker,
+[waiting page](~peios/desktop-service/reconnection) uses a service worker,
 which requires a browser environment that permits it. A certificate
 exception does not guarantee that the browser permits service workers.
 
 ## Check again after a change
 
-[Certificate renewal](~peios/signing-in-from-a-browser/certificate-lifecycle)
+[Certificate renewal](~peios/desktop-service/certificate-lifecycle)
 changes the fingerprint even when the private key stays the same. Verify
 the replacement through the trusted channel before importing it.
 

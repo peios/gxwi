@@ -42,4 +42,4 @@ persistence is not disk persistence: restarting a compositor or ending its
 job loses process state that applications have not saved.
 
 The service keeps normal sessions separate from
-[machine overlays](~peios/gxwi-service/overlays).
+[machine overlays](~peios/desktop-service/overlays).

@@ -21,7 +21,7 @@ event has no subject because the daemon renews its own certificate.
 The exact field definitions and emission policy belong to `gxwid.evman`.
 Read them with `evman gxwid.certificate.renewed`. For browser trust and
 service behavior, see
-[Certificate Identity and Renewal](~peios/signing-in-from-a-browser/certificate-lifecycle).
+[Certificate Identity and Renewal](~peios/desktop-service/certificate-lifecycle).
 
 A renewal record does not establish that a client has trusted the
 replacement. Verify the fingerprint through a trusted channel before

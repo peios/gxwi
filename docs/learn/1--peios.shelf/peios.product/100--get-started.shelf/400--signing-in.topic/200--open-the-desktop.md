@@ -24,7 +24,7 @@ unfamiliar certificate.
    `<machine-address>` with the machine's address or name. Use its configured
    port if it differs from `7780`.
 2. If the browser warns about the certificate, follow
-   [Verifying the Machine's Certificate](~peios/signing-in-from-a-browser/the-certificate).
+   [Verifying the Machine's Certificate](~peios/signing-in/the-certificate).
 3. Enter your account name and complete the requested authentication.
 4. Check that your desktop appears. Open an application to confirm that the
    session is ready.
@@ -33,7 +33,7 @@ An HTTP request redirects to HTTPS. GXWI does not serve a desktop over an
 unencrypted connection.
 
 If an installer or setup program appears, the machine is using an
-[overlay](~peios/gxwi-service/overlays). Follow that program's instructions.
+[overlay](~peios/desktop-service/overlays). Follow that program's instructions.
 Normal sign-in and existing desktops remain inaccessible while the overlay
 is configured.
 

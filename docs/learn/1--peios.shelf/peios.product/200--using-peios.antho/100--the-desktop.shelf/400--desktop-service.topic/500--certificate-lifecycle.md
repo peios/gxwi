@@ -44,7 +44,7 @@ acceptable certificate or end existing desktop sessions.
 Existing TLS connections continue. Subsequent connections receive the
 replacement certificate. A browser that trusted the preceding certificate
 can require verification and import again. See
-[Verifying the Machine's Certificate](~peios/signing-in-from-a-browser/the-certificate).
+[Verifying the Machine's Certificate](~peios/signing-in/the-certificate).
 
 ## Renewal records
 
