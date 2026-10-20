@@ -1,6 +1,7 @@
 # GXWI
 
-GXWI connects browser clients to Peios desktop sessions. The repository
+The Graphical Extensible Web Interface (GXWI) connects browser clients to
+Peios desktop sessions. The repository
 contains the privileged `gxwid` daemon, its restricted `gxwi-server`
 worker, diagnostic programs, the `libgxwi.so.1` C library, and the Rust
 `gxwi` application framework. Compositors, desktop shells, and desktop

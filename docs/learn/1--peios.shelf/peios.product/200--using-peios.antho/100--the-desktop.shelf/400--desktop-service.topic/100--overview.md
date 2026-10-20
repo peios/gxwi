@@ -4,7 +4,8 @@ type: concept
 description: Understand how GXWI connects browser clients to Peios desktop sessions.
 ---
 
-GXWI provides browser access to Peios desktop sessions. It handles TLS,
+The Graphical Extensible Web Interface (GXWI) provides browser access to
+Peios desktop sessions. It handles TLS,
 authentication conversations, session connections, and installation or setup
 overlays. The compositor and desktop shell are separate programs.
 
