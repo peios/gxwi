@@ -4,9 +4,13 @@
 /fuzz/artifacts
 /out
 
-/bazel-*
-/.ci-sdk
 /.trail-cache
 **/__pycache__/
 /.ruff_cache
 /docs/learn/dist/
+
+# pekit build output.
+/pekit-out/
+
+# Libraries pekit fetches for the pins in `pekit.lock`.
+/.gcsl/

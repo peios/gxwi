@@ -15,18 +15,16 @@ event definitions are [gxwi.regman](docs/gxwi.regman) and
 
 ## Build and check
 
-Prepare `PEIOS_SDK` as described in [Building GXWI](docs/building.md), then
-use the repository's Bazel launcher:
+Pekit builds the programs and libgxwi and runs their tests, as
+[Building GXWI](docs/building.md) describes:
 
 ```sh
-./bazel test //...
-./bazel build //:packages
+pekit build gxwid gxwi_server gxwi_hello hello libgxwi
+pekit test
 ```
 
-The package store contains blobs and manifests for the daemon, SDK, shared
-library, development files, and matching source or debugging packages.
-Version `0.0.7` remains the development baseline. Building unsigned packages
-does not establish release readiness or native desktop qualification.
+Version `0.0.7` remains the development baseline. Passing tests do not
+establish release readiness or native desktop qualification.
 
 [Development qualification](docs/development.md) describes the preserved
 browser and guest tooling, including its dependencies and test-machine
