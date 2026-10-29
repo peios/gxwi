@@ -33,7 +33,7 @@ def loaded() -> List<{at: String, place: Dir | File}> {
 
 # What a test of the `gxwi` crate is given besides: libgxwi, by its soname.
 def loaded_with_libgxwi() -> List<{at: String, place: Dir | File}> {
-    = [...peios_rs.runtime(), {at = "{GXWI_LIB}/libgxwi.so.1"; place = build libgxwi()}]
+    = [...peios_rs.runtime(), ...runtime()]
 }
 
 # Runs each of `tests`, given `given`, with `env`.
@@ -78,14 +78,14 @@ def test libgxwi(tests: List<rust.RustTest> = rust.tests(crates(), "libgxwi"), g
 }
 
 def test gxwi(tests: List<rust.RustTest> = rust.tests(linking_libgxwi(), "gxwi"), given: List<{at: String, place: Dir | File}> = loaded_with_libgxwi()) {
-    = ran(tests, given, env = [{key = "LD_LIBRARY_PATH"; value = "{GXWI_LIB}:/opt/peios/lib"}])
+    = ran(tests, given, env = runtime_env())
 }
 
 # Each member's documentation tests.
 def test doctests(
     ran: List<List<{}>> = [
         ...(for each in MEMBERS { = rust.doctests(crates(), each, given = loaded(), env = peios_rs.runtime_env()) }),
-        rust.doctests(linking_libgxwi(), "gxwi", given = loaded_with_libgxwi(), env = [{key = "LD_LIBRARY_PATH"; value = "{GXWI_LIB}:/opt/peios/lib"}]),
+        rust.doctests(linking_libgxwi(), "gxwi", given = loaded_with_libgxwi(), env = runtime_env()),
     ],
 ) {}
 

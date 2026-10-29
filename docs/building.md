@@ -105,6 +105,24 @@ library fails a build whose `Cargo.lock` takes peios-rs's crates at another
 commit than `pekit.lock` pins its library at. GXWI takes authd's crates at
 a commit that uses the same peios-rs, so that one `peios-sys` serves both.
 
+## Building against gxwi
+
+gxwi is a GCSL library as well as a workspace. A workspace whose crates
+depend on the `gxwi` crate gives it libgxwi, which it links, and gives its
+programs libgxwi, and the libpeios it loads, when they run:
+
+```text
+import "github.com/peios/gxwi"
+import "github.com/peios/peios-rs" as peios_rs
+
+rust.workspace(..., crates = [...peios_rs.crate_settings(), ...gxwi.crate_settings()])
+rust.run_test(test, given = [...peios_rs.runtime(), ...gxwi.runtime()], env = gxwi.runtime_env())
+```
+
+`pekit lock` pins gxwi's commit in the workspace's `pekit.lock`. The rust
+library fails a build whose `Cargo.lock` takes gxwi's crates at another
+commit than that, so the crate and the libgxwi it links always agree.
+
 ## Not built with pekit yet
 
 Packages, debug information, and builds with the native Peios toolchain,
