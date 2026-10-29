@@ -3,7 +3,7 @@
 The `dev/` directory preserves the GXWI browser and guest integration
 harness. It coordinates a larger desktop stack than this repository alone.
 The scripts are qualification tools, not the production build interface.
-Use [Building GXWI](building.md) for Bazel and package generation.
+Use [Building GXWI](building.md) for the pekit build and its tests.
 
 ## Scope and prerequisites
 
@@ -40,7 +40,7 @@ Inspect these scripts before execution. Guest commands can change accounts,
 registry values, services, and files. Use disposable test accounts and
 images, never production credentials.
 
-The development push builds through Bazel. The guest startup script stages
+The development push builds with pekit. The guest startup script stages
 `libgxwi.so.1` atomically before application startup, and the service loop
 watches shared-library changes as well as executable changes.
 

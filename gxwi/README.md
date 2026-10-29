@@ -18,6 +18,6 @@ The C library handles connection and surface control. It does not provide
 the Rust rendering or HTTP layer. Read [libgxwi(3)](../docs/man/libgxwi.3)
 for C handle ownership and error conventions.
 
-Build the checked example with `./bazel build //gxwi:hello` from the
-repository root. Running it requires a compatible Peios desktop session.
+Build the checked example with `pekit build hello` from the repository
+root. Running it requires a compatible Peios desktop session.
 See [Building GXWI](../docs/building.md) for SDK prerequisites and checks.

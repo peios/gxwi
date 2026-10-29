@@ -1,0 +1,78 @@
+# gxwi's programs and libgxwi, each crate compiled on its own (see the rust
+# library's `workspace`), for glibc, but the restricted worker, which is a
+# static musl program.
+import "github.com/gcslib/clang"
+import "github.com/gcslib/rust"
+import "github.com/peios/peios-rs" as peios_rs
+
+# Where the `gxwi` crate's build script is told libgxwi is, by
+# `PEIOS_GXWI_LIB_DIR`.
+let GXWI_LIB = "/opt/gxwi/lib"
+
+# The gxwi workspace, planned, without libgxwi: what libgxwi itself, and
+# every member that does not link it, is built from. `peios-sys` binds libpeios with bindgen and links it, so it,
+# and every crate that depends on it, is given what peios-rs's library says
+# it needs: libpeios and its headers, built from the Peios SDK's own files.
+def crates() -> rust.RustWorkspace {
+    = rust.workspace(
+        dir("."),
+        rust.vendored(file("Cargo.lock")),
+        crates = peios_rs.crate_settings(),
+        libclang = [clang.libclang_18()],
+    )
+}
+
+# The gxwi workspace, planned, with libgxwi: the `gxwi` crate links it, and
+# so does every program that depends on it.
+def linking_libgxwi() -> rust.RustWorkspace {
+    = rust.workspace(
+        dir("."),
+        rust.vendored(file("Cargo.lock")),
+        crates = [
+            ...peios_rs.crate_settings(),
+            {
+                package = "gxwi"
+                env = [{key = "PEIOS_GXWI_LIB_DIR"; value = GXWI_LIB}]
+                given = [{at = "{GXWI_LIB}/libgxwi.so"; place = build libgxwi()}]
+            },
+        ],
+        libclang = [clang.libclang_18()],
+    )
+}
+
+# The gxwi workspace, planned for musl, every program a static,
+# position-independent one linked with full RELRO: the restricted worker's.
+def musl_crates() -> rust.RustWorkspace {
+    let target = "x86_64-unknown-linux-musl"
+    = rust.workspace(
+        dir("."),
+        rust.vendored(file("Cargo.lock")),
+        target = target,
+        rustflags = [...rust.default_rustflags(target), "-Clink-arg=-Wl,-z,relro", "-Clink-arg=-Wl,-z,now"],
+    )
+}
+
+# The display daemon.
+def build gxwid() {
+    = rust.bin(crates(), "gxwid")
+}
+
+# The restricted worker that serves the desktop to browsers.
+def build gxwi_server() {
+    = rust.bin(musl_crates(), "gxwi-server")
+}
+
+# The demonstration application gxwid launches.
+def build gxwi_hello() {
+    = rust.bin(crates(), "gxwi-hello")
+}
+
+# The `gxwi` crate's example application, `gxwi-hello-app` when installed.
+def build hello() {
+    = rust.example(linking_libgxwi(), "gxwi", "hello")
+}
+
+# libgxwi, the C client library, `libgxwi.so.1` by its soname.
+def build libgxwi() {
+    = rust.library(crates(), "libgxwi")
+}

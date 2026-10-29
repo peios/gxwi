@@ -15,16 +15,11 @@ RUST_ROOTS = (
     "gxwi",
     "gxwi-abi",
     "libgxwi",
-    "packages",
     "fuzz/fuzz_targets",
 )
 SHELL_SOURCES = (
-    "bazel",
     "tools/check",
     "tools/check-docs",
-    "tools/offline-build",
-    "tools/prepare-dev-sdk",
-    "tools/prepare-native-sdk",
 ) + tuple(str(path.relative_to(ROOT)) for path in sorted((ROOT / "dev").rglob("*.sh")))
 
 
@@ -59,7 +54,7 @@ def main() -> None:
     )
     python = sorted(
         str(path.relative_to(ROOT))
-        for name in ("tools", "packages", "dev")
+        for name in ("tools", "dev")
         for path in (ROOT / name).rglob("*.py")
     )
     run(
@@ -88,7 +83,6 @@ def main() -> None:
         for path in (ROOT / name).rglob(pattern)
         if "vendor" not in path.parts and "third-party" not in path.parts
     )
-    styles.extend(str(path.relative_to(ROOT)) for path in (ROOT / "packages").rglob("*.json"))
     styles.extend(str(path.relative_to(ROOT)) for path in (ROOT / ".github").rglob("*.yml"))
     run(
         [
