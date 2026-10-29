@@ -1,6 +1,14 @@
 # gxwi's programs and libgxwi, each crate compiled on its own (see the rust
 # library's `workspace`), for glibc, but the restricted worker, which is a
 # static musl program.
+#
+# gxwi is a library as well as a workspace: a workspace whose crates depend
+# on the `gxwi` crate gives it libgxwi, which it links, and gives its
+# programs libgxwi when they run:
+#
+#     import "github.com/peios/gxwi"
+#     rust.workspace(..., crates = [...peios_rs.crate_settings(), ...gxwi.crate_settings()])
+#     rust.run_test(test, given = [...peios_rs.runtime(), ...gxwi.runtime()], env = gxwi.runtime_env())
 import "github.com/gcslib/clang"
 import "github.com/gcslib/rust"
 import "github.com/peios/peios-rs" as peios_rs
@@ -9,10 +17,35 @@ import "github.com/peios/peios-rs" as peios_rs
 # `PEIOS_GXWI_LIB_DIR`.
 let GXWI_LIB = "/opt/gxwi/lib"
 
+# The settings of the `gxwi` crate: libgxwi, by its link name, where its
+# build script is told it is, for it and everything that depends on it.
+def crate_settings() -> List<rust.CrateSettings> {
+    = [
+        {
+            package = "gxwi"
+            env = [{key = "PEIOS_GXWI_LIB_DIR"; value = GXWI_LIB}]
+            given = [{at = "{GXWI_LIB}/libgxwi.so"; place = build libgxwi()}]
+        },
+    ]
+}
+
+# What a program that links libgxwi loads: libgxwi, by its soname, where the
+# `gxwi` crate links it from.
+def runtime() -> List<{at: String, place: Dir | File}> {
+    = [{at = "{GXWI_LIB}/libgxwi.so.1"; place = build libgxwi()}]
+}
+
+# Where such a program finds libgxwi, and libpeios, which libgxwi loads
+# (see peios-rs's `runtime_env`).
+def runtime_env() -> List<Entry<String>> {
+    = [{key = "LD_LIBRARY_PATH"; value = "{GXWI_LIB}:/opt/peios/lib"}]
+}
+
 # The gxwi workspace, planned, without libgxwi: what libgxwi itself, and
-# every member that does not link it, is built from. `peios-sys` binds libpeios with bindgen and links it, so it,
-# and every crate that depends on it, is given what peios-rs's library says
-# it needs: libpeios and its headers, built from the Peios SDK's own files.
+# every member that does not link it, is built from. `peios-sys` binds
+# libpeios with bindgen and links it, so it, and every crate that depends on
+# it, is given what peios-rs's library says it needs: libpeios and its
+# headers, built from the Peios SDK's own files.
 def crates() -> rust.RustWorkspace {
     = rust.workspace(
         dir("."),
@@ -28,14 +61,7 @@ def linking_libgxwi() -> rust.RustWorkspace {
     = rust.workspace(
         dir("."),
         rust.vendored(file("Cargo.lock")),
-        crates = [
-            ...peios_rs.crate_settings(),
-            {
-                package = "gxwi"
-                env = [{key = "PEIOS_GXWI_LIB_DIR"; value = GXWI_LIB}]
-                given = [{at = "{GXWI_LIB}/libgxwi.so"; place = build libgxwi()}]
-            },
-        ],
+        crates = [...peios_rs.crate_settings(), ...crate_settings()],
         libclang = [clang.libclang_18()],
     )
 }
