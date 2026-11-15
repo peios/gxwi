@@ -263,14 +263,17 @@ mod tests {
     fn started() -> Relay {
         let mut relay = Relay::new(LOGON_TYPE);
         let start = wire::encode_logon_start(&LogonStart {
-            required_credential_type: None,
-            ssh_binding: None,
+            authentication: auth_core::wire::AuthenticationRequest {
+                required_credential_type: None,
+                ssh_binding: None,
+                identifier_type: IdentifierType::Username,
+                identifier: b"alice".to_vec(),
+                supported_credential_types: vec![wire::CredentialType::Password],
+            },
+
             logon_type: LOGON_TYPE,
-            identifier_type: IdentifierType::Username,
-            identifier: b"alice".to_vec(),
             tty: None,
             remote_host: None,
-            supported_credential_types: vec![wire::CredentialType::Password],
         })
         .unwrap();
         assert!(matches!(relay.on_server(&start), Action::SendAuthority(_)));

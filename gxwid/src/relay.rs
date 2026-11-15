@@ -109,17 +109,20 @@ impl Relay {
         self.claimed_address = claimed.remote_host.clone();
         self.identifier = String::from_utf8_lossy(&claimed.identifier).into_owned();
         let start = LogonStart {
-            required_credential_type: None,
-            ssh_binding: None,
+            authentication: auth_core::wire::AuthenticationRequest {
+                required_credential_type: None,
+                ssh_binding: None,
+                identifier_type: IdentifierType::Username,
+                identifier: claimed.authentication.identifier,
+                // What gxwi-server's pages can collect. This binds the authority.
+                supported_credential_types: vec![CredentialType::Password],
+            },
+
             logon_type: self.logon_type,
-            identifier_type: IdentifierType::Username,
-            identifier: claimed.identifier,
             tty: None,
             // Still a claim, and passed on as one: PGSS gives the authority
             // `remote_host` as unverified context.
             remote_host: claimed.remote_host,
-            // What gxwi-server's pages can collect. This binds the authority.
-            supported_credential_types: vec![CredentialType::Password],
         };
         match wire::encode_logon_start(&start) {
             Ok(bytes) => {
@@ -241,15 +244,18 @@ mod tests {
 
     fn start(identifier: &str) -> Vec<u8> {
         wire::encode_logon_start(&LogonStart {
-            required_credential_type: None,
-            ssh_binding: None,
+            authentication: auth_core::wire::AuthenticationRequest {
+                required_credential_type: None,
+                ssh_binding: None,
+                identifier_type: IdentifierType::Username,
+                identifier: identifier.as_bytes().to_vec(),
+                supported_credential_types: vec![],
+            },
+
             // Everything but the identifier and the host is there to be ignored.
             logon_type: LogonType::Service,
-            identifier_type: IdentifierType::Username,
-            identifier: identifier.as_bytes().to_vec(),
             tty: Some("tty9".into()),
             remote_host: Some("203.0.113.7".into()),
-            supported_credential_types: vec![],
         })
         .unwrap()
     }

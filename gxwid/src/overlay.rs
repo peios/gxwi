@@ -316,18 +316,21 @@ fn logon(username: &str) -> Result<(OwnedFd, Profile), String> {
 /// gets, for `username`, with nothing that can be collected.
 fn asking_for(username: &str) -> LogonStart {
     LogonStart {
-        required_credential_type: None,
-        ssh_binding: None,
+        authentication: auth_core::wire::AuthenticationRequest {
+            required_credential_type: None,
+            ssh_binding: None,
+            identifier_type: IdentifierType::Username,
+            identifier: username.as_bytes().to_vec(),
+            // There is nobody to collect a credential from. This binds the
+            // authority, which grants only an account that needs none, and it is
+            // the whole of what keeps an overlay from being a way in to an
+            // account that has one.
+            supported_credential_types: Vec::new(),
+        },
+
         logon_type: crate::logon::LOGON_TYPE,
-        identifier_type: IdentifierType::Username,
-        identifier: username.as_bytes().to_vec(),
         tty: None,
         remote_host: None,
-        // There is nobody to collect a credential from. This binds the
-        // authority, which grants only an account that needs none, and it is
-        // the whole of what keeps an overlay from being a way in to an
-        // account that has one.
-        supported_credential_types: Vec::new(),
     }
 }
 

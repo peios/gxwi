@@ -425,13 +425,16 @@ impl Logon {
         conversation.set_read_timeout(Some(GXWID_TIMEOUT))?;
         conversation.set_write_timeout(Some(GXWID_TIMEOUT))?;
         let start = LogonStart {
-            required_credential_type: None,
-            ssh_binding: None,
+            authentication: auth_core::wire::AuthenticationRequest {
+                required_credential_type: None,
+                ssh_binding: None,
+                supported_credential_types: vec![CredentialType::Password],
+                identifier_type: IdentifierType::Username,
+                identifier: username.as_bytes().to_vec(),
+            },
+
             // gxwid settles these two itself, whatever is written here.
             logon_type: LogonType::RemoteInteractive,
-            supported_credential_types: vec![CredentialType::Password],
-            identifier_type: IdentifierType::Username,
-            identifier: username.as_bytes().to_vec(),
             tty: None,
             remote_host: Some(claimed_address.to_string()),
         };

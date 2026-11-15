@@ -59,7 +59,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "auth-core"
 version = "0.0.24"
-source = "git+https://github.com/peios/authd.git?rev=dc1ff5bb0b1c4b29b6d88a72cdcb86f0de7e5003#dc1ff5bb0b1c4b29b6d88a72cdcb86f0de7e5003"
+source = "git+https://github.com/peios/authd.git?rev=af88d8959d1a3354e421a03523807f0b423670eb#af88d8959d1a3354e421a03523807f0b423670eb"
 dependencies = [
  "libc",
 ]
@@ -1053,7 +1053,7 @@ dependencies = [
 [[package]]
 name = "session-preferences"
 version = "0.0.24"
-source = "git+https://github.com/peios/authd.git?rev=dc1ff5bb0b1c4b29b6d88a72cdcb86f0de7e5003#dc1ff5bb0b1c4b29b6d88a72cdcb86f0de7e5003"
+source = "git+https://github.com/peios/authd.git?rev=af88d8959d1a3354e421a03523807f0b423670eb#af88d8959d1a3354e421a03523807f0b423670eb"
 dependencies = [
  "peios",
 ]
