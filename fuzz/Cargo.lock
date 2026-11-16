@@ -11,7 +11,7 @@ checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 [[package]]
 name = "auth-core"
 version = "0.0.24"
-source = "git+https://github.com/peios/authd.git?rev=af88d8959d1a3354e421a03523807f0b423670eb#af88d8959d1a3354e421a03523807f0b423670eb"
+source = "git+https://github.com/peios/authd.git?rev=5e3b2ea133d6ffd3c6b9d7b7c2ae52cd06589be1#5e3b2ea133d6ffd3c6b9d7b7c2ae52cd06589be1"
 dependencies = [
  "libc",
 ]
