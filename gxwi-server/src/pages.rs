@@ -134,7 +134,7 @@ pub fn ask(username: &str, form_token: &str, request: &CredentialRequest) -> Str
         let (kind, autocomplete) = match prompt.credential_type {
             // PGSS: a password is collected without echo.
             CredentialType::Password => ("password", "current-password"),
-            CredentialType::SshPublicKey => {
+            CredentialType::SshPublicKey | CredentialType::Mschapv2 => {
                 return self::username(Some(
                     "This sign-in method is not supported by this client.",
                 ));
