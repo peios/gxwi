@@ -180,13 +180,15 @@ impl Relay {
                     return deny(Denial::AuthorityUnavailable);
                 }
                 // The server learns that it worked and what to call the user.
-                // Not the session, not the home directory, not the token.
+                // Not the session, not the home directory, not the token, and
+                // not any NTLMv2 session key.
                 let shown = AccessGranted {
                     session_id: 0,
                     profile: Profile {
                         display_name: granted.profile.display_name.clone(),
                         ..Profile::default()
                     },
+                    ntlmv2_session_key: None,
                 };
                 // The session is told what to call the person too. An
                 // account with no display name is called by the name it was
@@ -195,9 +197,11 @@ impl Relay {
                 if profile.display_name.is_empty() {
                     profile.display_name = std::mem::take(&mut self.identifier);
                 }
+                // The shown grant carries no key, so its encoding is not
+                // credential material and may leave the self-wiping buffer.
                 match wire::encode_access_granted(&shown) {
                     Ok(to_server) => Action::Finish {
-                        to_server,
+                        to_server: to_server.expose().to_vec(),
                         outcome: Outcome::Granted(profile),
                     },
                     Err(_) => deny(Denial::Internal),
@@ -238,6 +242,7 @@ pub fn deny(denial: Denial) -> Action {
 mod tests {
     use super::*;
     use auth_core::Secret;
+    use auth_core::ntlmv2::{SESSION_KEY_BYTES, SessionKey};
     use auth_core::wire::{Answer, CredentialRequest, CredentialResponse, Prompt};
 
     const TYPE: LogonType = LogonType::RemoteInteractive;
@@ -297,8 +302,11 @@ mod tests {
                 shell: "/bin/sh".into(),
                 display_name: "Alice".into(),
             },
+            ntlmv2_session_key: Some(SessionKey([7; SESSION_KEY_BYTES])),
         })
         .unwrap()
+        .expose()
+        .to_vec()
     }
 
     fn denied_with(action: Action) -> Denial {
@@ -346,6 +354,7 @@ mod tests {
         assert_eq!(shown.profile.display_name, "Alice");
         assert_eq!(shown.profile.home, "");
         assert_eq!(shown.profile.shell, "");
+        assert!(shown.ntlmv2_session_key.is_none());
         assert!(matches!(outcome, Outcome::Granted(p) if p.home == "/home/alice"));
     }
 
@@ -358,11 +367,13 @@ mod tests {
                 shell: "/bin/sh".into(),
                 display_name: String::new(),
             },
+            ntlmv2_session_key: None,
         })
         .unwrap();
         let mut relay = Relay::new(TYPE);
         relay.on_server(&start("jack"));
-        let Action::Finish { to_server, outcome } = relay.on_authority(&unnamed, true) else {
+        let Action::Finish { to_server, outcome } = relay.on_authority(unnamed.expose(), true)
+        else {
             panic!()
         };
         assert!(matches!(outcome, Outcome::Granted(p) if p.display_name == "jack"));
