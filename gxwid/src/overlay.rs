@@ -494,8 +494,11 @@ mod tests {
                 shell: "/bin/sh".into(),
                 display_name: "Peios".into(),
             },
+            ntlmv2_session_key: None,
         })
         .unwrap()
+        .expose()
+        .to_vec()
     }
 
     #[test]

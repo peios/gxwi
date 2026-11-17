@@ -284,8 +284,11 @@ mod tests {
         wire::encode_access_granted(&AccessGranted {
             session_id: 1,
             profile: Profile::default(),
+            ntlmv2_session_key: None,
         })
         .unwrap()
+        .expose()
+        .to_vec()
     }
 
     #[test]
