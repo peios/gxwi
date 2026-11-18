@@ -23,9 +23,9 @@ rustls-pki-types = { version = "1.15", features = ["std"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
 libc = "0.2"
 # First-party Rust dependencies are pinned to immutable commits.
-auth-core = { git = "https://github.com/peios/authd.git", rev = "b2b4d18ab639dac0e2990f3ccdd8e718d544b353" }
-session-preferences = { git = "https://github.com/peios/authd.git", rev = "b2b4d18ab639dac0e2990f3ccdd8e718d544b353" }
-peios = { git = "https://github.com/peios/peios-rs.git", rev = "7c05d93e82ddeae7c9c16c4bb21cfe5e5416ca7e", package = "peios" }
+auth-core = { git = "https://github.com/peios/authd.git", rev = "aca253873bf86838f0510920759fc9f5436d2b6f" }
+session-preferences = { git = "https://github.com/peios/authd.git", rev = "aca253873bf86838f0510920759fc9f5436d2b6f" }
+peios = { git = "https://github.com/peios/peios-rs.git", rev = "b1290dbfa805d4ef151d3fc961a8d89d6c30c12c", package = "peios" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha1 = "0.10"

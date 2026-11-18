@@ -59,7 +59,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "auth-core"
 version = "0.0.24"
-source = "git+https://github.com/peios/authd.git?rev=b2b4d18ab639dac0e2990f3ccdd8e718d544b353#b2b4d18ab639dac0e2990f3ccdd8e718d544b353"
+source = "git+https://github.com/peios/authd.git?rev=aca253873bf86838f0510920759fc9f5436d2b6f#aca253873bf86838f0510920759fc9f5436d2b6f"
 dependencies = [
  "libc",
 ]
@@ -740,7 +740,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "peios"
 version = "0.4.0"
-source = "git+https://github.com/peios/peios-rs.git?rev=7c05d93e82ddeae7c9c16c4bb21cfe5e5416ca7e#7c05d93e82ddeae7c9c16c4bb21cfe5e5416ca7e"
+source = "git+https://github.com/peios/peios-rs.git?rev=b1290dbfa805d4ef151d3fc961a8d89d6c30c12c#b1290dbfa805d4ef151d3fc961a8d89d6c30c12c"
 dependencies = [
  "bitflags",
  "libc",
@@ -750,7 +750,7 @@ dependencies = [
 [[package]]
 name = "peios-sys"
 version = "0.3.0"
-source = "git+https://github.com/peios/peios-rs.git?rev=7c05d93e82ddeae7c9c16c4bb21cfe5e5416ca7e#7c05d93e82ddeae7c9c16c4bb21cfe5e5416ca7e"
+source = "git+https://github.com/peios/peios-rs.git?rev=b1290dbfa805d4ef151d3fc961a8d89d6c30c12c#b1290dbfa805d4ef151d3fc961a8d89d6c30c12c"
 dependencies = [
  "bindgen",
  "pkg-config",
@@ -1053,7 +1053,7 @@ dependencies = [
 [[package]]
 name = "session-preferences"
 version = "0.0.24"
-source = "git+https://github.com/peios/authd.git?rev=b2b4d18ab639dac0e2990f3ccdd8e718d544b353#b2b4d18ab639dac0e2990f3ccdd8e718d544b353"
+source = "git+https://github.com/peios/authd.git?rev=aca253873bf86838f0510920759fc9f5436d2b6f#aca253873bf86838f0510920759fc9f5436d2b6f"
 dependencies = [
  "peios",
 ]
