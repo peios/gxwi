@@ -12,7 +12,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-auth-core = { git = "https://github.com/peios/authd.git", rev = "aca253873bf86838f0510920759fc9f5436d2b6f" }
+auth-core = { git = "https://github.com/peios/authd.git", rev = "327ce68648e1594331c88a457afb261f9000b4c3" }
 
 [[bin]]
 name = "relay"
